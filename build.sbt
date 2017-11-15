@@ -69,3 +69,15 @@ lazy val sysiphosCoreJS = sysiphosCore.js.settings(
   artifactPath in (Compile, fastOptJS) := baseDirectory.value / ".." / "dist" / "sysiphos.js",
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value
 )
+
+val finchV = "0.16.0-RC1"
+
+lazy val server = project.in(file("server")).
+  settings(common).
+  settings(
+    name := "sysiphos-server",
+    libraryDependencies ++= Seq(
+      "com.github.finagle" %% "finch-core" % finchV,
+      "com.github.finagle" %% "finch-circe" % finchV
+    )
+  )
