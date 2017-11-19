@@ -15,12 +15,18 @@ trait GraphIQLResources {
     Reader.readAll(reader).map(response.content)
   }
 
-  private def htmlFile: Reader = Reader.fromStream(getClass.getClassLoader.getResourceAsStream("graphiql.html"))
-  private def cssFile: Reader = Reader.fromStream(getClass.getClassLoader.getResourceAsStream("graphiql.min.css"))
-  private def jsFile: Reader = Reader.fromStream(getClass.getClassLoader.getResourceAsStream("graphiql.min.js"))
+  private def classPathResource(path: String): Reader =
+    Reader.fromStream(getClass.getClassLoader.getResourceAsStream(path))
+
+  private def getResource(resourcePath: String, contentType: String) =
+    get(resourcePath)(readerResponse(classPathResource(resourcePath), contentType))
 
   val graphiql =
-    get("graphiql.min.js")(readerResponse(jsFile, "application/javascript")) :+:
-      get("graphiql.min.css")(readerResponse(cssFile, "text/css")) :+:
-      get("graphiql")(readerResponse(htmlFile, "text/html"))
+    getResource("es6-promise.auto.min.js", "application/javascript") :+:
+    getResource("fetch.min.js", "application/javascript") :+:
+    getResource("react.min.js", "application/javascript") :+:
+    getResource("react-dom.min.js", "application/javascript") :+:
+    getResource("graphiql.min.js", "application/javascript") :+:
+    getResource("graphiql.min.css", "text/css") :+:
+    get("graphiql")(readerResponse(classPathResource("graphiql.html"), "text/html"))
 }
