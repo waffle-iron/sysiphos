@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.task
 
-import com.flowtick.sysiphos.FlowTask
+import com.flowtick.sysiphos.flow.FlowTask
 
 case class CommandLineTask(
   id: String,

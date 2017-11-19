@@ -1,4 +1,4 @@
-package com.flowtick.sysiphos
+package com.flowtick.sysiphos.flow
 
 trait FlowTask {
   def id: String

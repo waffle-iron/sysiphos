@@ -1,4 +1,4 @@
-package com.flowtick.sysiphos.execution
+package com.flowtick.sysiphos.flow
 
 trait Executable {
   def id: String

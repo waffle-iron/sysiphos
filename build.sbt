@@ -2,6 +2,7 @@ import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
 val scalaV = "2.12.4"
+val finchV = "0.16.0-RC1"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -46,38 +47,49 @@ lazy val common = Seq(
   )
 )
 
-lazy val root = project.in(file(".")).
-  settings(common).
-  aggregate(sysiphosCoreJS, sysiphosCoreJVM).
-  settings(
-    publish := {},
-    publishLocal := {},
-    PgpKeys.publishSigned := {}
-  )
-
-lazy val sysiphosCore = crossProject.in(file("core")).
+lazy val core = crossProject.in(file("core")).
   settings(common).
   settings(
+    name := "sysiphos-core",
     libraryDependencies += "org.parboiled" %%% "parboiled" % "2.1.4",
     libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.2",
     libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test,
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided"
   )
 
-lazy val sysiphosCoreJVM = sysiphosCore.jvm
-lazy val sysiphosCoreJS = sysiphosCore.js.settings(
+lazy val coreJVM = core.jvm
+lazy val coreJS = core.js.settings(
   artifactPath in (Compile, fastOptJS) := baseDirectory.value / ".." / "dist" / "sysiphos.js",
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value
 )
 
-val finchV = "0.16.0-RC1"
+lazy val akka = project.in(file("akka")).
+  settings(
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
+    libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
+    libraryDependencies += "io.monix" %% "monix" % "2.3.0"
+  ).dependsOn(coreJVM)
 
-lazy val server = project.in(file("server")).
+lazy val server = crossProject.in(file("server")).
   settings(common).
   settings(
     name := "sysiphos-server",
     libraryDependencies ++= Seq(
       "com.github.finagle" %% "finch-core" % finchV,
-      "com.github.finagle" %% "finch-circe" % finchV
+      "com.github.finagle" %% "finch-circe" % finchV,
+      "org.sangria-graphql" %% "sangria" % "1.3.2",
+      "org.sangria-graphql" %% "sangria-circe" % "1.1.0"
     )
+  ).dependsOn(core)
+
+lazy val serverJVM = server.jvm.dependsOn(akka)
+lazy val serverJS = server.js
+
+lazy val root = project.in(file(".")).
+  settings(common).
+  aggregate(coreJS, coreJVM, serverJVM).
+  settings(
+    publish := {},
+    publishLocal := {},
+    PgpKeys.publishSigned := {}
   )
