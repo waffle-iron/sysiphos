@@ -2,16 +2,22 @@ package com.flowtick.sysiphos.api
 
 import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, Init }
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository }
 import com.twitter.finagle.Http
 import com.twitter.util.Await
+import io.finch.Application
+import io.finch.circe._
 import monix.execution.Scheduler
 
 import scala.concurrent.ExecutionContext
 
-object SysiphosApiServer extends SysiphosApi with App {
+object SysiphosApiServer extends App
+  with SysiphosApi
+  with GraphIQLResources
+  with UIResources {
 
   override val apiContext = new ApiContext {
     override def findSchedules(): Seq[FlowSchedule] = Seq.empty[FlowSchedule]
@@ -35,7 +41,12 @@ object SysiphosApiServer extends SysiphosApi with App {
     executorActor ! Init()
   }
 
-  def startApiServer = Await.ready(Http.server.serve(":" concat sys.props.getOrElse("http.port", 8080).toString, api))
+  def startApiServer = {
+    val service = (api :+: graphiqlResources :+: uiResources).toServiceAs[Application.Json]
+    val port = sys.env.get("PORT0").orElse(sys.props.get("http.port")).getOrElse(8080).toString
+
+    Await.ready(Http.server.serve("0.0.0.0:".concat(port), service))
+  }
 
   startExecutorSystem()
   startApiServer

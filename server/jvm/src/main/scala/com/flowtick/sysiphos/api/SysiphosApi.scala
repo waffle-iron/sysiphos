@@ -4,8 +4,6 @@ import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.scheduler.FlowSchedule
-import com.twitter.finagle.Service
-import com.twitter.finagle.http.{ Request, Response }
 import io.circe.Json
 import sangria.ast.Document
 import sangria.execution.Executor
@@ -77,5 +75,5 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
   def executeQuery(query: Document, operation: Option[String], vars: Json): Future[Json] =
     Executor.execute(SysiphosApi.schema, query, apiContext, variables = vars, operationName = operation)
 
-  val api: Service[Request, Response] = (statusEndpoint :+: apiEndpoint :+: graphiqlResources :+: uiResources).toServiceAs[Application.Json]
+  val api = statusEndpoint :+: apiEndpoint
 }
