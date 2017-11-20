@@ -1,6 +1,7 @@
 package com.flowtick.sysiphos.api
 
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.scheduler.FlowSchedule
 import com.twitter.finagle.Service
@@ -27,9 +28,7 @@ object SysiphosApi {
     "FlowSchedule",
     "A schedule for a flow",
     fields[Unit, FlowSchedule](
-      Field("id", StringType, resolve = _.value.id)
-    )
-  )
+      Field("id", StringType, resolve = _.value.id)))
 
   val Id = Argument("id", StringType)
 
@@ -39,20 +38,17 @@ object SysiphosApi {
       OptionType(FlowScheduleType),
       description = Some("Returns a product with specific `id`."),
       arguments = Id :: Nil,
-      resolve = c => c.ctx.findSchedule(c arg Id)
-    ),
+      resolve = c => c.ctx.findSchedule(c arg Id)),
     Field(
       "schedules",
       ListType(FlowScheduleType),
       description = Some("Returns a list of all available products."),
-      resolve = _.ctx.findSchedules()
-    )
-  ))
+      resolve = _.ctx.findSchedules())))
 
   val schema = Schema(QueryType)
 }
 
-trait SysiphosApi extends GraphIQLResources {
+trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch._
   import io.finch.circe._
 
@@ -81,5 +77,5 @@ trait SysiphosApi extends GraphIQLResources {
   def executeQuery(query: Document, operation: Option[String], vars: Json): Future[Json] =
     Executor.execute(SysiphosApi.schema, query, apiContext, variables = vars, operationName = operation)
 
-  val api: Service[Request, Response] = (statusEndpoint :+: apiEndpoint :+: graphiql).toServiceAs[Application.Json]
+  val api: Service[Request, Response] = (statusEndpoint :+: apiEndpoint :+: graphiqlResources :+: uiResources).toServiceAs[Application.Json]
 }

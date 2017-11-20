@@ -3,6 +3,7 @@ import sbtrelease.ReleaseStateTransformations._
 
 val scalaV = "2.12.4"
 val finchV = "0.16.0-RC1"
+val circeV = "0.8.0"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -58,10 +59,7 @@ lazy val core = crossProject.in(file("core")).
   )
 
 lazy val coreJVM = core.jvm
-lazy val coreJS = core.js.settings(
-  artifactPath in (Compile, fastOptJS) := baseDirectory.value / ".." / "dist" / "sysiphos.js",
-  artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value
-)
+lazy val coreJS = core.js
 
 lazy val akka = project.in(file("akka")).
   settings(
@@ -83,7 +81,20 @@ lazy val server = crossProject.in(file("server")).
   ).dependsOn(core)
 
 lazy val serverJVM = server.jvm.dependsOn(akka)
-lazy val serverJS = server.js
+lazy val serverJS = server.js.settings(
+  scalaJSUseMainModuleInitializer := true,
+  artifactPath in (Compile, fastOptJS) := baseDirectory.value.getParentFile / "jvm" / "target" / "scala-2.12" / "classes" / "sysiphos-ui.js",
+  artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
+  libraryDependencies ++= Seq(
+    "in.nvilla" %%% "monadic-html" % "0.3.2",
+    "org.scala-js" %%% "scalajs-dom" % "0.9.2",
+    "com.chuusai" %%% "shapeless" % "2.3.2"
+  ) ++ Seq(
+    "io.circe" %%% "circe-core",
+    "io.circe" %%% "circe-generic",
+    "io.circe" %%% "circe-parser"
+  ).map(_ % circeV)
+)
 
 lazy val root = project.in(file(".")).
   settings(common).

@@ -1,10 +1,10 @@
 package com.flowtick.sysiphos.api
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
-import com.flowtick.sysiphos.execution.{AkkaFlowExecutor, Init}
+import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, Init }
 import com.flowtick.sysiphos.flow.FlowDefinition
-import com.flowtick.sysiphos.scheduler.{CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository}
+import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository }
 import com.twitter.finagle.Http
 import com.twitter.util.Await
 import monix.execution.Scheduler
