@@ -1,11 +1,11 @@
 package com.flowtick.sysiphos.api
 
-import akka.actor.{ ActorSystem, Props }
+import akka.actor.{ActorSystem, Props}
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
-import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
-import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, Init }
+import com.flowtick.sysiphos.api.resources.{GraphIQLResources, TwitterBootstrapResources, UIResources}
+import com.flowtick.sysiphos.execution.{AkkaFlowExecutor, Init}
 import com.flowtick.sysiphos.flow.FlowDefinition
-import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository }
+import com.flowtick.sysiphos.scheduler.{CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository}
 import com.twitter.finagle.Http
 import com.twitter.util.Await
 import io.finch.Application
@@ -17,6 +17,7 @@ import scala.concurrent.ExecutionContext
 object SysiphosApiServer extends App
   with SysiphosApi
   with GraphIQLResources
+  with TwitterBootstrapResources
   with UIResources {
 
   override val apiContext = new ApiContext {
@@ -42,7 +43,7 @@ object SysiphosApiServer extends App
   }
 
   def startApiServer = {
-    val service = (api :+: graphiqlResources :+: uiResources).toServiceAs[Application.Json]
+    val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
     val port = sys.env.get("PORT0").orElse(sys.props.get("http.port")).getOrElse(8080).toString
 
     Await.ready(Http.server.serve("0.0.0.0:".concat(port), service))

@@ -15,11 +15,12 @@ object SysiphosUI extends App {
               <span class="icon-bar"></span>
               <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="#">Sysiphos</a>
+            <a class="navbar-brand" href={ false }><img src="noun_694591_cc.svg" style="width: 1.25em"/></a>
+            <span class="navbar-brand" style="left: -0.5em">Sysiphos</span>
           </div>
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-              <li class="active"><a href="#">Home</a></li>
+              <li class="active"><a href="#/flows">Flows</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
