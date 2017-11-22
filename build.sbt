@@ -52,10 +52,13 @@ lazy val core = crossProject.in(file("core")).
   settings(common).
   settings(
     name := "sysiphos-core",
-    libraryDependencies += "org.parboiled" %%% "parboiled" % "2.1.4",
-    libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.2",
     libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test,
-    libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided"
+    libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
+    libraryDependencies ++= Seq(
+      "io.circe" %%% "circe-core",
+      "io.circe" %%% "circe-generic",
+      "io.circe" %%% "circe-parser"
+    ).map(_ % circeV)
   )
 
 lazy val coreJVM = core.jvm
@@ -87,13 +90,8 @@ lazy val serverJS = server.js.settings(
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
     "in.nvilla" %%% "monadic-html" % "0.3.2",
-    "org.scala-js" %%% "scalajs-dom" % "0.9.2",
-    "com.chuusai" %%% "shapeless" % "2.3.2"
-  ) ++ Seq(
-    "io.circe" %%% "circe-core",
-    "io.circe" %%% "circe-generic",
-    "io.circe" %%% "circe-parser"
-  ).map(_ % circeV)
+    "org.scala-js" %%% "scalajs-dom" % "0.9.2"
+  )
 )
 
 lazy val root = project.in(file(".")).

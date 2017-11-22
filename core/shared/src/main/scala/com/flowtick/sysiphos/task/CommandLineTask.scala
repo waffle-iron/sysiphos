@@ -4,5 +4,5 @@ import com.flowtick.sysiphos.flow.FlowTask
 
 case class CommandLineTask(
   id: String,
-  children: Seq[FlowTask],
+  children: Option[Seq[FlowTask]],
   command: String) extends FlowTask
