@@ -14,6 +14,7 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |  "task": {
          |    "id": "test-task",
          |    "type": "shell",
+         |    "command": "ls",
          |    "children": [
          |      {
          |        "id": "something",
@@ -22,8 +23,7 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |          "foo": "bar"
          |        }
          |      }
-         |    ],
-         |    "command": "ls"
+         |    ]
          |  }
          |}
          |

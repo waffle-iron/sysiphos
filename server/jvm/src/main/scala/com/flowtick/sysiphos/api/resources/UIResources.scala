@@ -10,7 +10,8 @@ trait UIResources extends StaticResourceSupport {
 
   val uiResources =
     getResource("index.html", "text/html") :+:
-      getResource("sysiphos-ui.js", "text/html") :+:
+      getResource("sysiphos-ui.js", "application/javascript") :+:
+      getResource("sysiphos-ui.js.map", "application/json") :+:
       getResource("noun_694591_cc.svg", "image/svg+xml") :+:
       indexPageRedirect
 }

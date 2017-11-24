@@ -1,11 +1,11 @@
 package com.flowtick.sysiphos.api
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
-import com.flowtick.sysiphos.api.resources.{GraphIQLResources, TwitterBootstrapResources, UIResources}
-import com.flowtick.sysiphos.execution.{AkkaFlowExecutor, Init}
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
+import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler, Init }
 import com.flowtick.sysiphos.flow.FlowDefinition
-import com.flowtick.sysiphos.scheduler.{CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository}
+import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository }
 import com.twitter.finagle.Http
 import com.twitter.util.Await
 import io.finch.Application
@@ -35,7 +35,7 @@ object SysiphosApiServer extends App
     implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
 
     val executorActorProps =
-      Props[AkkaFlowExecutor](creator = new AkkaFlowExecutor(flowScheduleRepository))
+      Props[AkkaFlowExecutor](creator = new AkkaFlowExecutor(flowScheduleRepository, CronScheduler))
 
     val executorActor = exectuorSystem.actorOf(executorActorProps)
 

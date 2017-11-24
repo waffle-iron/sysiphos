@@ -45,14 +45,14 @@ lazy val common = Seq(
   ),
   developers := List(
     Developer(id = "adrobisch", name = "Andreas Drobisch", email = "github@drobisch.com", url = url("http://drobisch.com/"))
-  )
+  ),
+  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test
 )
 
 lazy val core = crossProject.in(file("core")).
   settings(common).
   settings(
     name := "sysiphos-core",
-    libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test,
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
     libraryDependencies ++= Seq(
       "io.circe" %%% "circe-core",
@@ -65,6 +65,7 @@ lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
 lazy val akka = project.in(file("akka")).
+  settings(common).
   settings(
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
@@ -96,7 +97,7 @@ lazy val serverJS = server.js.settings(
 
 lazy val root = project.in(file(".")).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM).
+  aggregate(coreJS, coreJVM, serverJVM, akka).
   settings(
     publish := {},
     publishLocal := {},
