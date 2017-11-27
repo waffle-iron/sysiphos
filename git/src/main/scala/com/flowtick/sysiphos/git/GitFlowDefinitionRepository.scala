@@ -75,10 +75,16 @@ class GitFlowDefinitionRepository(baseDir: File,
     })
   }
 
-  override def addFlowDefinition(flowDefinition: FlowDefinition): Future[_] =
-    getOrCreateRepository.fold(Future.failed[Unit], (git: Git) => Future.fromTry {
+  override def addFlowDefinition(flowDefinition: FlowDefinition): Future[FlowDefinition] =
+    getOrCreateRepository.fold(Future.failed, (git: Git) => Future.fromTry {
       val definitionName = s"${flowDefinition.id}.json"
-      addAndCommitFile(definitionName, FlowDefinition.toJson(flowDefinition).getBytes, s"add $definitionName")(git)
+      val definitionJson = FlowDefinition.toJson(flowDefinition)
+
+      addAndCommitFile(
+        definitionName,
+        definitionJson.getBytes,
+        s"add $definitionName"
+      )(git).map(_ => flowDefinition)
     })
 }
 
