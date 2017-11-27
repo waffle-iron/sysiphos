@@ -72,6 +72,12 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.monix" %% "monix" % "2.3.0"
   ).dependsOn(coreJVM)
 
+lazy val git = project.in(file("git")).
+  settings(common).
+  settings(
+    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
+  ).dependsOn(coreJVM)
+
 lazy val server = crossProject.in(file("server")).
   settings(common).
   settings(
