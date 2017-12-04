@@ -46,7 +46,8 @@ lazy val common = Seq(
   developers := List(
     Developer(id = "adrobisch", name = "Andreas Drobisch", email = "github@drobisch.com", url = url("http://drobisch.com/"))
   ),
-  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test
+  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test,
+  libraryDependencies += "org.scalamock" %%% "scalamock-scalatest-support" % "3.6.0" % Test
 )
 
 lazy val core = crossProject.in(file("core")).
@@ -69,7 +70,8 @@ lazy val akka = project.in(file("akka")).
   settings(
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
-    libraryDependencies += "io.monix" %% "monix" % "2.3.0"
+    libraryDependencies += "io.monix" %% "monix" % "2.3.0",
+    libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
   ).dependsOn(coreJVM)
 
 lazy val git = project.in(file("git")).
@@ -90,7 +92,10 @@ lazy val server = crossProject.in(file("server")).
     )
   ).dependsOn(core)
 
-lazy val serverJVM = server.jvm.dependsOn(akka)
+lazy val serverJVM = server.jvm.settings(
+  libraryDependencies += "ch.qos.logback" % "logback-core" % "1.2.3"
+).dependsOn(akka)
+
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,
   artifactPath in (Compile, fastOptJS) := baseDirectory.value.getParentFile / "jvm" / "target" / "scala-2.12" / "classes" / "sysiphos-ui.js",

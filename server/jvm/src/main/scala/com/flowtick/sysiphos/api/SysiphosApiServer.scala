@@ -3,16 +3,17 @@ package com.flowtick.sysiphos.api
 import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
-import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler, Init }
-import com.flowtick.sysiphos.flow.FlowDefinition
-import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, InMemoryFlowScheduleRepository }
+import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
+import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler, FlowInstanceActor }
+import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowInstance, FlowInstanceQuery, FlowInstanceRepository }
+import com.flowtick.sysiphos.scheduler._
 import com.twitter.finagle.Http
 import com.twitter.util.Await
 import io.finch.Application
 import io.finch.circe._
 import monix.execution.Scheduler
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ ExecutionContext, Future }
 
 object SysiphosApiServer extends App
   with SysiphosApi
@@ -30,14 +31,17 @@ object SysiphosApiServer extends App
   override implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def startExecutorSystem() = {
-    val flowScheduleRepository = new InMemoryFlowScheduleRepository(Seq.empty)
-    implicit val exectuorSystem: ActorSystem = ActorSystem()
+    val flowScheduleRepository: FlowScheduleRepository = new InMemoryFlowScheduleRepository(Seq.empty)
+    val flowInstanceRepository = new FlowInstanceRepository {
+      override def getFlowInstances(query: FlowInstanceQuery): Future[Seq[FlowInstance]] = ???
+    }
+    implicit val executorSystem: ActorSystem = ActorSystem()
     implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
 
-    val executorActorProps =
-      Props[AkkaFlowExecutor](creator = new AkkaFlowExecutor(flowScheduleRepository, CronScheduler))
+    val instanceActorProps = Props(classOf[FlowInstanceActor], flowInstanceRepository)
+    val executorActorProps = Props(classOf[AkkaFlowExecutor], flowScheduleRepository, CronScheduler: FlowScheduler, instanceActorProps, scheduler)
 
-    val executorActor = exectuorSystem.actorOf(executorActorProps)
+    val executorActor = executorSystem.actorOf(executorActorProps)
 
     executorActor ! Init()
   }
