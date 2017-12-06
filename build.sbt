@@ -93,8 +93,8 @@ lazy val server = crossProject.in(file("server")).
   ).dependsOn(core)
 
 lazy val serverJVM = server.jvm.settings(
-  libraryDependencies += "ch.qos.logback" % "logback-core" % "1.2.3"
-).dependsOn(akka)
+  libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
+).dependsOn(akka, git)
 
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,
@@ -108,7 +108,7 @@ lazy val serverJS = server.js.settings(
 
 lazy val root = project.in(file(".")).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM, akka).
+  aggregate(coreJS, coreJVM, serverJVM, akka, git).
   settings(
     publish := {},
     publishLocal := {},

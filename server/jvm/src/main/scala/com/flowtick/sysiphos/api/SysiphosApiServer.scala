@@ -6,6 +6,7 @@ import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrap
 import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
 import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler, FlowInstanceActor }
 import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowInstance, FlowInstanceQuery, FlowInstanceRepository }
+import com.flowtick.sysiphos.git.GitFlowScheduleRepository
 import com.flowtick.sysiphos.scheduler._
 import com.twitter.finagle.Http
 import com.twitter.util.Await
@@ -31,7 +32,7 @@ object SysiphosApiServer extends App
   override implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def startExecutorSystem() = {
-    val flowScheduleRepository: FlowScheduleRepository = new InMemoryFlowScheduleRepository(Seq.empty)
+    val flowScheduleRepository: FlowScheduleRepository = new GitFlowScheduleRepository()
     val flowInstanceRepository = new FlowInstanceRepository {
       override def getFlowInstances(query: FlowInstanceQuery): Future[Seq[FlowInstance]] = ???
     }
