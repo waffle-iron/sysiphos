@@ -68,6 +68,7 @@ lazy val coreJS = core.js
 lazy val akka = project.in(file("akka")).
   settings(common).
   settings(
+    name := "sysiphos-akka",
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
@@ -77,6 +78,7 @@ lazy val akka = project.in(file("akka")).
 lazy val git = project.in(file("git")).
   settings(common).
   settings(
+    name := "sysiphos-git",
     libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r" % Provided
   ).dependsOn(coreJVM)
 
@@ -103,7 +105,8 @@ lazy val serverJS = server.js.settings(
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
     "in.nvilla" %%% "monadic-html" % "0.3.2",
-    "org.scala-js" %%% "scalajs-dom" % "0.9.2"
+    "org.scala-js" %%% "scalajs-dom" % "0.9.2",
+    "com.flowtick" %%% "pages" % "0.1.2"
   )
 )
 
@@ -111,6 +114,7 @@ lazy val root = project.in(file(".")).
   settings(common).
   aggregate(coreJS, coreJVM, serverJVM, akka, git).
   settings(
+    name := "sysiphos-root",
     publish := {},
     publishLocal := {},
     PgpKeys.publishSigned := {}
