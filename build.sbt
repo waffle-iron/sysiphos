@@ -77,24 +77,25 @@ lazy val akka = project.in(file("akka")).
 lazy val git = project.in(file("git")).
   settings(common).
   settings(
-    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
+    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r" % Provided
   ).dependsOn(coreJVM)
 
 lazy val server = crossProject.in(file("server")).
   settings(common).
   settings(
     name := "sysiphos-server",
-    libraryDependencies ++= Seq(
-      "com.github.finagle" %% "finch-core" % finchV,
-      "com.github.finagle" %% "finch-circe" % finchV,
-      "org.sangria-graphql" %% "sangria" % "1.3.2",
-      "org.sangria-graphql" %% "sangria-circe" % "1.1.0"
-    )
-  ).dependsOn(core)
+  )
 
 lazy val serverJVM = server.jvm.settings(
-  libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
-).dependsOn(akka, git)
+  libraryDependencies ++= Seq(
+    "com.github.finagle" %% "finch-core" % finchV,
+    "com.github.finagle" %% "finch-circe" % finchV,
+    "org.sangria-graphql" %% "sangria" % "1.3.2",
+    "org.sangria-graphql" %% "sangria-circe" % "1.1.0",
+    "ch.qos.logback" % "logback-classic" % "1.2.3",
+    "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
+  )
+).dependsOn(git, akka)
 
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,

@@ -24,7 +24,7 @@ trait AkkaFlowExecution {
   def createInstance(flowSchedule: FlowSchedule): Unit
 
   def tick(now: Long): Task[Unit] =
-    Task.fromFuture(flowScheduleRepository.getFlowSchedules.map(_.filter(_.enabled))).map { schedules =>
+    Task.fromFuture(flowScheduleRepository.getFlowSchedules.map(_.filter(_.enabled.contains(true)))).map { schedules =>
       schedules.foreach { schedule =>
         schedule.nextDueDate match {
           case Some(timestamp) if timestamp <= now =>

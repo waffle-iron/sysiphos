@@ -17,9 +17,9 @@ import scala.util.{ Failure, Success, Try }
 object SysiphosApi {
   trait ApiContext {
     def findFlowDefinition(id: String): Option[FlowDefinition]
-    def findFlowDefinitions(): Seq[FlowDefinition]
+    def findFlowDefinitions(): Future[Seq[FlowDefinition]]
     def findSchedule(id: String): Option[FlowSchedule]
-    def findSchedules(): Seq[FlowSchedule]
+    def findSchedules(): Future[Seq[FlowSchedule]]
   }
 
   val FlowScheduleType = ObjectType(
@@ -50,7 +50,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch._
   import io.finch.circe._
 
-  val apiContext: ApiContext
+  def apiContext: ApiContext
   implicit val executionContext: ExecutionContext
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }

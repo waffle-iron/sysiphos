@@ -5,7 +5,7 @@ trait FlowSchedule {
   def flowDefinitionId: String
   def flowTaskId: Option[String]
   def nextDueDate: Option[Long]
-  def enabled: Boolean
+  def enabled: Option[Boolean]
 }
 
 object FlowSchedule {

@@ -10,4 +10,4 @@ final case class CronSchedule(
   flowDefinitionId: String,
   flowTaskId: Option[String] = None,
   nextDueDate: Option[Long] = None,
-  enabled: Boolean = false) extends FlowSchedule
+  enabled: Option[Boolean] = Some(false)) extends FlowSchedule
