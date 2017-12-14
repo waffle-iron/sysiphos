@@ -22,6 +22,12 @@ object SysiphosApi {
     def findSchedules(): Future[Seq[FlowSchedule]]
   }
 
+  val FlowDefinitionType = ObjectType(
+    "FlowDefinition",
+    "A flow definition",
+    fields[Unit, FlowDefinition](
+      Field("id", StringType, resolve = _.value.id)))
+
   val FlowScheduleType = ObjectType(
     "FlowSchedule",
     "A schedule for a flow",
@@ -32,15 +38,26 @@ object SysiphosApi {
 
   val QueryType = ObjectType("Query", fields[ApiContext, Unit](
     Field(
+      "definition",
+      OptionType(FlowDefinitionType),
+      description = Some("Returns the schedule with the `id`."),
+      arguments = Id :: Nil,
+      resolve = c => c.ctx.findFlowDefinition(c arg Id)),
+    Field(
+      "definitions",
+      ListType(FlowDefinitionType),
+      description = Some("Returns a list of all schedules."),
+      resolve = _.ctx.findFlowDefinitions()),
+    Field(
       "schedule",
       OptionType(FlowScheduleType),
-      description = Some("Returns a product with specific `id`."),
+      description = Some("Returns the schedule with the `id`."),
       arguments = Id :: Nil,
       resolve = c => c.ctx.findSchedule(c arg Id)),
     Field(
       "schedules",
       ListType(FlowScheduleType),
-      description = Some("Returns a list of all available products."),
+      description = Some("Returns a list of all schedules."),
       resolve = _.ctx.findSchedules())))
 
   val schema = Schema(QueryType)

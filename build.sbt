@@ -104,15 +104,15 @@ lazy val serverJS = server.js.settings(
   artifactPath in (Compile, fastOptJS) := baseDirectory.value.getParentFile / "jvm" / "target" / "scala-2.12" / "classes" / "sysiphos-ui.js",
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
-    "in.nvilla" %%% "monadic-html" % "0.3.2",
+    "in.nvilla" %%% "monadic-html" % "0.4.0-RC1",
     "org.scala-js" %%% "scalajs-dom" % "0.9.2",
-    "com.flowtick" %%% "pages" % "0.1.2"
+    "com.flowtick" %%% "pages" % "0.1.4"
   )
-)
+).dependsOn(coreJS)
 
 lazy val root = project.in(file(".")).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM, akka, git).
+  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, git).
   settings(
     name := "sysiphos-root",
     publish := {},

@@ -7,6 +7,7 @@ import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
 import org.eclipse.jgit.treewalk.TreeWalk
+import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Try
@@ -14,6 +15,8 @@ import scala.util.Try
 abstract class AbstractGitRepository[T](
   baseDir: File,
   remoteUrl: Option[String])(implicit val executionContent: ExecutionContext) {
+  val logger: Logger = LoggerFactory.getLogger(getClass)
+
   protected def createFile(path: String, content: Array[Byte], git: Git): Try[File] = Try {
     val file = new File(git.getRepository.getDirectory.getParent, path)
     val fileStream = new FileOutputStream(file)
@@ -34,7 +37,7 @@ abstract class AbstractGitRepository[T](
     if (!baseDir.exists())
       Try(Git.init().setDirectory(baseDir).call()).flatMap(git => init(git))
     else
-      Try(new FileRepositoryBuilder().setGitDir(new File(baseDir, Constants.DOT_GIT)).readEnvironment().findGitDir().build()).map(Git.wrap)
+      Try(new FileRepositoryBuilder().setGitDir(new File(baseDir, Constants.DOT_GIT)).readEnvironment().build()).map(Git.wrap)
 
   protected def add(item: T, name: String): Future[T] = {
     getOrCreate.fold(Future.failed, (git: Git) => Future.fromTry {
@@ -59,21 +62,26 @@ abstract class AbstractGitRepository[T](
       treeWalk.addTree(tree)
       treeWalk.setRecursive(false)
 
-      val foundDefinitions = scala.collection.mutable.ListBuffer[T]()
+      val foundItems = scala.collection.mutable.ListBuffer[T]()
 
       while (treeWalk.next()) {
         if (treeWalk.isSubtree) { // a directory
           treeWalk.enterSubtree()
         } else { // a file
           val objectId = treeWalk.getObjectId(0)
-          val loader = git.getRepository.open(objectId)
-          val content = new ByteArrayOutputStream()
-          loader.copyTo(content)
-          val definition = fromString(content.toString)
-          definition.right.foreach(foundDefinitions.append(_))
+          val path = treeWalk.getPathString
+
+          if (path.endsWith(".json")) {
+            val loader = git.getRepository.open(objectId)
+            val content = new ByteArrayOutputStream()
+            loader.copyTo(content)
+            val item = fromString(content.toString)
+            item.right.foreach(foundItems.append(_))
+            item.left.foreach(error => logger.error(s"error while loading item ($path, $objectId), $content", error))
+          }
         }
       }
-      foundDefinitions
+      foundItems
     })
   }
 

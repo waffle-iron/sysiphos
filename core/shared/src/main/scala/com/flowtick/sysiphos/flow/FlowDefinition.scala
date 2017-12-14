@@ -18,6 +18,11 @@ object FlowDefinition {
   import io.circe.parser._
   import io.circe.syntax._
 
+  implicit val definitionDecoder: Decoder[FlowDefinition] = (c: HCursor) => for {
+    id <- c.downField("id").as[String]
+    task <- c.downField("task").as[FlowTask]
+  } yield SysiphosDefinition(id, task)
+
   implicit val taskDecoder: Decoder[FlowTask] = (c: HCursor) => for {
     id <- c.downField("id").as[String]
     typeHint <- c.downField("type").as[String]
@@ -49,9 +54,7 @@ object FlowDefinition {
     children: Option[Seq[FlowTask]],
     properties: Option[Map[String, String]]) extends FlowTask
 
-  def fromJson(json: String): Either[Exception, SysiphosDefinition] = {
-    decode[SysiphosDefinition](json)
-  }
+  def fromJson(json: String): Either[Exception, FlowDefinition] = decode[FlowDefinition](json)
 
   def toJson(definition: FlowDefinition): String = definition match {
     case s: SysiphosDefinition => s.asJson.noSpaces
