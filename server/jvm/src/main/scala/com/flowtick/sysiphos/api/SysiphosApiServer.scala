@@ -10,7 +10,7 @@ import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler, FlowIn
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.git.{ GitFlowDefinitionRepository, GitFlowScheduleRepository }
 import com.flowtick.sysiphos.scheduler._
-import com.twitter.finagle.Http
+import com.twitter.finagle.{ Http, ListeningServer }
 import com.twitter.util.Await
 import io.finch.Application
 import io.finch.circe._
@@ -19,6 +19,7 @@ import monix.execution.Scheduler
 import scala.concurrent.{ ExecutionContext, Future }
 
 trait SysiphosApiServer extends SysiphosApi
+  with SysiphosApiServerConfig
   with GraphIQLResources
   with TwitterBootstrapResources
   with UIResources {
@@ -29,7 +30,7 @@ trait SysiphosApiServer extends SysiphosApi
   implicit def executorSystem: ActorSystem
   implicit def scheduler: Scheduler
 
-  def startExecutorSystem() = {
+  def startExecutorSystem(): Unit = {
     val instanceActorProps = Props(classOf[FlowInstanceActor], apiContext.flowInstanceRepository)
     val executorActorProps = Props(classOf[AkkaFlowExecutor], apiContext.flowScheduleRepository, CronScheduler: FlowScheduler, instanceActorProps, scheduler)
 
@@ -38,11 +39,11 @@ trait SysiphosApiServer extends SysiphosApi
     executorActor ! Init()
   }
 
-  def startApiServer = {
+  def startApiServer: ListeningServer = {
     val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
-    val port = sys.env.get("PORT0").orElse(sys.props.get("http.port")).getOrElse(8080).toString
+    val port = propOrEnv("PORT0", propOrEnv("http.port")).getOrElse(8080).toString
 
-    Await.ready(Http.server.serve("0.0.0.0:".concat(port), service))
+    Await.ready(Http.server.serve(propOrEnv("http.bind.address").getOrElse("0.0.0.0:").concat(port), service))
   }
 
 }
@@ -58,10 +59,8 @@ class SysiphosApiContext(
 }
 
 object SysiphosApiServerApp extends SysiphosApiServer with App {
-  val repoBaseDir = new File(".sysiphos")
-
-  val flowDefinitionRepository: FlowDefinitionRepository = new GitFlowDefinitionRepository(new File(repoBaseDir, "flows"), None)
-  val flowScheduleRepository: FlowScheduleRepository = new GitFlowScheduleRepository(new File(repoBaseDir, "schedules"), None)
+  val flowDefinitionRepository: FlowDefinitionRepository = new GitFlowDefinitionRepository(new File(repoBaseDir, "flows"), flowDefinitionsRemoteUrl, None)
+  val flowScheduleRepository: FlowScheduleRepository = new GitFlowScheduleRepository(new File(repoBaseDir, "schedules"), flowSchedulesRemoteUrl, None)
   val flowInstanceRepository = new InMemoryFlowInstanceRepository
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global

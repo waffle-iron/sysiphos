@@ -2,19 +2,27 @@ package com.flowtick.sysiphos.git
 
 import java.io.{ ByteArrayOutputStream, File, FileOutputStream }
 
+import com.jcraft.jsch.{ JSch, Session }
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
+import org.eclipse.jgit.transport._
 import org.eclipse.jgit.treewalk.TreeWalk
+import org.eclipse.jgit.util.FS
 import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Try
 
 abstract class AbstractGitRepository[T](
-  baseDir: File,
-  remoteUrl: Option[String])(implicit val executionContent: ExecutionContext) {
+  workDir: File,
+  remoteUrl: Option[String],
+  ref: Option[String],
+  username: Option[String],
+  password: Option[String],
+  identityFilePath: Option[String],
+  identityFilePassphrase: Option[String])(implicit val executionContent: ExecutionContext) {
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected def createFile(path: String, content: Array[Byte], git: Git): Try[File] = Try {
@@ -33,11 +41,48 @@ abstract class AbstractGitRepository[T](
       _ <- Try(git.commit().setMessage(message).call())
     } yield git
 
+  protected def initRepository: Try[Git] = Try(Git.init().setDirectory(workDir).call()).flatMap(git => init(git))
+
+  protected def sshSessionFactory: JschConfigSessionFactory =
+    new JschConfigSessionFactory() {
+      override def createDefaultJSch(fs: FS): JSch = {
+        val defaultJsch = super.createDefaultJSch(fs)
+        identityFilePath.foreach(path => defaultJsch.addIdentity(path, identityFilePassphrase.orNull))
+        defaultJsch
+      }
+
+      override def configure(hc: OpenSshConfig.Host, session: Session): Unit = ()
+    }
+
+  protected def cloneRepo(remoteUrl: String): Try[Git] =
+    Try {
+      val cloneCommand = Git.cloneRepository()
+        .setURI(remoteUrl)
+        .setDirectory(workDir)
+        .setTransportConfigCallback {
+          case ssh: SshTransport => ssh.setSshSessionFactory(sshSessionFactory)
+          case _ =>
+        }
+
+      for {
+        u <- username
+        p <- password
+      } yield cloneCommand.setCredentialsProvider(new UsernamePasswordCredentialsProvider(u, p))
+
+      cloneCommand.call()
+    }
+
+  def getWorkDirRepo: Try[Git] = Try {
+    new FileRepositoryBuilder()
+      .setGitDir(new File(workDir, Constants.DOT_GIT))
+      .readEnvironment()
+      .build()
+  }.map(Git.wrap)
+
   protected def getOrCreate: Try[Git] =
-    if (!baseDir.exists())
-      Try(Git.init().setDirectory(baseDir).call()).flatMap(git => init(git))
-    else
-      Try(new FileRepositoryBuilder().setGitDir(new File(baseDir, Constants.DOT_GIT)).readEnvironment().build()).map(Git.wrap)
+    if (!workDir.exists()) {
+      remoteUrl.map(cloneRepo).getOrElse(initRepository)
+    } else getWorkDirRepo
 
   protected def add(item: T, name: String): Future[T] = {
     getOrCreate.fold(Future.failed, (git: Git) => Future.fromTry {
@@ -49,9 +94,10 @@ abstract class AbstractGitRepository[T](
   }
 
   def list: Future[Seq[T]] = {
-    getOrCreate.fold(error => Future.failed(error), (git: Git) => Future {
+    val repo = getOrCreate
+    repo.fold(error => Future.failed(error), (git: Git) => Future {
 
-      val head = git.getRepository.findRef("HEAD")
+      val head = git.getRepository.findRef(ref.getOrElse("master"))
 
       // a RevWalk allows to walk over commits based on some filtering that is defined
       val walk = new RevWalk(git.getRepository)
@@ -71,7 +117,7 @@ abstract class AbstractGitRepository[T](
           val objectId = treeWalk.getObjectId(0)
           val path = treeWalk.getPathString
 
-          if (path.endsWith(".json")) {
+          if (path.toLowerCase.endsWith(".json")) {
             val loader = git.getRepository.open(objectId)
             val content = new ByteArrayOutputStream()
             loader.copyTo(content)
@@ -85,9 +131,9 @@ abstract class AbstractGitRepository[T](
     })
   }
 
-  protected val initFileName = ".sysiphos"
+  protected val initFileName = ".init"
 
-  protected def init(git: Git): Try[Git] = addAndCommitFile(initFileName, "empty".getBytes, "init")(git)
+  protected def init(git: Git): Try[Git] = addAndCommitFile(initFileName, "empty".getBytes, "init repository")(git)
 
   protected def fromString(stringValue: String): Either[Exception, T]
   protected def toString(item: T): String

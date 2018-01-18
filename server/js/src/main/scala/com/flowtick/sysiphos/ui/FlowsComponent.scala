@@ -16,9 +16,9 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
 
   val state: Rx[State] = action.foldp(State(Seq.empty))(update).impure.sharing
 
-  override def init() = getDefinition
+  override def init(): Unit = getDefinition()
 
-  def getDefinition = sysiphosApi.getFlowDefinitions.foreach {
+  def getDefinition(): Unit = sysiphosApi.getFlowDefinitions.foreach {
     case Right(response) => action := SetDefinitions(response.data.definitions)
     case Left(error) => println(error)
   }
