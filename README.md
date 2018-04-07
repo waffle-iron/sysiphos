@@ -1,3 +1,4 @@
+[![Waffle.io - Columns and their card count](https://badge.waffle.io/flowtick/sysiphos.png?columns=all)](https://waffle.io/flowtick/sysiphos?utm_source=badge)
 # Sysiphos
 
 A graph-based task scheduler.
