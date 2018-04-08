@@ -23,8 +23,9 @@ trait AkkaFlowExecution {
 
   def createInstance(flowSchedule: FlowSchedule): Unit
 
-  def tick(now: Long): Task[Unit] =
-    Task.fromFuture(flowScheduleRepository.getFlowSchedules.map(_.filter(_.enabled.contains(true)))).map { schedules =>
+  def tick(now: Long): Task[Unit] = {
+    val futureSchedules = flowScheduleRepository.getFlowSchedules.map(_.filter(_.enabled.contains(true)))
+    Task.fromFuture(futureSchedules).map { schedules =>
       schedules.foreach { schedule =>
         schedule.nextDueDate match {
           case Some(timestamp) if timestamp <= now =>
@@ -35,6 +36,8 @@ trait AkkaFlowExecution {
         }
       }
     }
+  }
+
 }
 
 class AkkaFlowExecutor(

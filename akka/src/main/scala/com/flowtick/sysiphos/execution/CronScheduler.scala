@@ -7,9 +7,9 @@ import cron4s.Cron
 import cron4s.lib.javatime._
 
 object CronScheduler extends FlowScheduler {
-  val offset = ZoneOffset.UTC
+  val offset: ZoneOffset = ZoneOffset.UTC
 
-  def toDateTime(epoch: Long) = LocalDateTime.ofEpochSecond(epoch, 0, offset)
+  def toDateTime(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, offset)
 
   override def nextOccurrence(schedule: FlowSchedule, now: Long): Option[Long] = schedule match {
     case CronSchedule(_, expression, _, _, _, _) =>
