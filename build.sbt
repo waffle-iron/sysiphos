@@ -1,7 +1,7 @@
 import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
-val scalaV = "2.12.4"
+val scalaV = "2.12.5"
 val finchV = "0.16.0-RC1"
 val circeV = "0.8.0"
 
@@ -46,8 +46,8 @@ lazy val common = Seq(
   developers := List(
     Developer(id = "adrobisch", name = "Andreas Drobisch", email = "github@drobisch.com", url = url("http://drobisch.com/"))
   ),
-  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.3" % Test,
-  libraryDependencies += "org.scalamock" %%% "scalamock-scalatest-support" % "3.6.0" % Test
+  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % Test,
+  libraryDependencies += "org.scalamock" %%% "scalamock" % "4.1.0" % Test
 )
 
 lazy val core = crossProject.in(file("core")).
