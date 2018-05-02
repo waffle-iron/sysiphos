@@ -4,7 +4,7 @@ import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, Cancellable }
-import com.flowtick.sysiphos.flow.FlowInstanceRepository
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduler }
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -22,9 +22,9 @@ trait AkkaFlowExecution extends Logging {
   val flowScheduler: FlowScheduler
   implicit val taskScheduler: Scheduler
 
-  def createInstance(flowSchedule: FlowSchedule): Task[Unit] = {
+  def createInstance(flowSchedule: FlowSchedule): Task[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
-    Task.unit
+    Task.fromFuture(flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty))
   }
 
   def tick(now: Long): Task[Seq[Unit]] = {
@@ -40,7 +40,7 @@ trait AkkaFlowExecution extends Logging {
     log.debug(s"checking if $schedule is due.")
     schedule.nextDueDate match {
       case Some(timestamp) if timestamp <= now =>
-        createInstance(schedule)
+        createInstance(schedule).map(_ => ())
       case Some(_) =>
         log.debug(s"not due: $schedule")
         Task.unit
