@@ -16,9 +16,9 @@ import scala.util.{ Failure, Success, Try }
 
 object SysiphosApi {
   trait ApiContext {
-    def findFlowDefinition(id: String): Option[FlowDefinition]
+    def findFlowDefinition(id: String): Future[Option[FlowDefinition]]
     def findFlowDefinitions(): Future[Seq[FlowDefinition]]
-    def findSchedule(id: String): Option[FlowSchedule]
+    def findSchedule(id: String): Future[Option[FlowSchedule]]
     def findSchedules(): Future[Seq[FlowSchedule]]
   }
 

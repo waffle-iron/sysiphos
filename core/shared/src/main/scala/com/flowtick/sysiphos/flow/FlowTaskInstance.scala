@@ -6,6 +6,7 @@ trait FlowTaskInstance extends FlowExecutable {
 
 case class SysiphosFlowTaskInstance(
   id: String,
+  flowDefinitionId: String,
   creationTime: Long,
   flowInstance: FlowInstance,
   startTime: Option[Long] = None,

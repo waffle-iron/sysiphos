@@ -4,6 +4,7 @@ import sbtrelease.ReleaseStateTransformations._
 val scalaV = "2.12.5"
 val finchV = "0.16.0-RC1"
 val circeV = "0.8.0"
+val slf4jV = "1.7.25"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -72,7 +73,7 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
-    libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
+    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV
   ).dependsOn(coreJVM)
 
 lazy val git = project.in(file("git")).
@@ -80,6 +81,16 @@ lazy val git = project.in(file("git")).
   settings(
     name := "sysiphos-git",
     libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r" % Provided
+  ).dependsOn(coreJVM)
+
+lazy val slick = project.in(file("slick")).
+  settings(common).
+  settings(
+    name := "sysiphos-slick",
+    libraryDependencies += "com.typesafe.slick" %% "slick" % "3.2.3",
+    libraryDependencies += "mysql" % "mysql-connector-java" % "5.1.34",
+    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
+    libraryDependencies += "com.h2database" % "h2" % "1.4.196"
   ).dependsOn(coreJVM)
 
 lazy val server = crossProject.in(file("server")).
@@ -97,7 +108,7 @@ lazy val serverJVM = server.jvm.settings(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   )
-).dependsOn(git, akka)
+).dependsOn(git, akka, slick)
 
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,

@@ -2,7 +2,8 @@ package com.flowtick.sysiphos.execution
 
 import java.util.concurrent.TimeUnit
 
-import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, FlowScheduleRepository, FlowScheduler }
+import com.flowtick.sysiphos.flow.FlowInstanceRepository
+import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowScheduleRepository, FlowScheduler }
 import monix.execution.ExecutionModel.SynchronousExecution
 import monix.execution.Scheduler
 import monix.execution.schedulers.TestScheduler
@@ -15,6 +16,7 @@ import scala.concurrent.duration.Duration
 class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matchers with MockFactory {
   val scheduler: TestScheduler = TestScheduler().withExecutionModel(SynchronousExecution)
 
+  override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override implicit val taskScheduler: Scheduler = scheduler
@@ -36,6 +38,4 @@ class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matcher
     tick(now = 0).runAsync
     scheduler.tick(Duration(5, TimeUnit.MINUTES))
   }
-
-  override def createInstance(flowSchedule: FlowSchedule): Unit = ???
 }

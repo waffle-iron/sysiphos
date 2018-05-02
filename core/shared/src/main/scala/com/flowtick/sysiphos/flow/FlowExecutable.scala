@@ -2,7 +2,8 @@ package com.flowtick.sysiphos.flow
 
 trait FlowExecutable {
   def id: String
-  def creationTime: Long
-  def startTime: Option[Long]
-  def endTime: Option[Long]
+  def flowDefinitionId: String
+  def creationTime: Long // in epoch seconds
+  def startTime: Option[Long] // in epoch seconds
+  def endTime: Option[Long] // in epoch seconds
 }
