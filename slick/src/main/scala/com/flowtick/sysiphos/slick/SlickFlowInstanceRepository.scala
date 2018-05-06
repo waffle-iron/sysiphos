@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.slick
 import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.UUID
 
+import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceQuery, FlowInstanceRepository }
 import javax.sql.DataSource
 import org.slf4j.{ Logger, LoggerFactory }
@@ -11,32 +12,36 @@ import slick.jdbc.JdbcProfile
 import scala.collection.mutable
 import scala.concurrent.{ ExecutionContext, Future }
 
-class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository {
+final case class SlickFlowInstance(
+  id: String,
+  flowDefinitionId: String,
+  created: Long,
+  updated: Option[Long],
+  creator: String,
+  status: String,
+  retries: Int,
+  startTime: Option[Long] = None,
+  endTime: Option[Long] = None)
+
+class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository[FlowInstance] {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   import profile.api._
 
   val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-instance-repository"))
 
-  case class SlickFlowInstance(
-    id: String,
-    flowDefinitionId: String,
-    creationTime: Long,
-    status: String,
-    retries: Int,
-    startTime: Option[Long] = None,
-    endTime: Option[Long] = None)
-
   class FlowInstances(tag: Tag) extends Table[SlickFlowInstance](tag, "_flow_instance") {
     def id = column[String]("_id", O.PrimaryKey)
     def flowDefinitionId = column[String]("_flow_definition_id")
-    def creationTime = column[Long]("_created")
+    def created = column[Long]("_created")
+    def updated = column[Option[Long]]("_updated")
+    def creator = column[String]("_creator")
     def status = column[String]("_status")
     def retries = column[Int]("_retries")
     def startTime = column[Option[Long]]("_start_time")
     def endTime = column[Option[Long]]("_end_time")
 
-    def * = (id, flowDefinitionId, creationTime, status, retries, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
+    def * = (id, flowDefinitionId, created, updated, creator, status, retries, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
   }
 
   case class SysiphosFlowInstanceContext(
@@ -54,7 +59,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     override def flowDefinitionId: String = instance.flowDefinitionId
 
-    override def creationTime: Long = instance.creationTime
+    override def creationTime: Long = instance.created
 
     override def startTime: Option[Long] = instance.startTime
 
@@ -73,7 +78,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
   private val instanceTable = TableQuery[FlowInstances]
   private val contextTable = TableQuery[FlowInstanceContexts]
 
-  override def getFlowInstances(query: FlowInstanceQuery): Future[Seq[FlowInstance]] = {
+  override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstance]] = {
     val instancesWithContext = (for {
       (instance, context) <- instanceTable.filter(_.flowDefinitionId === query.flowDefinitionId) joinLeft contextTable on (_.id === _.flowInstanceId)
     } yield (instance, context)).result
@@ -92,11 +97,15 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     })
   }
 
-  override def createFlowInstance(flowDefinitionId: String, context: Map[String, String]): Future[FlowInstance] = {
+  override def createFlowInstance(
+    flowDefinitionId: String,
+    context: Map[String, String])(implicit repositoryContext: RepositoryContext): Future[FlowInstance] = {
     val newInstance = SlickFlowInstance(
       id = UUID.randomUUID().toString,
       flowDefinitionId = flowDefinitionId,
-      creationTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      created = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      creator = repositoryContext.currentUser,
+      updated = None,
       status = "new",
       retries = 3,
       startTime = None,

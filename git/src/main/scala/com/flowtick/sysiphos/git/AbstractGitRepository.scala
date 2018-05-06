@@ -3,6 +3,9 @@ package com.flowtick.sysiphos.git
 import java.io.{ ByteArrayOutputStream, File, FileOutputStream }
 
 import com.jcraft.jsch.{ JSch, Session }
+import io.circe.parser._
+import io.circe.syntax._
+import io.circe.{ Decoder, Encoder }
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevWalk
@@ -22,7 +25,7 @@ abstract class AbstractGitRepository[T](
   username: Option[String],
   password: Option[String],
   identityFilePath: Option[String],
-  identityFilePassphrase: Option[String])(implicit val executionContent: ExecutionContext) {
+  identityFilePassphrase: Option[String])(implicit val executionContent: ExecutionContext, decoder: Decoder[T], encoder: Encoder[T]) {
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected def createFile(path: String, content: Array[Byte], git: Git): Try[File] = Try {
@@ -88,7 +91,7 @@ abstract class AbstractGitRepository[T](
     getOrCreate.fold(Future.failed, (git: Git) => Future.fromTry {
       addAndCommitFile(
         name,
-        toString(item).getBytes,
+        item.asJson.noSpaces.getBytes,
         s"add $name")(git).map(_ => item)
     })
   }
@@ -121,7 +124,7 @@ abstract class AbstractGitRepository[T](
             val loader = git.getRepository.open(objectId)
             val content = new ByteArrayOutputStream()
             loader.copyTo(content)
-            val item = fromString(content.toString)
+            val item = decode[T](content.toString)
             item.right.foreach(foundItems.append(_))
             item.left.foreach(error => logger.error(s"error while loading item ($path, $objectId), $content", error))
           }
@@ -134,7 +137,4 @@ abstract class AbstractGitRepository[T](
   protected val initFileName = ".init"
 
   protected def init(git: Git): Try[Git] = addAndCommitFile(initFileName, "empty".getBytes, "init repository")(git)
-
-  protected def fromString(stringValue: String): Either[Exception, T]
-  protected def toString(item: T): String
 }

@@ -4,8 +4,9 @@ import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, Cancellable }
+import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
-import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduler }
+import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -17,10 +18,12 @@ object AkkaFlowExecutor {
 }
 
 trait AkkaFlowExecution extends Logging {
-  val flowScheduleRepository: FlowScheduleRepository
-  val flowInstanceRepository: FlowInstanceRepository
+  val flowScheduleRepository: FlowScheduleRepository[FlowSchedule]
+  val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
+  val flowScheduleStateStore: FlowScheduleStateStore
   val flowScheduler: FlowScheduler
   implicit val taskScheduler: Scheduler
+  implicit val repositoryContext: RepositoryContext
 
   def createInstance(flowSchedule: FlowSchedule): Task[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
@@ -47,7 +50,7 @@ trait AkkaFlowExecution extends Logging {
       case None =>
         flowScheduler
           .nextOccurrence(schedule, now)
-          .map(next => Task.fromFuture(flowScheduleRepository.setDueDate(schedule, next)))
+          .map(next => Task.fromFuture(flowScheduleStateStore.setDueDate(schedule.id, next)))
           .getOrElse(Task.unit)
     }
   }
@@ -55,8 +58,9 @@ trait AkkaFlowExecution extends Logging {
 }
 
 class AkkaFlowExecutor(
-  val flowScheduleRepository: FlowScheduleRepository,
-  val flowInstanceRepository: FlowInstanceRepository,
+  val flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
+  val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+  val flowScheduleStateStore: FlowScheduleStateStore,
   val flowScheduler: FlowScheduler,
   val taskScheduler: Scheduler) extends Actor with AkkaFlowExecution with Logging {
 
@@ -66,6 +70,10 @@ class AkkaFlowExecutor(
   def now: LocalDateTime = LocalDateTime.now()
 
   def zoneOffset: ZoneOffset = ZoneOffset.UTC
+
+  override implicit val repositoryContext: RepositoryContext = new RepositoryContext {
+    override def currentUser: String = "undefined"
+  }
 
   override def receive: PartialFunction[Any, Unit] = {
     case _: AkkaFlowExecutor.Init => init

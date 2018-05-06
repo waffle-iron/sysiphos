@@ -23,6 +23,10 @@ object FlowDefinition {
     task <- c.downField("task").as[FlowTask]
   } yield SysiphosDefinition(id, task)
 
+  implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
+    override def apply(a: FlowDefinition): Json = Json.obj()
+  }
+
   implicit val taskDecoder: Decoder[FlowTask] = (c: HCursor) => for {
     id <- c.downField("id").as[String]
     typeHint <- c.downField("type").as[String]

@@ -3,15 +3,16 @@ package com.flowtick.sysiphos.api
 import java.io.File
 import java.util.concurrent.Executors
 
-import akka.actor.{ActorSystem, Props}
-import com.flowtick.sysiphos.api.resources.{GraphIQLResources, TwitterBootstrapResources, UIResources}
+import akka.actor.{ ActorSystem, Props }
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
+import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
-import com.flowtick.sysiphos.execution.{AkkaFlowExecutor, CronScheduler}
+import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler }
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.git.{GitFlowDefinitionRepository, GitFlowScheduleRepository}
+import com.flowtick.sysiphos.git.GitFlowDefinitionRepository
 import com.flowtick.sysiphos.scheduler._
-import com.flowtick.sysiphos.slick.SlickFlowInstanceRepository
-import com.twitter.finagle.{Http, ListeningServer}
+import com.flowtick.sysiphos.slick.{ SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.twitter.finagle.{ Http, ListeningServer }
 import com.twitter.util.Await
 import io.finch.Application
 import io.finch.circe._
@@ -25,20 +26,23 @@ trait SysiphosApiServer extends SysiphosApi
   with TwitterBootstrapResources
   with UIResources {
 
-  def apiContext: SysiphosApiContext
+  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext
 
   implicit val executionContext: ExecutionContext
   implicit def executorSystem: ActorSystem
   implicit def scheduler: Scheduler
 
-  def startExecutorSystem(): Unit = {
+  def startExecutorSystem(
+    flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
+    flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+    flowScheduleStateStore: FlowScheduleStateStore): Unit = {
     val executorActorProps = Props(
       classOf[AkkaFlowExecutor],
-      apiContext.flowScheduleRepository,
-      apiContext.flowInstanceRepository,
+      flowScheduleRepository,
+      flowInstanceRepository,
+      flowScheduleStateStore,
       CronScheduler: FlowScheduler,
-      scheduler
-    )
+      scheduler)
 
     val executorActor = executorSystem.actorOf(executorActorProps)
 
@@ -53,15 +57,20 @@ trait SysiphosApiServer extends SysiphosApi
 }
 
 object SysiphosApiServerApp extends SysiphosApiServer with App {
-  val flowDefinitionRepository: FlowDefinitionRepository = new GitFlowDefinitionRepository(new File(repoBaseDir, "flows"), flowDefinitionsRemoteUrl, None)
-  val flowScheduleRepository: FlowScheduleRepository = new GitFlowScheduleRepository(new File(repoBaseDir, "schedules"), flowSchedulesRemoteUrl, None)
-  val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads)))
+  val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
+  val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
+
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new GitFlowDefinitionRepository(new File(repoBaseDir, "flows"), flowDefinitionsRemoteUrl, None)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+
   implicit val executorSystem: ActorSystem = ActorSystem()
   implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
 
-  val apiContext = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository)(ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads)))
-  startExecutorSystem()
+  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutionContext, repositoryContext)
+
+  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)
   startApiServer
 }

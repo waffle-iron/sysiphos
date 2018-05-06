@@ -12,9 +12,9 @@ object CronScheduler extends FlowScheduler {
   def toDateTime(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, offset)
 
   override def nextOccurrence(schedule: FlowSchedule, now: Long): Option[Long] = schedule match {
-    case CronSchedule(_, expression, _, _, _, _) =>
+    case cron: CronSchedule =>
       val dateTime = toDateTime(now)
-      Cron(expression).toOption.flatMap(_.next(dateTime)).map(_.toEpochSecond(offset))
+      Cron(cron.expression).toOption.flatMap(_.next(dateTime)).map(_.toEpochSecond(offset))
     case _ => None
   }
 }

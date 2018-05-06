@@ -2,6 +2,7 @@ package com.flowtick.sysiphos.api
 
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
+import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.scheduler.FlowSchedule
 import io.circe.Json
@@ -67,7 +68,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch._
   import io.finch.circe._
 
-  def apiContext: ApiContext
+  def apiContext(repositoryContext: RepositoryContext): ApiContext
   implicit val executionContext: ExecutionContext
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
@@ -79,7 +80,9 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
       val variables: Json = queryObj("variables").filter(!_.isNull).getOrElse(Json.obj())
 
       query.map(parseQuery).map {
-        case Success(document) => executeQuery(document, operationName, variables)
+        case Success(document) => executeQuery(document, operationName, variables, apiContext(new RepositoryContext {
+          override def currentUser: String = "user"
+        }))
         case Failure(parseError) => Future.failed(parseError)
       }
     }.getOrElse(Future.failed(new IllegalArgumentException("invalid json body")))
@@ -89,7 +92,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
 
   def parseQuery(query: String): Try[Document] = QueryParser.parse(query)
 
-  def executeQuery(query: Document, operation: Option[String], vars: Json): Future[Json] =
+  def executeQuery(query: Document, operation: Option[String], vars: Json, apiContext: ApiContext): Future[Json] =
     Executor.execute(SysiphosApi.schema, query, apiContext, variables = vars, operationName = operation)
 
   val api = statusEndpoint :+: apiEndpoint

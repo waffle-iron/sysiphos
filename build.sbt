@@ -123,7 +123,7 @@ lazy val serverJS = server.js.settings(
 
 lazy val root = project.in(file(".")).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, git).
+  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, git, slick).
   settings(
     name := "sysiphos-root",
     publish := {},

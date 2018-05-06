@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.api
 
-import slick.jdbc.{DriverDataSource, H2Profile, MySQLProfile}
+import slick.jdbc.{ DriverDataSource, H2Profile, MySQLProfile }
 
 trait SysiphosApiServerConfig {
   def propOrEnv(key: String): Option[String] =
@@ -21,10 +21,9 @@ trait SysiphosApiServerConfig {
   def dbProfileName: String = propOrEnv("database.profile", "h2")
 
   def dataSource = new DriverDataSource(
-    propOrEnv("database.url", "jdbc:h2:sysiphos"),
+    propOrEnv("database.url", "jdbc:h2:sysiphos.db"),
     propOrEnv("database.user", "sa"),
-    propOrEnv("database.password", "")
-  )
+    propOrEnv("database.password", ""))
 
   def dbProfile = dbProfileName match {
     case "mysql" => MySQLProfile

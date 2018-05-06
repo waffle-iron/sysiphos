@@ -8,16 +8,6 @@ trait FlowSchedule {
   def enabled: Option[Boolean]
 }
 
-object FlowSchedule {
-  import io.circe.generic.auto._
-  import io.circe.parser._
-  import io.circe.syntax._
-
-  def fromJson(json: String): Either[Exception, CronSchedule] = {
-    decode[CronSchedule](json)
-  }
-
-  def toJson(definition: FlowSchedule): String = definition match {
-    case s: CronSchedule => s.asJson.noSpaces
-  }
+trait CronSchedule extends FlowSchedule {
+  def expression: String
 }
