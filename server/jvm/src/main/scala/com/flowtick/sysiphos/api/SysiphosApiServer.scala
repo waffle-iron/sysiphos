@@ -1,18 +1,16 @@
 package com.flowtick.sysiphos.api
 
-import java.io.File
 import java.util.concurrent.Executors
 
-import akka.actor.{ActorSystem, Props}
-import com.flowtick.sysiphos.api.resources.{GraphIQLResources, TwitterBootstrapResources, UIResources}
+import akka.actor.{ ActorSystem, Props }
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
-import com.flowtick.sysiphos.execution.{AkkaFlowExecutor, CronScheduler}
+import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler }
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.git.GitFlowDefinitionRepository
 import com.flowtick.sysiphos.scheduler._
-import com.flowtick.sysiphos.slick.{DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository}
-import com.twitter.finagle.{Http, ListeningServer}
+import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.twitter.finagle.{ Http, ListeningServer }
 import com.twitter.util.Await
 import io.finch.Application
 import io.finch.circe._

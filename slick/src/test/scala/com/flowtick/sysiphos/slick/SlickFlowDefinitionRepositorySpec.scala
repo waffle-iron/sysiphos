@@ -15,7 +15,6 @@ class SlickFlowDefinitionRepositorySpec extends SlickSpec {
       "foo",
       CommandLineTask("foo", None, "ls -la"))
 
-
     slickDefinitionRepository.getFlowDefinitions(this).futureValue should be(empty)
     slickDefinitionRepository.addFlowDefinition(someDefinition)(this).futureValue should be(someDefinition)
     slickDefinitionRepository.getFlowDefinitions(this).futureValue should have size 1

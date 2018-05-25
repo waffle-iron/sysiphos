@@ -3,10 +3,10 @@ import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.slick.{DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository}
+import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
 import monix.execution.Scheduler
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
 
 object DevSysiphosApiServer extends App with SysiphosApiServer {
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
