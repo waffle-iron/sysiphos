@@ -9,19 +9,19 @@ import monix.execution.ExecutionModel.SynchronousExecution
 import monix.execution.Scheduler
 import monix.execution.schedulers.TestScheduler
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ FlatSpec, Matchers }
 
-import scala.concurrent.Future
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
 
-class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matchers with MockFactory {
-  val scheduler: TestScheduler = TestScheduler().withExecutionModel(SynchronousExecution)
+class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matchers with MockFactory
+  with ScalaFutures with IntegrationPatience {
 
   override val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = mock[FlowInstanceRepository[FlowInstance]]
   override val flowScheduleRepository: FlowScheduleRepository[FlowSchedule] = mock[FlowScheduleRepository[FlowSchedule]]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
-  override implicit val taskScheduler: Scheduler = scheduler
 
   override implicit val repositoryContext: RepositoryContext = new RepositoryContext {
     override def currentUser: String = "test-user"
@@ -49,8 +49,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matcher
     (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *)
 
-    tick(now = 0).runAsync
-    scheduler.tick(Duration(5, TimeUnit.MINUTES))
+    dueTaskInstances(now = 0).futureValue
 
     override def currentUser: String = "test-user"
   }
