@@ -8,4 +8,6 @@
         logicalFilePath="db.changelog.xml">
     <include file="db/create_flow_definition.xml" />
     <include file="db/create_flow_schedule.xml" />
+    <include file="db/create_flow_instance.xml" />
+    <include file="db/create_flow_instance_context.xml" />
 </databaseChangeLog>

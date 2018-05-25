@@ -16,6 +16,7 @@ final case class SlickFlowInstance(
   id: String,
   flowDefinitionId: String,
   created: Long,
+  version: Long,
   updated: Option[Long],
   creator: String,
   status: String,
@@ -30,18 +31,19 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
   val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-instance-repository"))
 
-  class FlowInstances(tag: Tag) extends Table[SlickFlowInstance](tag, "_flow_instance") {
-    def id = column[String]("_id", O.PrimaryKey)
-    def flowDefinitionId = column[String]("_flow_definition_id")
-    def created = column[Long]("_created")
-    def updated = column[Option[Long]]("_updated")
-    def creator = column[String]("_creator")
-    def status = column[String]("_status")
-    def retries = column[Int]("_retries")
-    def startTime = column[Option[Long]]("_start_time")
-    def endTime = column[Option[Long]]("_end_time")
+  class FlowInstances(tag: Tag) extends Table[SlickFlowInstance](tag, "_FLOW_INSTANCE") {
+    def id = column[String]("_ID", O.PrimaryKey)
+    def flowDefinitionId = column[String]("_FLOW_DEFINITION_ID")
+    def created = column[Long]("_CREATED")
+    def version = column[Long]("_VERSION")
+    def updated = column[Option[Long]]("_UPDATED")
+    def creator = column[String]("_CREATOR")
+    def status = column[String]("_STATUS")
+    def retries = column[Int]("_RETRIES")
+    def startTime = column[Option[Long]]("_START_TIME")
+    def endTime = column[Option[Long]]("_END_TIME")
 
-    def * = (id, flowDefinitionId, created, updated, creator, status, retries, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
+    def * = (id, flowDefinitionId, created, version, updated, creator, status, retries, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
   }
 
   case class SysiphosFlowInstanceContext(
@@ -66,17 +68,19 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     override def endTime: Option[Long] = instance.endTime
   }
 
-  class FlowInstanceContexts(tag: Tag) extends Table[SysiphosFlowInstanceContext](tag, "_flow_instance_context") {
-    def id = column[String]("_id", O.PrimaryKey)
-    def flowInstanceId = column[String]("_flow_instance_id")
-    def key = column[String]("_key")
-    def value = column[String]("_value")
+  class FlowInstanceContexts(tag: Tag) extends Table[SysiphosFlowInstanceContext](tag, "_FLOW_INSTANCE_CONTEXT") {
+    def id = column[String]("_ID", O.PrimaryKey)
+    def flowInstanceId = column[String]("_FLOW_INSTANCE_ID")
+    def key = column[String]("_KEY")
+    def value = column[String]("_VALUE")
 
     def * = (id, flowInstanceId, key, value) <> (SysiphosFlowInstanceContext.tupled, SysiphosFlowInstanceContext.unapply)
   }
 
   private val instanceTable = TableQuery[FlowInstances]
   private val contextTable = TableQuery[FlowInstanceContexts]
+
+  private[slick] def getFlowInstances: Future[Seq[SlickFlowInstance]] = db.run(instanceTable.result)
 
   override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstance]] = {
     val instancesWithContext = (for {
@@ -104,6 +108,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
       id = UUID.randomUUID().toString,
       flowDefinitionId = flowDefinitionId,
       created = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      version = 0L,
       creator = repositoryContext.currentUser,
       updated = None,
       status = "new",
