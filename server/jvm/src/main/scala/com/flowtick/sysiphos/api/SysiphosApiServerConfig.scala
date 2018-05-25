@@ -1,17 +1,9 @@
 package com.flowtick.sysiphos.api
 
 import slick.jdbc.{ DriverDataSource, H2Profile, MySQLProfile }
+import com.flowtick.sysiphos.config.Configuration._
 
 trait SysiphosApiServerConfig {
-  def propOrEnv(key: String): Option[String] =
-    Option(System.getProperties.getProperty(key))
-      .orElse(Option(System.getenv(key)))
-
-  def propOrEnv(key: String, defaultValue: String): String =
-    Option(System.getProperties.getProperty(key))
-      .orElse(Option(System.getenv(key)))
-      .getOrElse(defaultValue)
-
   def bindAddress: String = propOrEnv("http.bind.address").getOrElse("0.0.0.0")
   def httpPort: Int = propOrEnv("PORT0").orElse(propOrEnv("http.port")).getOrElse("8080").toInt
   def repoBaseDir: String = propOrEnv("repo.base.dir", defaultValue = ".sysiphos")

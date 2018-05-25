@@ -14,6 +14,7 @@ final case class SlickCronSchedule(
   id: String,
   creator: String,
   created: Long,
+  version: Long,
   updated: Option[Long],
   expression: String,
   flowDefinitionId: String,
@@ -30,18 +31,19 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
 
   val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-schedule-repository"))
 
-  class FlowSchedules(tag: Tag) extends Table[SlickCronSchedule](tag, "_flow_schedule") {
-    def id = column[String]("_id", O.PrimaryKey)
-    def creator = column[String]("_creator")
-    def created = column[Long]("_created")
-    def updated = column[Option[Long]]("_updated")
-    def expression = column[String]("_expression")
-    def flowDefinitionId = column[String]("_flow_definition_id")
-    def flowTaskId = column[Option[String]]("_flow_task_id")
-    def nextDueDate = column[Option[Long]]("_next_due_date")
-    def enabled = column[Option[Boolean]]("_enabled")
+  class FlowSchedules(tag: Tag) extends Table[SlickCronSchedule](tag, "_FLOW_SCHEDULE") {
+    def id = column[String]("_ID", O.PrimaryKey)
+    def creator = column[String]("_CREATOR")
+    def created = column[Long]("_CREATED")
+    def version = column[Long]("_VERSION")
+    def updated = column[Option[Long]]("_UPDATED")
+    def expression = column[String]("_EXPRESSION")
+    def flowDefinitionId = column[String]("_FLOW_DEFINITION_ID")
+    def flowTaskId = column[Option[String]]("_FLOW_TASK_ID")
+    def nextDueDate = column[Option[Long]]("_NEXT_DUE_DATE")
+    def enabled = column[Option[Boolean]]("_ENABLED")
 
-    def * = (id, creator, created, updated, expression, flowDefinitionId, flowTaskId, nextDueDate, enabled) <> (SlickCronSchedule.tupled, SlickCronSchedule.unapply)
+    def * = (id, creator, created, version, updated, expression, flowDefinitionId, flowTaskId, nextDueDate, enabled) <> (SlickCronSchedule.tupled, SlickCronSchedule.unapply)
   }
 
   val flowSchedulesTable = TableQuery[FlowSchedules]
@@ -57,6 +59,7 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       id = id,
       creator = repositoryContext.currentUser,
       created = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      version = 0L,
       updated = None,
       expression = expression,
       flowDefinitionId = flowDefinitionId,

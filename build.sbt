@@ -90,7 +90,8 @@ lazy val slick = project.in(file("slick")).
     libraryDependencies += "com.typesafe.slick" %% "slick" % "3.2.3",
     libraryDependencies += "mysql" % "mysql-connector-java" % "5.1.34",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
-    libraryDependencies += "com.h2database" % "h2" % "1.4.196"
+    libraryDependencies += "com.h2database" % "h2" % "1.4.196",
+    libraryDependencies += "org.liquibase" % "liquibase-core" % "3.6.1"
   ).dependsOn(coreJVM)
 
 lazy val server = crossProject.in(file("server")).
