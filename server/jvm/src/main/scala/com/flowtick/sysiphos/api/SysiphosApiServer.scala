@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.api
 
-import java.io.File
 import java.util.concurrent.Executors
 
 import akka.actor.{ ActorSystem, Props }
@@ -9,9 +8,8 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
 import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler }
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.git.GitFlowDefinitionRepository
 import com.flowtick.sysiphos.scheduler._
-import com.flowtick.sysiphos.slick.{ SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
 import com.twitter.finagle.{ Http, ListeningServer }
 import com.twitter.util.Await
 import io.finch.Application
@@ -61,7 +59,7 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new GitFlowDefinitionRepository(new File(repoBaseDir, "flows"), flowDefinitionsRemoteUrl, None)
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
 
@@ -72,6 +70,9 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
 
   def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutionContext, repositoryContext)
 
+  DefaultSlickRepositoryMigrations.updateDatabase
+
   startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
+
   startApiServer
 }
