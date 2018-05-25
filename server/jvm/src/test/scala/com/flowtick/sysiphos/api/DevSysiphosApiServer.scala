@@ -1,14 +1,18 @@
 package com.flowtick.sysiphos.api
+
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
+import com.flowtick.sysiphos.slick.{DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository}
+import com.flowtick.sysiphos.task.CommandLineTask
 import monix.execution.Scheduler
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 
-import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-object DevSysiphosApiServer extends App with SysiphosApiServer {
+object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures with IntegrationPatience {
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
@@ -22,8 +26,18 @@ object DevSysiphosApiServer extends App with SysiphosApiServer {
 
   def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutor, repositoryContext)
 
-  DefaultSlickRepositoryMigrations.updateDatabase
+  DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
 
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)
+  implicit val repositoryContext = new RepositoryContext {
+    override def currentUser: String = "dev-test"
+  }
+
+  val definition = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+    "foo",
+    CommandLineTask("foo", None, "ls -la"))).futureValue
+
+  flowScheduleRepository.addFlowSchedule("test-schedule", "*", definition.id, None, Some(0), Some(true)).futureValue
+
+  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
   startApiServer
 }

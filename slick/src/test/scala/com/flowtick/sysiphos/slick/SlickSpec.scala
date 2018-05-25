@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.slick
 
-import java.sql.Connection
 import java.util.UUID
 
 import org.scalatest.concurrent.ScalaFutures
@@ -18,9 +17,7 @@ trait SlickSpec extends FlatSpec
     user = "sa",
     password = "")
 
-  override def createJdbcConnection: Connection = dataSource.getConnection()
-
   override protected def beforeAll(): Unit = {
-    updateDatabase
+    updateDatabase(dataSource)
   }
 }

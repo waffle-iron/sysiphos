@@ -13,7 +13,7 @@ trait SysiphosApiServerConfig {
   def dbProfileName: String = propOrEnv("database.profile", "h2")
 
   def dataSource = new DriverDataSource(
-    propOrEnv("database.url", "jdbc:h2:sysiphos.db"),
+    propOrEnv("database.url", "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1"),
     propOrEnv("database.user", "sa"),
     propOrEnv("database.password", ""))
 
