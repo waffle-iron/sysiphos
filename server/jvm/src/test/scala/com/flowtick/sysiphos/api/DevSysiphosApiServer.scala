@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.api
 
+import java.time.{LocalDateTime, ZoneOffset}
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
@@ -36,7 +37,14 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     "foo",
     CommandLineTask("foo", None, "ls -la"))).futureValue
 
-  flowScheduleRepository.addFlowSchedule("test-schedule", "*", definition.id, None, Some(0), Some(true)).futureValue
+  flowScheduleRepository.addFlowSchedule(
+    "test-schedule",
+    "0,15,30,45 * * ? * *",
+    definition.id,
+    None,
+    Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
+    Some(true)
+  ).futureValue
 
   startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
   startApiServer

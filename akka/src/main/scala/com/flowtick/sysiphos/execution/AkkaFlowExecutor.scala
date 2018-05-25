@@ -33,14 +33,24 @@ trait AkkaFlowExecution extends Logging {
 
   def dueTaskInstances(now: Long): Future[Seq[Option[FlowInstance]]] = {
     log.debug("tick.")
-    val futureSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
+    val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
       .getFlowSchedules.map(_.filter(_.enabled.contains(true)))
 
-    futureSchedules.flatMap { schedules =>
-      log.debug(s"checking sched" +
-        s"ules: $schedules.")
+    futureEnabledSchedules.flatMap { schedules =>
+      log.debug(s"checking schedules: $schedules.")
       Future.sequence {
-        schedules.map(s => createInstanceIfDue(s, now))
+        schedules.map{ s =>
+          val maybeFlowInstance = createInstanceIfDue(s, now)
+
+          // schedule next occurrence
+          maybeFlowInstance.foreach { _ =>
+            flowScheduler
+              .nextOccurrence(s, now)
+              .map(next => flowScheduleStateStore.setDueDate(s.id, next))
+          }
+
+          maybeFlowInstance
+        }
       }
     }
   }
@@ -50,14 +60,8 @@ trait AkkaFlowExecution extends Logging {
     schedule.nextDueDate match {
       case Some(timestamp) if timestamp <= now =>
         createInstance(schedule).map(Option(_))
-      case Some(_) =>
+      case _ =>
         log.debug(s"not due: $schedule")
-        Future.successful(None)
-      case None =>
-        flowScheduler
-          .nextOccurrence(schedule, now)
-          .map(next => flowScheduleStateStore.setDueDate(schedule.id, next))
-          .getOrElse(Future.successful())
         Future.successful(None)
     }
   }

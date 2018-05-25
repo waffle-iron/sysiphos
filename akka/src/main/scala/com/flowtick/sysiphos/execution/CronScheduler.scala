@@ -1,12 +1,12 @@
 package com.flowtick.sysiphos.execution
 
-import java.time.{ LocalDateTime, ZoneOffset }
+import java.time.{LocalDateTime, ZoneOffset}
 
-import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowSchedule, FlowScheduler }
+import com.flowtick.sysiphos.scheduler.{CronSchedule, FlowSchedule, FlowScheduler}
 import cron4s.Cron
 import cron4s.lib.javatime._
 
-object CronScheduler extends FlowScheduler {
+object CronScheduler extends FlowScheduler with Logging {
   val offset: ZoneOffset = ZoneOffset.UTC
 
   def toDateTime(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, offset)
