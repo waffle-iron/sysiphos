@@ -1,6 +1,7 @@
 package com.flowtick.sysiphos.slick
 
 import java.sql.Connection
+import java.util.UUID
 
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ BeforeAndAfterAll, FlatSpec, Matchers }
@@ -13,7 +14,7 @@ trait SlickSpec extends FlatSpec
   with ScalaFutures {
 
   val dataSource = new DriverDataSource(
-    url = "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1", // wait for VM to die for closing in-memory db
+    url = s"jdbc:h2:mem:${UUID.randomUUID().toString};DB_CLOSE_DELAY=-1", // wait for VM to die for closing in-memory db
     user = "sa",
     password = "")
 
