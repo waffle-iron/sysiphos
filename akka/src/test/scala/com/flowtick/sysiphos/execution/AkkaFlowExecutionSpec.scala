@@ -1,19 +1,13 @@
 package com.flowtick.sysiphos.execution
 
-import java.util.concurrent.TimeUnit
-
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
+import com.flowtick.sysiphos.flow.{FlowInstance, FlowInstanceRepository}
 import com.flowtick.sysiphos.scheduler._
-import monix.execution.ExecutionModel.SynchronousExecution
-import monix.execution.Scheduler
-import monix.execution.schedulers.TestScheduler
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
 
 class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matchers with MockFactory
   with ScalaFutures with IntegrationPatience {
