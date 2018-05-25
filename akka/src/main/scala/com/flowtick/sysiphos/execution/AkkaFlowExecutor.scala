@@ -91,6 +91,9 @@ class AkkaFlowExecutor(
           case Some(taskInstance) =>
             flowDefinitionRepository.getFlowDefinitions.map(_.find(_.id == taskInstance.flowDefinitionId))
         }).map(maybeFlowDefinitions => DueFlowDefinitions(maybeFlowDefinitions.flatten))
+      }.recover { case e: Exception =>
+        log.error(s"error while preparing flow definitions: ${e.getLocalizedMessage}")
+        DueFlowDefinitions(Seq.empty)
       }
 
       futureFlowDefinitions.pipeTo(self)(sender())
