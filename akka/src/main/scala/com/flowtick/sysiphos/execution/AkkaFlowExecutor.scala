@@ -3,18 +3,20 @@ package com.flowtick.sysiphos.execution
 import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ Actor, Cancellable }
+import akka.actor.{ Actor, Cancellable, Props }
+import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
+import com.flowtick.sysiphos.execution.AkkaFlowExecutor.DueFlowDefinitions
+import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
-import monix.eval.Task
-import monix.execution.Scheduler
-
+import concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object AkkaFlowExecutor {
   case class Init()
   case class Tick()
+  case class DueFlowDefinitions(flows: Seq[FlowDefinition])
 }
 
 trait AkkaFlowExecution extends Logging {
@@ -22,36 +24,41 @@ trait AkkaFlowExecution extends Logging {
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
   val flowScheduleStateStore: FlowScheduleStateStore
   val flowScheduler: FlowScheduler
-  implicit val taskScheduler: Scheduler
   implicit val repositoryContext: RepositoryContext
 
-  def createInstance(flowSchedule: FlowSchedule): Task[FlowInstance] = {
+  def createInstance(flowSchedule: FlowSchedule): Future[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
-    Task.fromFuture(flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty))
+    flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty)
   }
 
-  def tick(now: Long): Task[Seq[Unit]] = {
+  def dueTaskInstances(now: Long): Future[Seq[Option[FlowInstance]]] = {
     log.debug("tick.")
-    val futureSchedules = flowScheduleRepository.getFlowSchedules.map(_.filter(_.enabled.contains(true)))
-    Task.fromFuture(futureSchedules).flatMap { schedules =>
-      log.debug(s"checking schedules: $schedules.")
-      Task.gather(schedules.map(createInstanceIfDue(_, now)))
+    val futureSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
+      .getFlowSchedules.map(_.filter(_.enabled.contains(true)))
+
+    futureSchedules.flatMap { schedules =>
+      log.debug(s"checking sched" +
+        s"ules: $schedules.")
+      Future.sequence {
+        schedules.map(s => createInstanceIfDue(s, now))
+      }
     }
   }
 
-  def createInstanceIfDue(schedule: FlowSchedule, now: Long): Task[Unit] = {
+  def createInstanceIfDue(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
     log.debug(s"checking if $schedule is due.")
     schedule.nextDueDate match {
       case Some(timestamp) if timestamp <= now =>
-        createInstance(schedule).map(_ => ())
+        createInstance(schedule).map(Option(_))
       case Some(_) =>
         log.debug(s"not due: $schedule")
-        Task.unit
+        Future.successful(None)
       case None =>
         flowScheduler
           .nextOccurrence(schedule, now)
-          .map(next => Task.fromFuture(flowScheduleStateStore.setDueDate(schedule.id, next)))
-          .getOrElse(Task.unit)
+          .map(next => flowScheduleStateStore.setDueDate(schedule.id, next))
+          .getOrElse(Future.successful())
+        Future.successful(None)
     }
   }
 
@@ -60,9 +67,9 @@ trait AkkaFlowExecution extends Logging {
 class AkkaFlowExecutor(
   val flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+  val flowDefinitionRepository: FlowDefinitionRepository,
   val flowScheduleStateStore: FlowScheduleStateStore,
-  val flowScheduler: FlowScheduler,
-  val taskScheduler: Scheduler) extends Actor with AkkaFlowExecution with Logging {
+  val flowScheduler: FlowScheduler) extends Actor with AkkaFlowExecution with Logging {
 
   val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
   val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
@@ -77,7 +84,25 @@ class AkkaFlowExecutor(
 
   override def receive: PartialFunction[Any, Unit] = {
     case _: AkkaFlowExecutor.Init => init
-    case _: AkkaFlowExecutor.Tick => tick(now.toEpochSecond(zoneOffset)).runAsync(taskScheduler)
+    case _: AkkaFlowExecutor.Tick =>
+      val futureTaskInstances = dueTaskInstances(now.toEpochSecond(zoneOffset))
+      val futureFlowDefinitions = futureTaskInstances.flatMap { taskInstances =>
+        Future.sequence(taskInstances.map {
+          case Some(taskInstance) =>
+            flowDefinitionRepository.getFlowDefinitions.map(_.find(_.id == taskInstance.flowDefinitionId))
+        }).map(maybeFlowDefinitions => DueFlowDefinitions(maybeFlowDefinitions.flatten))
+      }.recover { case e: Exception =>
+        log.error(s"error while preparing flow definitions: ${e.getLocalizedMessage}")
+        DueFlowDefinitions(Seq.empty)
+      }
+
+      futureFlowDefinitions.pipeTo(self)(sender())
+
+    case DueFlowDefinitions(flowDefinitions) => flowDefinitions.foreach { flowDefinition =>
+      val executorActorProps = Props(classOf[AkkaFlowDefinitionExecutor], flowDefinition)
+      log.info(s"starting a flow definition actor for $flowDefinition")
+      context.actorOf(executorActorProps) ! FlowDefinitionExecutor.Init
+    }
   }
 
   def init: Cancellable = {

@@ -33,14 +33,15 @@ trait SysiphosApiServer extends SysiphosApi
   def startExecutorSystem(
     flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
     flowInstanceRepository: FlowInstanceRepository[FlowInstance],
-    flowScheduleStateStore: FlowScheduleStateStore): Unit = {
+    flowScheduleStateStore: FlowScheduleStateStore,
+    flowDefinitionRepository: FlowDefinitionRepository): Unit = {
     val executorActorProps = Props(
       classOf[AkkaFlowExecutor],
       flowScheduleRepository,
       flowInstanceRepository,
+      flowDefinitionRepository,
       flowScheduleStateStore,
-      CronScheduler: FlowScheduler,
-      scheduler)
+      CronScheduler: FlowScheduler)
 
     val executorActor = executorSystem.actorOf(executorActorProps)
 
@@ -69,8 +70,9 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
 
   def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutionContext, repositoryContext)
 
-  DefaultSlickRepositoryMigrations.updateDatabase
+  DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
 
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)
+  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
+
   startApiServer
 }
