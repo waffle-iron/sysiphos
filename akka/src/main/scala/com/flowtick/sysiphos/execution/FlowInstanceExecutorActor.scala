@@ -5,7 +5,7 @@ import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowTask }
 import com.flowtick.sysiphos.task.CommandLineTask
 
 import scala.sys.process._
-trait FlowDefinitionExecutor extends Logging {
+trait FlowInstanceExecution extends Logging {
   val flowDefinition: FlowDefinition
 
   def execute(task: FlowTask): Unit = task match {
@@ -18,14 +18,14 @@ trait FlowDefinitionExecutor extends Logging {
   }
 }
 
-class AkkaFlowDefinitionExecutor(override val flowDefinition: FlowDefinition)
-  extends Actor with FlowDefinitionExecutor {
+class FlowInstanceExecutorActor(override val flowDefinition: FlowDefinition)
+  extends Actor with FlowInstanceExecution {
 
   override def receive: PartialFunction[Any, Unit] = {
-    case FlowDefinitionExecutor.Init => execute(flowDefinition.task)
+    case FlowInstanceExecution.Init => execute(flowDefinition.task)
   }
 }
 
-object FlowDefinitionExecutor {
+object FlowInstanceExecution {
   case object Init
 }

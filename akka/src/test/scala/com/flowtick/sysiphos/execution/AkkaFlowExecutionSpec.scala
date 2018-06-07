@@ -1,15 +1,15 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{FlowInstance, FlowInstanceRepository}
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
 import com.flowtick.sysiphos.scheduler._
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
+import org.scalatest.{ FlatSpec, Matchers }
 
 import scala.concurrent.Future
 
-class AkkaFlowExecutionSpec extends FlatSpec with AkkaFlowExecution with Matchers with MockFactory
+class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with MockFactory
   with ScalaFutures with IntegrationPatience {
 
   override val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = mock[FlowInstanceRepository[FlowInstance]]

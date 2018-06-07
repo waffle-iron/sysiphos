@@ -5,8 +5,8 @@ import java.util.concurrent.Executors
 import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.execution.AkkaFlowExecutor.Init
-import com.flowtick.sysiphos.execution.{ AkkaFlowExecutor, CronScheduler }
+import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
+import com.flowtick.sysiphos.execution.{ FlowExecutorActor, CronScheduler }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
@@ -36,7 +36,7 @@ trait SysiphosApiServer extends SysiphosApi
     flowScheduleStateStore: FlowScheduleStateStore,
     flowDefinitionRepository: FlowDefinitionRepository): Unit = {
     val executorActorProps = Props(
-      classOf[AkkaFlowExecutor],
+      classOf[FlowExecutorActor],
       flowScheduleRepository,
       flowInstanceRepository,
       flowDefinitionRepository,

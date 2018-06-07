@@ -7,7 +7,7 @@ import com.flowtick.sysiphos.config.Configuration
 import liquibase.database.DatabaseConnection
 import liquibase.database.jvm.JdbcConnection
 import liquibase.resource.ClassLoaderResourceAccessor
-import liquibase.{Contexts, LabelExpression, Liquibase}
+import liquibase.{ Contexts, LabelExpression, Liquibase }
 
 import scala.util.Try
 

@@ -1,17 +1,17 @@
 package com.flowtick.sysiphos.api
 
-import java.time.{LocalDateTime, ZoneOffset}
+import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
-import com.flowtick.sysiphos.slick.{DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository}
+import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
 import com.flowtick.sysiphos.task.CommandLineTask
 import monix.execution.Scheduler
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
 
 object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures with IntegrationPatience {
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
@@ -43,8 +43,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     definition.id,
     None,
     Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
-    Some(true)
-  ).futureValue
+    Some(true)).futureValue
 
   startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
   startApiServer
