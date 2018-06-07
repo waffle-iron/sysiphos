@@ -1,12 +1,13 @@
 package com.flowtick.sysiphos.execution
 
 import akka.actor.Actor
-import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowTask }
+import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowInstance, FlowInstanceRepository, FlowTask }
 import com.flowtick.sysiphos.task.CommandLineTask
 
 import scala.sys.process._
 trait FlowInstanceExecution extends Logging {
   val flowDefinition: FlowDefinition
+  val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
 
   def execute(task: FlowTask): Unit = task match {
     case CommandLineTask(id, children, command) =>
@@ -18,7 +19,9 @@ trait FlowInstanceExecution extends Logging {
   }
 }
 
-class FlowInstanceExecutorActor(override val flowDefinition: FlowDefinition)
+class FlowInstanceExecutorActor(
+  override val flowDefinition: FlowDefinition,
+  override val flowInstanceRepository: FlowInstanceRepository[FlowInstance])
   extends Actor with FlowInstanceExecution {
 
   override def receive: PartialFunction[Any, Unit] = {

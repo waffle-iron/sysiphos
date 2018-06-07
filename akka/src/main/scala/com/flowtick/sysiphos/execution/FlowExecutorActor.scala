@@ -104,7 +104,7 @@ class FlowExecutorActor(
       futureFlowDefinitions.pipeTo(self)(sender())
 
     case DueFlowDefinitions(flowDefinitions) => flowDefinitions.foreach { flowDefinition =>
-      val executorActorProps = Props(classOf[FlowInstanceExecutorActor], flowDefinition)
+      val executorActorProps = Props(new FlowInstanceExecutorActor(flowDefinition, flowInstanceRepository))
       log.info(s"starting a flow definition actor for $flowDefinition")
       context.actorOf(executorActorProps) ! FlowInstanceExecution.Init
     }
