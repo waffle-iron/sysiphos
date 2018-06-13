@@ -1,5 +1,5 @@
 [![Waffle.io - Columns and their card count](https://badge.waffle.io/flowtick/sysiphos.png?columns=all)](https://waffle.io/flowtick/sysiphos?utm_source=badge)
-![travis ci](https://api.travis-ci.org/flowtick/sysiphos.svg?branch=master)
+[![travis ci](https://api.travis-ci.org/flowtick/sysiphos.svg?branch=master)](https://travis-ci.org/flowtick/sysiphos)
 
 # Sysiphos
 
