@@ -1,7 +1,7 @@
 import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
-val scalaV = "2.12.5"
+val scalaV = "2.12.6"
 val finchV = "0.16.0-RC1"
 val circeV = "0.8.0"
 val slf4jV = "1.7.25"
@@ -12,7 +12,7 @@ lazy val common = Seq(
   name := "sysiphos",
   organization := "com.flowtick",
   scalaVersion := scalaV,
-  crossScalaVersions := Seq(scalaV, "2.11.11"),
+  crossScalaVersions := Seq(scalaV, "2.11.12"),
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseCrossBuild := true,
   releaseProcess := Seq[ReleaseStep](

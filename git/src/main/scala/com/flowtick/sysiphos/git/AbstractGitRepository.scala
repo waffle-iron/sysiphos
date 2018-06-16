@@ -6,7 +6,7 @@ import com.jcraft.jsch.{ JSch, Session }
 import io.circe.parser._
 import io.circe.syntax._
 import io.circe.{ Decoder, Encoder }
-import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.{ Git, TransportConfigCallback }
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
@@ -17,6 +17,7 @@ import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Try
+import com.flowtick.sysiphos._
 
 abstract class AbstractGitRepository[T](
   workDir: File,
@@ -62,10 +63,12 @@ abstract class AbstractGitRepository[T](
       val cloneCommand = Git.cloneRepository()
         .setURI(remoteUrl)
         .setDirectory(workDir)
-        .setTransportConfigCallback {
-          case ssh: SshTransport => ssh.setSshSessionFactory(sshSessionFactory)
-          case _ =>
-        }
+        .setTransportConfigCallback(new TransportConfigCallback {
+          override def configure(transport: Transport): Unit = transport match {
+            case ssh: SshTransport => ssh.setSshSessionFactory(sshSessionFactory)
+            case _ =>
+          }
+        })
 
       for {
         u <- username

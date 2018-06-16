@@ -8,6 +8,7 @@ import com.twitter.util.{ Duration, Future }
 import io.finch.{ Endpoint, get }
 
 import scala.util.Try
+import com.flowtick.sysiphos._
 
 trait StaticResourceSupport {
   def readerResponse(reader: Try[Reader], contentType: String): Future[Response] = {

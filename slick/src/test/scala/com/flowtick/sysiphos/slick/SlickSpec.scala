@@ -2,7 +2,7 @@ package com.flowtick.sysiphos.slick
 
 import java.util.UUID
 
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ BeforeAndAfterAll, FlatSpec, Matchers }
 import slick.jdbc.DriverDataSource
 
@@ -10,12 +10,17 @@ trait SlickSpec extends FlatSpec
   with Matchers
   with SlickRepositoryMigrations
   with BeforeAndAfterAll
-  with ScalaFutures {
+  with ScalaFutures
+  with IntegrationPatience {
 
-  val dataSource = new DriverDataSource(
-    url = s"jdbc:h2:mem:${UUID.randomUUID().toString};DB_CLOSE_DELAY=-1", // wait for VM to die for closing in-memory db
-    user = "sa",
-    password = "")
+  lazy val dataSource = {
+    Class.forName(classOf[org.h2.Driver].getName)
+
+    new DriverDataSource(
+      url = s"jdbc:h2:mem:${getClass.getName};DB_CLOSE_DELAY=-1", // wait for VM to die for closing in-memory db
+      user = "sa",
+      password = "")
+  }
 
   override protected def beforeAll(): Unit = {
     updateDatabase(dataSource)
