@@ -100,7 +100,7 @@ lazy val server = crossProject.in(file("server")).
     name := "sysiphos-server",
   )
 
-lazy val serverJVM = server.jvm.settings(
+lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
   libraryDependencies ++= Seq(
     "com.github.finagle" %% "finch-core" % finchV,
     "com.github.finagle" %% "finch-circe" % finchV,
@@ -108,12 +108,16 @@ lazy val serverJVM = server.jvm.settings(
     "org.sangria-graphql" %% "sangria-circe" % "1.1.0",
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
-  )
+  ),
+  resourceGenerators in Compile += Def.task {
+    Seq((fullOptJS in Compile in serverJS).value.data.getAbsoluteFile)
+  }.taskValue
+
 ).dependsOn(git, akka, slick)
 
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,
-  artifactPath in (Compile, fastOptJS) := baseDirectory.value.getParentFile / "jvm" / "target" / "scala-2.12" / "classes" / "sysiphos-ui.js",
+  artifactPath in (Compile, fastOptJS) := target.value / "sysiphos-ui.js",
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
     "in.nvilla" %%% "monadic-html" % "0.4.0-RC1",
