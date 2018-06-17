@@ -1,7 +1,9 @@
 package com.flowtick.sysiphos.ui
 
-import mhtml.{ Rx, Var }
-import scala.xml.Elem
+import com.thoughtworks.binding.Binding.{ Constants, Vars }
+import com.thoughtworks.binding.{ Binding, dom }
+import org.scalajs.dom.html.{ Div, Table, TableRow }
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
@@ -10,44 +12,47 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   case object Foo extends Action
   case class SetDefinitions(definitions: Seq[FlowDefinitionSummary]) extends Action
 
-  case class State(flows: Seq[FlowDefinitionSummary])
-
-  val action: Var[Action] = Var(Initial)
-
-  val state: Rx[State] = action.foldp(State(Seq.empty))(update).impure.sharing
+  val flows = Vars.empty[Seq[FlowDefinitionSummary]]
 
   override def init(): Unit = getDefinition()
 
   def getDefinition(): Unit = sysiphosApi.getFlowDefinitions.foreach {
-    case Right(response) => action := SetDefinitions(response.data.definitions)
+    case Right(response) => flows.value += response.data.definitions
     case Left(error) => println(error)
   }
 
-  def update(current: State, action: Action): State = {
-    println(s"updating $current, $action")
-
-    action match {
-      case SetDefinitions(flows) => current.copy(flows = flows)
-      case _ =>
-        println(s"ignoring unknown $action")
-        current
-    }
+  @dom
+  def flowTable(flowsSummary: Seq[FlowDefinitionSummary]): Binding[Table] = {
+    <table>
+      {
+        Constants(flowsSummary: _*).map { flow => flowRow(flow).bind }
+      }
+    </table>
   }
 
-  def flowTable(flows: Seq[FlowDefinitionSummary]): Elem =
-    <table>
-      { flows.map(flowRow) }
-    </table>
-
-  def flowRow(flow: FlowDefinitionSummary): Elem =
+  @dom
+  def flowRow(flow: FlowDefinitionSummary): Binding[TableRow] =
     <tr>
-      <td>{ flow.id }</td>
+      <td>{ flow.id.toString }</td>
     </tr>
 
-  override val element: Elem = layout {
+  @dom
+  def flowSection: Binding[Div] = {
     <div>
       <h3>Flows</h3>
-      { state.map { current => flowTable(current.flows) } }
+      {
+        for (flowList <- flows) yield {
+          flowTable(flowList).bind
+        }
+      }
     </div>
   }
+
+  @dom
+  override val element: Binding[Div] = {
+    <div>
+      { layout(flowSection.bind).bind }
+    </div>
+  }
+
 }

@@ -1,6 +1,18 @@
 package com.flowtick.sysiphos.ui
-import scala.xml.Elem
+import com.thoughtworks.binding.{ Binding, dom }
+import org.scalajs.dom.html.Div
 
 class WelcomeComponent extends HtmlComponent with Layout {
-  override val element: Elem = layout(<p>Welcome to Sysihphos!</p>)
+  @dom
+  def welcomeMessage: Binding[Div] = {
+    <div>
+      <p>Welcome to Sysihphos!</p>
+    </div>
+  }
+
+  @dom
+  override val element: Binding[Div] =
+    <div>
+      { layout(welcomeMessage.bind).bind }
+    </div>
 }

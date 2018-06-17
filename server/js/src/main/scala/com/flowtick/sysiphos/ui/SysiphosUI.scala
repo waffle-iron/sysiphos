@@ -1,20 +1,21 @@
 package com.flowtick.sysiphos.ui
 
-import mhtml.mount
+import com.thoughtworks.binding.{ Binding, dom }
+import org.scalajs.dom.html.Div
 import org.scalajs.dom.window
 import pages.DomView
 import pages.Page.{ Component, page }
 
 import scala.concurrent.ExecutionContext
-import scala.xml.Elem
 
 object SysiphosUI extends App {
-  case class DomComponent(element: Elem) extends Component[Elem]
+  case class DomComponent(element: Binding[Div]) extends Component[Binding[Div]]
 
-  val domView = new DomView[Elem](element => {
+  val domView = new DomView[Binding[Div]](element => {
+    element.unwatch()
     val appContainer = window.document.getElementById("sysiphos-app")
     appContainer.innerHTML = ""
-    mount(appContainer, element)
+    dom.render(appContainer, element)
   })
 
   val api = new SysiphosApiClient()(ExecutionContext.global)
@@ -24,7 +25,7 @@ object SysiphosUI extends App {
    * FIXME: it seems the component is loaded twice (see output of println(ctx)),
    * we reuse it currently, to avoid broken update cycles in the component
    */
-  page[Elem]("/flows", ctx => flowsComponent)
+  page[Binding[Div]]("/flows", ctx => flowsComponent)
     .otherwise(_ => new WelcomeComponent)
     .view(domView)
 }

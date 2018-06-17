@@ -8,6 +8,8 @@ val slf4jV = "1.7.25"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
+cancelable in Global := true
+
 lazy val common = Seq(
   name := "sysiphos",
   organization := "com.flowtick",
@@ -110,7 +112,7 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   ),
   resourceGenerators in Compile += Def.task {
-    Seq((fullOptJS in Compile in serverJS).value.data.getAbsoluteFile)
+    Seq((fastOptJS in Compile in serverJS).value.data.getAbsoluteFile)
   }.taskValue
 
 ).dependsOn(git, akka, slick)
@@ -120,10 +122,11 @@ lazy val serverJS = server.js.settings(
   artifactPath in (Compile, fastOptJS) := target.value / "sysiphos-ui.js",
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
-    "in.nvilla" %%% "monadic-html" % "0.4.0-RC1",
+    "com.thoughtworks.binding" %%% "dom" % "latest.release",
     "org.scala-js" %%% "scalajs-dom" % "0.9.2",
     "com.flowtick" %%% "pages" % "0.1.4"
-  )
+  ),
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 ).dependsOn(coreJS)
 
 lazy val root = project.in(file(".")).
