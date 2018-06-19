@@ -17,7 +17,9 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   override def init(): Unit = getDefinition()
 
   def getDefinition(): Unit = sysiphosApi.getFlowDefinitions.foreach {
-    case Right(response) => flows.value += response.data.definitions
+    case Right(response) =>
+      flows.value.clear()
+      flows.value += response.data.definitions
     case Left(error) => println(error)
   }
 

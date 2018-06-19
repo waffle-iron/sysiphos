@@ -102,6 +102,8 @@ lazy val server = crossProject.in(file("server")).
     name := "sysiphos-server",
   )
 
+val updateUi = taskKey[Unit]("copy ui resources to class dir")
+
 lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
   libraryDependencies ++= Seq(
     "com.github.finagle" %% "finch-core" % finchV,
@@ -111,10 +113,22 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   ),
-  resourceGenerators in Compile += Def.task {
+  resourceGenerators in Test += Def.task {
     Seq((fastOptJS in Compile in serverJS).value.data.getAbsoluteFile)
-  }.taskValue
-
+  }.taskValue,
+  resourceGenerators in Compile += Def.task {
+    Seq((fullOptJS in Compile in serverJS).value.data.getAbsoluteFile)
+  }.taskValue,
+  (updateUi in Compile) := {
+    val jsFile = (fastOptJS in Compile in serverJS).value.data.getAbsoluteFile
+    val classDir = (classDirectory in Compile).value
+    IO.copyFile(jsFile, classDir / jsFile.getName)
+  },
+  (updateUi in Test) := {
+    val jsFile = (fastOptJS in Compile in serverJS).value.data.getAbsoluteFile
+    val classDir = (classDirectory in Test).value
+    IO.copyFile(jsFile, classDir / jsFile.getName)
+  }
 ).dependsOn(git, akka, slick)
 
 lazy val serverJS = server.js.settings(
