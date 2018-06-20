@@ -92,7 +92,7 @@ class FlowExecutorActor(
       val futureTaskInstances = dueTaskInstances(now.toEpochSecond(zoneOffset))
       val futureFlowDefinitions = futureTaskInstances.flatMap { taskInstances =>
         Future.sequence(taskInstances.flatten.map { taskInstance =>
-          flowDefinitionRepository.getFlowDefinitions.map(_.find(_.id == taskInstance.flowDefinitionId))
+          flowDefinitionRepository.getFlowDefinitions.map(_.find(_.definition.id == taskInstance.flowDefinitionId).map(_.definition))
         }).map(maybeFlowDefinitions => DueFlowDefinitions(maybeFlowDefinitions.flatten))
       }.recover {
         case e: Exception =>

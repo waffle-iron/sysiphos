@@ -3,65 +3,60 @@ package com.flowtick.sysiphos.api
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.FlowDefinition
+import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionMetaData }
 import com.flowtick.sysiphos.scheduler.FlowSchedule
 import io.circe.Json
 import sangria.ast.Document
 import sangria.execution.Executor
+import sangria.macros.derive.GraphQLField
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
-import sangria.schema.{ Field, ListType, ObjectType, OptionType, _ }
+import sangria.schema.{ Field, ObjectType, _ }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 
 object SysiphosApi {
-  trait ApiContext {
-    def findFlowDefinition(id: String): Future[Option[FlowDefinition]]
-    def findFlowDefinitions(): Future[Seq[FlowDefinition]]
-    def findSchedule(id: String): Future[Option[FlowSchedule]]
-    def findSchedules(): Future[Seq[FlowSchedule]]
+  import sangria.macros.derive._
+
+  trait ApiQueryContext {
+    @GraphQLField
+    def definitions(id: Option[String]): Future[Seq[FlowDefinitionDetails]]
+    @GraphQLField
+    def schedules(id: Option[String]): Future[Seq[FlowSchedule]]
   }
 
-  val FlowDefinitionType = ObjectType(
+  trait ApiMutationContext {
+    @GraphQLField
+    def foo = "bar"
+  }
+
+  trait ApiContext extends ApiQueryContext with ApiMutationContext
+
+  implicit val FlowDefinitionType = ObjectType(
     "FlowDefinition",
     "A flow definition",
     fields[Unit, FlowDefinition](
       Field("id", StringType, resolve = _.value.id)))
 
-  val FlowScheduleType = ObjectType(
+  implicit val FlowScheduleType = ObjectType(
     "FlowSchedule",
     "A schedule for a flow",
     fields[Unit, FlowSchedule](
       Field("id", StringType, resolve = _.value.id)))
 
-  val Id = Argument("id", StringType)
+  implicit val FlowDefinitionMetaDataType = deriveObjectType[SysiphosApiContext, FlowDefinitionMetaData](
+    ObjectTypeName("FlowDefinitionMetaData"),
+    ObjectTypeDescription("the meta data for a flow definition"))
 
-  val QueryType = ObjectType("Query", fields[ApiContext, Unit](
-    Field(
-      "definition",
-      OptionType(FlowDefinitionType),
-      description = Some("Returns the schedule with the `id`."),
-      arguments = Id :: Nil,
-      resolve = c => c.ctx.findFlowDefinition(c arg Id)),
-    Field(
-      "definitions",
-      ListType(FlowDefinitionType),
-      description = Some("Returns a list of all schedules."),
-      resolve = _.ctx.findFlowDefinitions()),
-    Field(
-      "schedule",
-      OptionType(FlowScheduleType),
-      description = Some("Returns the schedule with the `id`."),
-      arguments = Id :: Nil,
-      resolve = c => c.ctx.findSchedule(c arg Id)),
-    Field(
-      "schedules",
-      ListType(FlowScheduleType),
-      description = Some("Returns a list of all schedules."),
-      resolve = _.ctx.findSchedules())))
+  implicit val FlowDefinitionDetailsType = deriveObjectType[SysiphosApiContext, FlowDefinitionDetails](
+    ObjectTypeName("FlowDefinitionDetails"),
+    ObjectTypeDescription("the details for a flow definition"))
 
-  val schema = Schema(QueryType)
+  val MutationType = deriveContextObjectType[ApiContext, ApiMutationContext, Unit](identity)
+  val QueryType = deriveContextObjectType[ApiContext, ApiQueryContext, Unit](identity)
+
+  val schema = Schema(QueryType, Some(MutationType))
 }
 
 trait SysiphosApi extends GraphIQLResources with UIResources {

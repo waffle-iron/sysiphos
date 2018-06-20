@@ -33,14 +33,14 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     override def currentUser: String = "dev-test"
   }
 
-  val definition = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+  val definitionDetails = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
     "foo",
     CommandLineTask("foo", None, "ls -la"))).futureValue
 
   flowScheduleRepository.addFlowSchedule(
     "test-schedule",
     "0,15,30,45 * * ? * *",
-    definition.id,
+    definitionDetails.definition.id,
     None,
     Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
     Some(true)).futureValue
