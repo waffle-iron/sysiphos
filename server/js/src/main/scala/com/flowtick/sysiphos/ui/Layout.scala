@@ -16,7 +16,7 @@ trait Layout {
               <span class="icon-bar"></span>
               <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand"><img src="noun_694591_cc.svg" style="width: 1.25em"/></a>
+            <a href="#/" class="navbar-brand"><img src="noun_694591_cc.svg" style="width: 1.25em"/></a>
             <span class="navbar-brand" style="left: -0.5em">Sysiphos</span>
           </div>
           <div id="navbar" class="navbar-collapse collapse">

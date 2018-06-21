@@ -29,7 +29,9 @@ object SysiphosUI extends App {
   val api = new SysiphosApiClient()(ExecutionContext.global)
   val flowsComponent = new FlowsComponent(api)
 
-  page[Binding[Div]]("/flows", ctx => flowsComponent)
+  page[Binding[Div]]
+    .apply("/flow/:id", ctx => ctx.pathParams.get("id").map(new FlowComponent(_)).getOrElse(new WelcomeComponent))
+    .page("/flows", _ => flowsComponent)
     .otherwise(_ => new WelcomeComponent)
     .view(domView)
 

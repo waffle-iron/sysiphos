@@ -35,11 +35,11 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   @dom
   def flowRow(flow: FlowDefinitionSummary): Binding[TableRow] =
     <tr>
-      <td>{ flow.id.toString }</td>
+      <td><a href={ "#/flow/" + flow.definition.id }> { flow.definition.id.toString }</a></td>
     </tr>
 
   @dom
-  def flowSection: Binding[Div] = {
+  def flowsSection: Binding[Div] = {
     <div>
       <h3>Flows</h3>
       {
@@ -53,7 +53,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   @dom
   override val element: Binding[Div] = {
     <div>
-      { layout(flowSection.bind).bind }
+      { layout(flowsSection.bind).bind }
     </div>
   }
 

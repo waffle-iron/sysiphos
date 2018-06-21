@@ -8,7 +8,8 @@ import org.scalajs.dom.ext.Ajax
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-case class FlowDefinitionSummary(id: String)
+case class FlowDefinitionSummary(definition: FlowDefinitionInfo)
+case class FlowDefinitionInfo(id: String)
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
 case class FlowDefinitionResponse(data: FlowDefinitionList)
 
@@ -26,5 +27,5 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
   }
 
   override def getFlowDefinitions: Future[Either[circe.Error, FlowDefinitionResponse]] =
-    graphQlQuery[FlowDefinitionResponse]("query { definitions { id } }")
+    graphQlQuery[FlowDefinitionResponse]("query { definitions { definition {id} } }")
 }
