@@ -40,7 +40,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   flowScheduleRepository.addFlowSchedule(
     "test-schedule",
     "0,15,30,45 * * ? * *",
-    definitionDetails.definition.id,
+    definitionDetails.id,
     None,
     Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
     Some(true)).futureValue

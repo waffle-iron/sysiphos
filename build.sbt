@@ -138,7 +138,8 @@ lazy val serverJS = server.js.settings(
   libraryDependencies ++= Seq(
     "com.thoughtworks.binding" %%% "dom" % "latest.release",
     "org.scala-js" %%% "scalajs-dom" % "0.9.2",
-    "com.flowtick" %%% "pages" % "0.1.4"
+    "be.doeraene" %%% "scalajs-jquery" % "0.9.3",
+    "com.flowtick" %%% "pages" % "0.1.5"
   ),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 ).dependsOn(coreJS)

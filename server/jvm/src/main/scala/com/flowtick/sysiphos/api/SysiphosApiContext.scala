@@ -15,6 +15,17 @@ class SysiphosApiContext(
   extends ApiContext {
   override def schedules(id: Option[String]): Future[Seq[FlowSchedule]] =
     flowScheduleRepository.getFlowSchedules.map(_.filter(schedule => id.forall(_ == schedule.id)))
-  override def definitions(id: Option[String]): Future[Seq[FlowDefinitionDetails]] =
-    flowDefinitionRepository.getFlowDefinitions.map(_.filter(definitionDetails => id.forall(_ == definitionDetails.definition.id)))
+  override def definitions(id: Option[String]): Future[Seq[FlowDefinitionSummary]] =
+    for {
+      definitions <- flowDefinitionRepository.getFlowDefinitions.map(_.filter(definitionDetails => id.forall(_ == definitionDetails.id)))
+      counts <- flowInstanceRepository.counts(Some(definitions.map(_.id)), None)
+    } yield {
+      val countsById = counts.groupBy(_.flowDefinitionId)
+      definitions.map { definitionDetails =>
+        FlowDefinitionSummary(definitionDetails.id, countsById.getOrElse(definitionDetails.id, Seq.empty))
+      }
+    }
+
+  override def definition(id: String): Future[Option[FlowDefinitionDetails]] =
+    flowDefinitionRepository.findById(id)
 }

@@ -3,7 +3,7 @@ package com.flowtick.sysiphos.api
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionMetaData }
+import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionSummary, InstanceCount }
 import com.flowtick.sysiphos.scheduler.FlowSchedule
 import io.circe.Json
 import sangria.ast.Document
@@ -21,7 +21,11 @@ object SysiphosApi {
 
   trait ApiQueryContext {
     @GraphQLField
-    def definitions(id: Option[String]): Future[Seq[FlowDefinitionDetails]]
+    def definitions(id: Option[String]): Future[Seq[FlowDefinitionSummary]]
+
+    @GraphQLField
+    def definition(id: String): Future[Option[FlowDefinitionDetails]]
+
     @GraphQLField
     def schedules(id: Option[String]): Future[Seq[FlowSchedule]]
   }
@@ -45,9 +49,13 @@ object SysiphosApi {
     fields[Unit, FlowSchedule](
       Field("id", StringType, resolve = _.value.id)))
 
-  implicit val FlowDefinitionMetaDataType = deriveObjectType[SysiphosApiContext, FlowDefinitionMetaData](
-    ObjectTypeName("FlowDefinitionMetaData"),
-    ObjectTypeDescription("the meta data for a flow definition"))
+  implicit val InstanceCountType = deriveObjectType[SysiphosApiContext, InstanceCount](
+    ObjectTypeName("InstanceCount"),
+    ObjectTypeDescription("the instance count by status for a flow definition"))
+
+  implicit val FlowDefinitionSummaryType = deriveObjectType[SysiphosApiContext, FlowDefinitionSummary](
+    ObjectTypeName("FlowDefinitionSummary"),
+    ObjectTypeDescription("the summary for a flow definition"))
 
   implicit val FlowDefinitionDetailsType = deriveObjectType[SysiphosApiContext, FlowDefinitionDetails](
     ObjectTypeName("FlowDefinitionDetails"),

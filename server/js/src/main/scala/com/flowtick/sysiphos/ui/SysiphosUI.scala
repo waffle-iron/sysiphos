@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.ui
 
+import com.flowtick.sysiphos.ui.vendor.DataTablesSupport
 import com.thoughtworks.binding.Binding.Vars
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Div
@@ -29,9 +30,8 @@ object SysiphosUI extends App {
   val api = new SysiphosApiClient()(ExecutionContext.global)
   val flowsComponent = new FlowsComponent(api)
 
-  page[Binding[Div]]
-    .apply("/flow/:id", ctx => ctx.pathParams.get("id").map(new FlowComponent(_)).getOrElse(new WelcomeComponent))
-    .page("/flows", _ => flowsComponent)
+  page[Binding[Div]]("/flows", _ => flowsComponent)
+    .page("/flow/:id", ctx => ctx.pathParams.get("id").map(new FlowComponent(_)).getOrElse(new WelcomeComponent))
     .otherwise(_ => new WelcomeComponent)
     .view(domView)
 
