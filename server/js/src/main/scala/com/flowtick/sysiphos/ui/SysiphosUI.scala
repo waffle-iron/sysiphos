@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.ui
 
-import com.flowtick.sysiphos.ui.vendor.DataTablesSupport
 import com.thoughtworks.binding.Binding.Vars
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Div
