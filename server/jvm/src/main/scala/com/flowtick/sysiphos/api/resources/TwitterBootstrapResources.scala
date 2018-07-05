@@ -7,5 +7,8 @@ trait TwitterBootstrapResources extends StaticResourceSupport {
     getResource("jquery.min.js", "application/javascript") :+:
     getResource("font.css", "text/css") :+:
     getResource("bootstrap.min.css", "text/css") :+:
-    getResource("lumen.theme.min.css", "text/css")
+    getResource("bootswatch.lumen.min.css", "text/css") :+:
+    getResource("fontawesome-all.css", "text/css") :+:
+    getResource("toastr.min.css", "text/css") :+:
+    getResource("toastr.min.js", "text/css")
 }

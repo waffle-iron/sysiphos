@@ -21,8 +21,8 @@ trait Layout {
           </div>
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-              <li class="active"><a href="#/flows">Flows</a></li>
-              <li class="active"><a target="_blank" href="/graphiql"><i class="fa fa-keyboard" data:aria-hidden="true"></i> API Console</a></li>
+              <li><a href="#/flows">Flows</a></li>
+              <li><a target="_blank" href="/graphiql"><i class="fa fa-keyboard" data:aria-hidden="true"></i> API Console</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>

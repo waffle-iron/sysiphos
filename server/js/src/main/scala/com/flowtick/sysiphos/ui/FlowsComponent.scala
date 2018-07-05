@@ -16,10 +16,6 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
 
   val flows = Vars.empty[FlowDefinitionSummary]
 
-  override def init(): Unit = {
-    getDefinitions()
-  }
-
   def getDefinitions(): Unit = sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
     flows.value.clear()
     flows.value.append(response.data.definitions: _*)
@@ -77,7 +73,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   @dom
   override val element: Binding[Div] = {
     <div>
-      { layout(flowsSection.bind).bind }
+      { getDefinitions(); layout(flowsSection.bind).bind }
     </div>
   }
 
