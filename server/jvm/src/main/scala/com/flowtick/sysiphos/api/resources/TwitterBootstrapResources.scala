@@ -10,5 +10,10 @@ trait TwitterBootstrapResources extends StaticResourceSupport {
     getResource("bootswatch.lumen.min.css", "text/css") :+:
     getResource("fontawesome-all.css", "text/css") :+:
     getResource("toastr.min.css", "text/css") :+:
-    getResource("toastr.min.js", "text/css")
+    getResource("toastr.min.js", "text/css") :+:
+    getResource("ace.js", "text/css") :+:
+    getResource("theme-monokai.js", "text/css") :+:
+    getResource("theme-textmate.js", "text/css") :+:
+    getResource("mode-json.js", "application/javascript") :+:
+    getResource("worker-json.js", "application/javascript")
 }
