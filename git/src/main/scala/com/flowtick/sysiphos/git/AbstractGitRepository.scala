@@ -26,7 +26,7 @@ abstract class AbstractGitRepository[T](
   username: Option[String],
   password: Option[String],
   identityFilePath: Option[String],
-  identityFilePassphrase: Option[String])(implicit val executionContent: ExecutionContext, decoder: Decoder[T], encoder: Encoder[T]) {
+  identityFilePassphrase: Option[String])(implicit executionContent: ExecutionContext, decoder: Decoder[T], encoder: Encoder[T]) {
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected def createFile(path: String, content: Array[Byte], git: Git): Try[File] = Try {

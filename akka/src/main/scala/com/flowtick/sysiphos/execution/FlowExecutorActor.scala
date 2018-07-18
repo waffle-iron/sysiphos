@@ -9,9 +9,11 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.DueFlowDefinitions
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
+
 import concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Success
 
 object FlowExecutorActor {
   case class Init()
@@ -92,7 +94,10 @@ class FlowExecutorActor(
       val futureTaskInstances = dueTaskInstances(now.toEpochSecond(zoneOffset))
       val futureFlowDefinitions = futureTaskInstances.flatMap { taskInstances =>
         Future.sequence(taskInstances.flatten.map { taskInstance =>
-          flowDefinitionRepository.getFlowDefinitions.map(_.find(_.id == taskInstance.flowDefinitionId))
+          flowDefinitionRepository.findById(taskInstance.flowDefinitionId).map {
+            case Some(details) => details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
+            case None => None
+          }
         }).map(maybeFlowDefinitions => DueFlowDefinitions(maybeFlowDefinitions.flatten))
       }.recover {
         case e: Exception =>

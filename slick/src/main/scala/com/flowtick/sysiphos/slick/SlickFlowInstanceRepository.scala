@@ -4,9 +4,10 @@ import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.UUID
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceQuery, FlowInstanceRepository }
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceQuery, FlowInstanceRepository, InstanceCount }
 import javax.sql.DataSource
 import org.slf4j.{ Logger, LoggerFactory }
+import slick.dbio.Effect.Read
 import slick.jdbc.JdbcProfile
 
 import scala.collection.mutable
@@ -123,4 +124,17 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     db.run(DBIO.seq(contextActions: _*) >> (instanceTable += newInstance).transactionally).map(_ => InstanceWithContext(newInstance, context))
   }
+
+  override def counts(flowDefinitionId: Option[Seq[String]], status: Option[Seq[String]]): Future[Seq[InstanceCount]] = {
+    val countQuery: DBIOAction[Seq[InstanceCount], NoStream, Read] = instanceTable
+      .filter(instance => flowDefinitionId.map(instance.flowDefinitionId.inSet(_)).getOrElse(instance.id === instance.id))
+      .filter(instance => status.map(instance.status.inSet(_)).getOrElse(instance.id === instance.id))
+      .groupBy(q => (q.flowDefinitionId, q.status))
+      .map {
+        case ((idValue, statusValue), groupedByIdAndStatus) => (idValue, statusValue, groupedByIdAndStatus.length)
+      }.result.map(_.map(InstanceCount.tupled))
+
+    db.run(countQuery)
+  }
+
 }

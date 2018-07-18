@@ -69,7 +69,7 @@ object FlowDefinition {
   def fromJson(json: String): Either[Exception, FlowDefinition] = decode[FlowDefinition](json)
 
   def toJson(definition: FlowDefinition): String = definition match {
-    case s: SysiphosDefinition => s.asJson.noSpaces
+    case s: SysiphosDefinition => s.asJson.spaces2
   }
 }
 
