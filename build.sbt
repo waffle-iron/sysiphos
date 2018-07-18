@@ -14,7 +14,6 @@ lazy val common = Seq(
   name := "sysiphos",
   organization := "com.flowtick",
   scalaVersion := scalaV,
-  crossScalaVersions := Seq(scalaV, "2.11.12"),
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseCrossBuild := true,
   releaseProcess := Seq[ReleaseStep](
@@ -53,8 +52,12 @@ lazy val common = Seq(
   libraryDependencies += "org.scalamock" %%% "scalamock" % "4.1.0" % Test
 )
 
+lazy val crossCompile = Seq(
+  crossScalaVersions := Seq(scalaV, "2.11.12"),
+)
+
 lazy val core = crossProject.in(file("core")).
-  settings(common).
+  settings(common ++ crossCompile).
   settings(
     name := "sysiphos-core",
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
@@ -69,7 +72,7 @@ lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
 lazy val akka = project.in(file("akka")).
-  settings(common).
+  settings(common ++ crossCompile).
   settings(
     name := "sysiphos-akka",
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
@@ -86,7 +89,7 @@ lazy val git = project.in(file("git")).
   ).dependsOn(coreJVM)
 
 lazy val slick = project.in(file("slick")).
-  settings(common).
+  settings(common ++ crossCompile).
   settings(
     name := "sysiphos-slick",
     libraryDependencies += "com.typesafe.slick" %% "slick" % "3.2.3",
