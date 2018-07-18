@@ -9,12 +9,17 @@ import org.scalajs.dom.ext.Ajax
 import scala.concurrent.{ ExecutionContext, Future }
 
 case class FlowDefinitionDetailsResult(definition: Option[FlowDefinitionDetails])
+
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
+
 case class GraphQLResponse[T](data: T)
 
 trait SysiphosApi {
   def getFlowDefinitions: Future[GraphQLResponse[FlowDefinitionList]]
+
   def getFlowDefinition(id: String): Future[Option[FlowDefinitionDetails]]
+
+  def createOrUpdateFlowDefinition(source: String): Future[Option[FlowDefinitionDetails]]
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
@@ -39,4 +44,19 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
   override def getFlowDefinition(id: String): Future[Option[FlowDefinitionDetails]] = {
     query[FlowDefinitionDetailsResult](s"""{ definition(id: "$id") {id, version, source, created} }""").map(_.data.definition)
   }
+
+  override def createOrUpdateFlowDefinition(source: String): Future[Option[FlowDefinitionDetails]] =
+    parse(source) match {
+      case Right(json) =>
+        val queryString = s"""
+                    |mutation {
+                    |  createOrUpdate(json: ${Json.fromString(json.noSpaces).noSpaces}) {
+                    |    id, version, source, created
+                    |  }
+                    |}
+                    |""".stripMargin
+        query[FlowDefinitionDetailsResult](queryString).map(_.data.definition)
+      case Left(error) => Future.failed(error)
+    }
+
 }

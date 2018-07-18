@@ -28,4 +28,11 @@ class SysiphosApiContext(
 
   override def definition(id: String): Future[Option[FlowDefinitionDetails]] =
     flowDefinitionRepository.findById(id)
+
+  override def createOrUpdate(source: String): Future[FlowDefinitionDetails] =
+    FlowDefinition.fromJson(source) match {
+      case Right(definition) =>
+        flowDefinitionRepository.createOrUpdateFlowDefinition(definition)
+      case Left(error) => Future.failed(error)
+    }
 }

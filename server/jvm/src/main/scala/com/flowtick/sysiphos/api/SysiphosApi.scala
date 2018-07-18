@@ -32,7 +32,7 @@ object SysiphosApi {
 
   trait ApiMutationContext {
     @GraphQLField
-    def foo = "bar"
+    def createOrUpdate(json: String): Future[FlowDefinitionDetails]
   }
 
   trait ApiContext extends ApiQueryContext with ApiMutationContext

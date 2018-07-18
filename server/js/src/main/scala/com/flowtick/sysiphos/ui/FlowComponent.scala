@@ -3,9 +3,12 @@ import com.flowtick.sysiphos.flow.FlowDefinitionDetails
 import com.flowtick.sysiphos.ui.vendor.AceEditorSupport
 import com.thoughtworks.binding.Binding._
 import com.thoughtworks.binding._
+import org.scalajs.dom.Event
 import org.scalajs.dom.html.Div
+import vendor.ToastrSupport._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class FlowComponent(id: String, sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
   val flowDefinition: Vars[FlowDefinitionDetails] = Vars.empty[FlowDefinitionDetails]
@@ -51,7 +54,11 @@ class FlowComponent(id: String, sysiphosApi: SysiphosApi) extends HtmlComponent 
           <div id="flow-source" style="height: 300px"></div>
         </div>
       </div>
+      <button class="btn btn-primary" onclick={ (_: Event) => createOrUpdate(sourceEditor.getValue()) }>Save</button>
     </div>
+
+  def createOrUpdate(source: String): Future[Option[FlowDefinitionDetails]] =
+    sysiphosApi.createOrUpdateFlowDefinition(source).notifyError
 
   @dom
   override def element: Binding[Div] = {
