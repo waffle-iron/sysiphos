@@ -12,6 +12,7 @@ import monix.execution.Scheduler
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 
 import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
+import scala.util.Try
 
 object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures with IntegrationPatience {
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
@@ -33,21 +34,23 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     override def currentUser: String = "dev-test"
   }
 
-  val definitionDetails = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
-    "foo",
-    CommandLineTask("foo", None, "ls -la"))).futureValue
+  Try {
+    val definitionDetails = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+      "foo",
+      CommandLineTask("foo", None, "ls -la"))).futureValue
 
-  val definitionDetails2 = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
-    "foo2",
-    CommandLineTask("foo", None, "ls -la"))).futureValue
+    val definitionDetails2 = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+      "foo2",
+      CommandLineTask("foo", None, "ls -la"))).futureValue
 
-  flowScheduleRepository.addFlowSchedule(
-    "test-schedule",
-    "0,15,30,45 * * ? * *",
-    definitionDetails.id,
-    None,
-    Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
-    Some(true)).futureValue
+    flowScheduleRepository.addFlowSchedule(
+      "test-schedule",
+      "0,15,30,45 * * ? * *",
+      definitionDetails.id,
+      None,
+      Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
+      Some(true)).futureValue
+  }
 
   startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
   startApiServer
