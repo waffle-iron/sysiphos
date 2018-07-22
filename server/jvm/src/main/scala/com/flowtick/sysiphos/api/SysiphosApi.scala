@@ -1,17 +1,20 @@
 package com.flowtick.sysiphos.api
 
+import java.io.{ PrintWriter, StringWriter }
+
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionSummary, InstanceCount }
-import com.flowtick.sysiphos.scheduler.FlowSchedule
+import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowDefinitionSummary, InstanceCount }
+import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
+import com.twitter.finagle.http.Status
 import io.circe.Json
 import sangria.ast.Document
-import sangria.execution.Executor
+import sangria.execution.{ Executor, ValidationError }
 import sangria.macros.derive.GraphQLField
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
-import sangria.schema.{ Field, ObjectType, _ }
+import sangria.schema._
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
@@ -27,27 +30,36 @@ object SysiphosApi {
     def definition(id: String): Future[Option[FlowDefinitionDetails]]
 
     @GraphQLField
-    def schedules(id: Option[String]): Future[Seq[FlowSchedule]]
+    def schedules(id: Option[String]): Future[Seq[FlowScheduleDetails]]
   }
 
   trait ApiMutationContext {
     @GraphQLField
-    def createOrUpdate(json: String): Future[FlowDefinitionDetails]
+    def createOrUpdateFlowDefinition(json: String): Future[FlowDefinitionDetails]
+
+    @GraphQLField
+    def createFlowSchedule(
+      id: Option[String],
+      flowDefinitionId: String,
+      flowTaskId: Option[String],
+      expression: Option[String],
+      enabled: Option[Boolean]): Future[FlowScheduleDetails]
+
+    @GraphQLField
+    def updateFlowSchedule(
+      id: String,
+      expression: Option[String],
+      enabled: Option[Boolean]): Future[FlowScheduleDetails]
+
+    @GraphQLField
+    def setDueDate(flowScheduleId: String, dueDate: Long): Future[Boolean]
   }
 
   trait ApiContext extends ApiQueryContext with ApiMutationContext
 
-  implicit val FlowDefinitionType = ObjectType(
-    "FlowDefinition",
-    "A flow definition",
-    fields[Unit, FlowDefinition](
-      Field("id", StringType, resolve = _.value.id)))
-
-  implicit val FlowScheduleType = ObjectType(
-    "FlowSchedule",
-    "A schedule for a flow",
-    fields[Unit, FlowSchedule](
-      Field("id", StringType, resolve = _.value.id)))
+  implicit val FlowScheduleType = deriveObjectType[SysiphosApiContext, FlowScheduleDetails](
+    ObjectTypeName("FlowSchedule"),
+    ObjectTypeDescription("A (time) schedule for a flow"))
 
   implicit val InstanceCountType = deriveObjectType[SysiphosApiContext, InstanceCount](
     ObjectTypeName("InstanceCount"),
@@ -76,6 +88,14 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
 
+  def errorResponse(status: Status, error: Exception): Output[Json] = {
+    val sw = new StringWriter()
+    error.printStackTrace(new PrintWriter(sw))
+    val stackTrace = sw.toString
+
+    Output.payload(Json.obj("error" -> Json.fromString(s"${error.getMessage}, $stackTrace")), status)
+  }
+
   val apiEndpoint: Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
     val result: Future[Json] = json.asObject.flatMap { queryObj =>
       val query: Option[String] = queryObj("query").flatMap(_.asString)
@@ -91,6 +111,9 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
     }.getOrElse(Future.failed(new IllegalArgumentException("invalid json body")))
 
     result.map(Ok).asTwitter
+  }.handle {
+    case invalidQuery: ValidationError => errorResponse(Status.BadRequest, invalidQuery)
+    case error: Exception => errorResponse(Status.InternalServerError, error)
   }
 
   def parseQuery(query: String): Try[Document] = QueryParser.parse(query)

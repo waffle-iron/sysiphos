@@ -4,15 +4,20 @@ import com.flowtick.sysiphos.core.RepositoryContext
 
 import scala.concurrent.Future
 
-trait FlowScheduleRepository[+T <: FlowSchedule] {
-  def addFlowSchedule(
-    id: String,
-    expression: String,
+trait FlowScheduleRepository {
+  def createFlowSchedule(
+    id: Option[String],
+    expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
-    nextDueDate: Option[Long],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[T]
-  def getFlowSchedules()(implicit repositoryContext: RepositoryContext): Future[Seq[T]]
+    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
+
+  def updateFlowSchedule(
+    id: String,
+    expression: Option[String],
+    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
+
+  def getFlowSchedules(onlyEnabled: Boolean)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]]
 }
 
 trait FlowScheduleStateStore {

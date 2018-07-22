@@ -41,12 +41,11 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     "foo2",
     CommandLineTask("foo", None, "ls -la"))).futureValue
 
-  flowScheduleRepository.addFlowSchedule(
-    "test-schedule",
-    "0,15,30,45 * * ? * *",
+  flowScheduleRepository.createFlowSchedule(
+    Some("test-schedule"),
+    Some("0,15,30,45 * * ? * *"),
     definitionDetails.id,
     None,
-    Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
     Some(true)).futureValue
 
   startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)

@@ -15,7 +15,7 @@ object ToastrSupport {
         case Success(value) =>
           successMessage.map(_(value)).foreach(message => Toastr.success(message))
         case Failure(error) =>
-          errorMessage.map(_(error)).foreach(message => Toastr.error(message))
+          errorMessage.map(_(error)).foreach(message => Toastr.error(message.take(1024)))
       }
 
     def errorMessage(message: Throwable => String): Future[T] = withMessages(None, Some(message))

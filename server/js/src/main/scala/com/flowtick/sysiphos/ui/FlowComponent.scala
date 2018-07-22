@@ -58,7 +58,10 @@ class FlowComponent(id: String, sysiphosApi: SysiphosApi) extends HtmlComponent 
     </div>
 
   def createOrUpdate(source: String): Future[Option[FlowDefinitionDetails]] =
-    sysiphosApi.createOrUpdateFlowDefinition(source).notifyError
+    sysiphosApi
+      .createOrUpdateFlowDefinition(source)
+      .notifyError
+      .successMessage(_ => "Flow updated.")
 
   @dom
   override def element: Binding[Div] = {

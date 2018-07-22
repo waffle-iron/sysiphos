@@ -9,11 +9,6 @@ import org.scalajs.dom.html.{ Button, Div, Table, TableRow }
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
-  sealed trait Action
-  case object Initial extends Action
-  case object Foo extends Action
-  case class SetDefinitions(definitions: Seq[FlowDefinitionSummary]) extends Action
-
   val flows = Vars.empty[FlowDefinitionSummary]
 
   def getDefinitions(): Unit = sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>

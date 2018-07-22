@@ -1,22 +1,14 @@
 package com.flowtick.sysiphos.git
 
 import java.io.File
+import java.util.UUID
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.scheduler.{ CronSchedule, FlowScheduleRepository }
+import com.flowtick.sysiphos.scheduler.{ FlowScheduleDetails, FlowScheduleRepository }
+import io.circe.generic.auto._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
-import io.circe.generic.auto._
-
-final case class GitCronSchedule(
-  id: String,
-  expression: String,
-  flowDefinitionId: String,
-  flowTaskId: Option[String],
-  nextDueDate: Option[Long],
-  enabled: Option[Boolean]) extends CronSchedule
 
 class GitFlowScheduleRepository(
   baseDir: File,
@@ -26,21 +18,33 @@ class GitFlowScheduleRepository(
   password: Option[String] = None,
   identityFilePath: Option[String] = None,
   identityFilePassphrase: Option[String] = None)
-  extends AbstractGitRepository[GitCronSchedule](
-    baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowScheduleRepository[CronSchedule] {
-  override def getFlowSchedules()(implicit repositoryContext: RepositoryContext): Future[Seq[GitCronSchedule]] = list
+  extends AbstractGitRepository[FlowScheduleDetails](
+    baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowScheduleRepository {
+  override def getFlowSchedules(onlyEnabled: Boolean)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] =
+    list.map(schedules => if (onlyEnabled) schedules.filter(_.enabled.contains(true)) else schedules)
 
-  def addFlowSchedule(
-    id: String,
-    expression: String,
+  def createFlowSchedule(
+    id: Option[String],
+    expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
-    nextDueDate: Option[Long],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[CronSchedule] = add(GitCronSchedule(
-    id = id,
-    expression = expression,
-    flowDefinitionId = flowDefinitionId,
-    flowTaskId = flowTaskId,
-    nextDueDate = nextDueDate,
-    enabled = enabled), s"${flowDefinitionId}.json")
+    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
+    val newSchedule = FlowScheduleDetails(
+      id = id.getOrElse(UUID.randomUUID().toString),
+      expression = expression,
+      flowDefinitionId = flowDefinitionId,
+      flowTaskId = flowTaskId,
+      nextDueDate = None,
+      enabled = enabled,
+      creator = repositoryContext.currentUser,
+      created = repositoryContext.epochSeconds,
+      version = 0,
+      updated = None)
+    add(newSchedule, s"$flowDefinitionId.json")
+  }
+
+  override def updateFlowSchedule(
+    id: String,
+    expression: Option[String],
+    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = ???
 }

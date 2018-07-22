@@ -38,23 +38,26 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
 
   private val flowDefinitionTable = TableQuery[FlowDefinitions]
 
+  def now: Long = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+
   override def createOrUpdateFlowDefinition(flowDefinition: FlowDefinition)(implicit repositoryContext: RepositoryContext): Future[FlowDefinitionDetails] = {
     val slickDefinition = SlickFlowDefinition(
       id = flowDefinition.id,
       json = FlowDefinition.toJson(flowDefinition),
       version = 0L,
-      created = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      created = now,
       updated = None,
       creator = repositoryContext.currentUser)
 
-    val existing = flowDefinitionTable.filter(_.id === flowDefinition.id).result.headOption
+    val findExisting = flowDefinitionTable.filter(_.id === flowDefinition.id).result.headOption
 
-    db.run(existing).flatMap {
+    db.run(findExisting).flatMap {
       case None => db.run(flowDefinitionTable += slickDefinition)
-      case Some(_) =>
+      case Some(existing) =>
         val updated = flowDefinitionTable
-          .filter(_.id === flowDefinition.id).map(_.json)
-          .update(FlowDefinition.toJson(flowDefinition))
+          .filter(_.id === flowDefinition.id)
+          .map(flow => (flow.json, flow.updated, flow.version))
+          .update((FlowDefinition.toJson(flowDefinition), Some(now), existing.version + 1))
         db.run(updated)
     }.map(_ => FlowDefinitionDetails(
       flowDefinition.id,

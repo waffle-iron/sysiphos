@@ -13,7 +13,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
   with ScalaFutures with IntegrationPatience {
 
   override val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = mock[FlowInstanceRepository[FlowInstance]]
-  override val flowScheduleRepository: FlowScheduleRepository[FlowSchedule] = mock[FlowScheduleRepository[FlowSchedule]]
+  override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
 
@@ -23,20 +23,20 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
 
   final case class TestSchedule(
     id: String,
-    expression: String,
+    expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
     nextDueDate: Option[Long],
-    enabled: Option[Boolean]) extends CronSchedule
+    enabled: Option[Boolean]) extends FlowSchedule
 
   "Akka flow executor" should "create child actors for due schedules" in new RepositoryContext {
-    val testSchedule = TestSchedule(
+    val testSchedule = FlowScheduleDetails(
       id = "test-schedule",
-      expression = "0 1 * * *", // daily at 1:00 am
+      expression = Some("0 1 * * *"), // daily at 1:00 am
       flowDefinitionId = "flow-id",
       flowTaskId = None,
       nextDueDate = None,
-      enabled = Some(true))
+      enabled = Some(true), created = 0, updated = None, creator = "test", version = 0)
     val futureSchedules = Future.successful(Seq(testSchedule))
 
     (flowScheduleRepository.getFlowSchedules()(_: RepositoryContext)).expects(*).returning(futureSchedules)

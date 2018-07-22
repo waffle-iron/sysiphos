@@ -22,7 +22,7 @@ object FlowExecutorActor {
 }
 
 trait FlowExecution extends Logging {
-  val flowScheduleRepository: FlowScheduleRepository[FlowSchedule]
+  val flowScheduleRepository: FlowScheduleRepository
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
   val flowScheduleStateStore: FlowScheduleStateStore
   val flowScheduler: FlowScheduler
@@ -36,7 +36,7 @@ trait FlowExecution extends Logging {
   def dueTaskInstances(now: Long): Future[Seq[Option[FlowInstance]]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
-      .getFlowSchedules.map(_.filter(_.enabled.contains(true)))
+      .getFlowSchedules(onlyEnabled = true)
 
     futureEnabledSchedules.flatMap { schedules =>
       log.debug(s"checking schedules: $schedules.")
@@ -62,6 +62,8 @@ trait FlowExecution extends Logging {
     schedule.nextDueDate match {
       case Some(timestamp) if timestamp <= now =>
         createInstance(schedule).map(Option(_))
+      case None if schedule.enabled.contains(true) && schedule.expression.isDefined =>
+        createInstance(schedule).map(Option(_))
       case _ =>
         log.debug(s"not due: $schedule")
         Future.successful(None)
@@ -71,7 +73,7 @@ trait FlowExecution extends Logging {
 }
 
 class FlowExecutorActor(
-  val flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
+  val flowScheduleRepository: FlowScheduleRepository,
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
   val flowDefinitionRepository: FlowDefinitionRepository,
   val flowScheduleStateStore: FlowScheduleStateStore,

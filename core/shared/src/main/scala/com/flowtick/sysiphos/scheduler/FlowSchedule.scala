@@ -6,8 +6,17 @@ trait FlowSchedule {
   def flowTaskId: Option[String]
   def nextDueDate: Option[Long]
   def enabled: Option[Boolean]
+  def expression: Option[String]
 }
 
-trait CronSchedule extends FlowSchedule {
-  def expression: String
-}
+final case class FlowScheduleDetails(
+  id: String,
+  creator: String,
+  created: Long,
+  version: Long,
+  updated: Option[Long],
+  expression: Option[String],
+  flowDefinitionId: String,
+  flowTaskId: Option[String],
+  nextDueDate: Option[Long],
+  enabled: Option[Boolean]) extends FlowSchedule
