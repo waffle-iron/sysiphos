@@ -48,7 +48,8 @@ object FlowDefinition {
         "type" -> Json.fromString("shell"),
         "command" -> Json.fromString(cmd.command),
         "children" -> cmd.children.asJson)
-      case _ => Json.Null
+      case task: SysiphosTask => task.asJson
+      case _ => Json.obj()
     }
   }
 

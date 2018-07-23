@@ -1,15 +1,13 @@
 package com.flowtick.sysiphos.ui
 
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
+import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import com.thoughtworks.binding.Binding.Vars
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Div, Table, TableRow }
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import org.scalajs.dom.raw.{ Event, HTMLInputElement }
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.Date
 
 class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
@@ -19,6 +17,8 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
     schedules.value.clear()
     schedules.value.append(response.data.schedules: _*)
   }
+
+  override def init(): Unit = getSchedules()
 
   def formatDate(epochSeconds: Long): String = {
     val date = new Date(epochSeconds * 1000)
@@ -52,7 +52,7 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
         }
       </td>
       <td>{ schedule.id }</td>
-      <td><a href={ "#/flow/" + schedule.flowDefinitionId }> { schedule.flowDefinitionId }</a></td>
+      <td><a href={ "#/flow/show/" + schedule.flowDefinitionId }> { schedule.flowDefinitionId }</a></td>
       <td>
         <input type="text" value={ schedule.expression.getOrElse("") } onblur={ (e: Event) => setExpression(schedule.id, e.target.asInstanceOf[HTMLInputElement].value) }></input>
       </td>
@@ -90,6 +90,6 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
   @dom
   override val element: Binding[Div] =
     <div>
-      { getSchedules(); layout(schedulesSection.bind).bind }
+      { layout(schedulesSection.bind).bind }
     </div>
 }

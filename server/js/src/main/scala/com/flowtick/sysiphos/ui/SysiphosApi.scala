@@ -13,6 +13,8 @@ case class FlowDefinitionDetailsResult(definition: Option[FlowDefinitionDetails]
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
 case class FlowScheduleList(schedules: Seq[FlowScheduleDetails])
 
+case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
+
 case class EnableResult(enabled: Boolean)
 case class ExpressionResult(expression: String)
 case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
@@ -79,21 +81,21 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
                     |  }
                     |}
                     |""".stripMargin
-        query[FlowDefinitionDetailsResult](queryString).map(_.data.definition)
+        query[CreateOrUpdateFlowResult[Option[FlowDefinitionDetails]]](queryString).map(_.data.createOrUpdateFlowDefinition)
       case Left(error) => Future.failed(error)
     }
 
   override def setFlowScheduleEnabled(
     id: String,
     enabled: Boolean): Future[Boolean] = {
-    val queryString = s"""mutation { updateFlowSchedule(id:"$id", enabled: $enabled) { enabled } }"""
+    val queryString = s"""mutation { updateFlowSchedule(id: "$id", enabled: $enabled) { enabled } }"""
     query[UpdateFlowScheduleResponse[EnableResult]](queryString).map(_.data.updateFlowSchedule.enabled)
   }
 
   override def setFlowScheduleExpression(
     id: String,
     expression: String): Future[String] = {
-    val queryString = s"""mutation { updateFlowSchedule(id:"$id", expression: "$expression") { expression } }"""
+    val queryString = s"""mutation { updateFlowSchedule(id: "$id", expression: "$expression") { expression } }"""
     query[UpdateFlowScheduleResponse[ExpressionResult]](queryString).map(_.data.updateFlowSchedule.expression)
   }
 }
