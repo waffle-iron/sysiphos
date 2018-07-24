@@ -36,7 +36,7 @@ trait FlowExecution extends Logging {
   def dueTaskInstances(now: Long): Future[Seq[Option[FlowInstance]]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
-      .getFlowSchedules(onlyEnabled = true)
+      .getFlowSchedules(onlyEnabled = true, None)
 
     futureEnabledSchedules.flatMap { schedules =>
       log.debug(s"checking schedules: $schedules.")

@@ -28,7 +28,7 @@ trait SysiphosApi {
 
   def createOrUpdateFlowDefinition(source: String): Future[Option[FlowDefinitionDetails]]
 
-  def getSchedules: Future[GraphQLResponse[FlowScheduleList]]
+  def getSchedules(flowId: Option[String]): Future[GraphQLResponse[FlowScheduleList]]
 
   def setFlowScheduleEnabled(
     id: String,
@@ -61,7 +61,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
     })
   }
 
-  override def getSchedules: Future[GraphQLResponse[FlowScheduleList]] =
+  override def getSchedules(flowId: Option[String]): Future[GraphQLResponse[FlowScheduleList]] =
     query[FlowScheduleList]("{ schedules {id, creator, created, version, flowDefinitionId, enabled, expression, nextDueDate } }")
 
   override def getFlowDefinitions: Future[GraphQLResponse[FlowDefinitionList]] =

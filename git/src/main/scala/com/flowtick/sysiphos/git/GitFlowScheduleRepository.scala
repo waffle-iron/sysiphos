@@ -20,8 +20,10 @@ class GitFlowScheduleRepository(
   identityFilePassphrase: Option[String] = None)
   extends AbstractGitRepository[FlowScheduleDetails](
     baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowScheduleRepository {
-  override def getFlowSchedules(onlyEnabled: Boolean)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] =
-    list.map(schedules => if (onlyEnabled) schedules.filter(_.enabled.contains(true)) else schedules)
+  override def getFlowSchedules(onlyEnabled: Boolean, flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] =
+    list.map(schedules => {
+      (if (onlyEnabled) schedules.filter(_.enabled.contains(true)) else schedules).filter(schedule => flowId.forall(_ == schedule.flowDefinitionId))
+    })
 
   def createFlowSchedule(
     id: Option[String],

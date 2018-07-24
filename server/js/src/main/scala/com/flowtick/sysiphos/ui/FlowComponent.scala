@@ -7,7 +7,8 @@ import org.scalajs.dom.Event
 import org.scalajs.dom.html.Div
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Success
+import scala.concurrent.Future
+import scala.util.{ Success }
 
 class FlowComponent(id: Option[String], sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
   lazy val sourceEditor: AceEditorSupport.Editor = {
@@ -29,13 +30,17 @@ class FlowComponent(id: Option[String], sysiphosApi: SysiphosApi) extends HtmlCo
     </div>
   }
 
+  def loadDefinition: Future[Option[FlowDefinitionDetails]] =
+    if (id.isEmpty)
+      Future.successful(None)
+    else
+      sysiphosApi.getFlowDefinition(id.get)
+
   @dom
   def flowSection(id: Option[String]): Binding[Div] =
     <div>
       {
-        if (id.isEmpty) {
-          empty.bind
-        } else FutureBinding(sysiphosApi.getFlowDefinition(id.get)).bind match {
+        FutureBinding(loadDefinition).bind match {
           case Some(Success(Some(definitionResult))) => flowOverview(definitionResult).bind
           case _ => empty.bind
         }
@@ -88,7 +93,7 @@ class FlowComponent(id: Option[String], sysiphosApi: SysiphosApi) extends HtmlCo
   def empty: Binding[Div] = <div></div>
 
   @dom
-  override val element: Binding[Div] =
+  override def element: Binding[Div] =
     <div>
       { layout(flowSection(id).bind).bind }
     </div>

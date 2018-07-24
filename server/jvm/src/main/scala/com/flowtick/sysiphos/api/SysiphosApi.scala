@@ -30,7 +30,7 @@ object SysiphosApi {
     def definition(id: String): Future[Option[FlowDefinitionDetails]]
 
     @GraphQLField
-    def schedules(id: Option[String]): Future[Seq[FlowScheduleDetails]]
+    def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]]
   }
 
   trait ApiMutationContext {

@@ -3,17 +3,17 @@ package com.flowtick.sysiphos.ui
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import com.thoughtworks.binding.Binding.Vars
-import com.thoughtworks.binding.{ Binding, dom }
+import com.thoughtworks.binding.{ Binding, FutureBinding, dom }
 import org.scalajs.dom.html.{ Div, Table, TableRow }
 import org.scalajs.dom.raw.{ Event, HTMLInputElement }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.Date
 
-class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
+class SchedulesComponent(flowId: Option[String], api: SysiphosApi) extends HtmlComponent with Layout {
   val schedules: Vars[FlowScheduleDetails] = Vars.empty[FlowScheduleDetails]
 
-  def getSchedules(): Unit = api.getSchedules.notifyError.foreach { response =>
+  def getSchedules(): Unit = api.getSchedules(flowId).notifyError.foreach { response =>
     schedules.value.clear()
     schedules.value.append(response.data.schedules: _*)
   }
@@ -30,14 +30,14 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
       .setFlowScheduleEnabled(id, enabled)
       .notifyError
       .successMessage(_ => s"$id is now ${if (enabled) "enabled" else "disabled"}")
-      .foreach(_ => getSchedules())
+      .foreach(_ => getSchedules)
 
   def setExpression(id: String, expression: String): Unit = {
     api
       .setFlowScheduleExpression(id, expression)
       .notifyError
       .successMessage(_ => s"$id expression updated: $expression")
-      .foreach(_ => getSchedules())
+      .foreach(_ => getSchedules)
   }
 
   @dom
@@ -46,9 +46,15 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
       <td>
         {
           if (schedule.enabled.getOrElse(false)) {
-            <button class="btn btn-danger" onclick={ _: Event => toggleEnable(schedule.id, enabled = false) }>Disable</button>
+            <button type="button" class="btn btn-lg btn-default active" onclick={ _: Event => toggleEnable(schedule.id, enabled = false) }>
+              <i class="fas fa-toggle-on"></i>
+              On
+            </button>
           } else
-            <button class="btn btn-info" onclick={ _: Event => toggleEnable(schedule.id, enabled = true) }>Enable</button>
+            <button type="button" class="btn btn-lg btn-danger" onclick={ _: Event => toggleEnable(schedule.id, enabled = true) }>
+              <i class="fas fa-toggle-off"></i>
+              Off
+            </button>
         }
       </td>
       <td>{ schedule.id }</td>
@@ -88,7 +94,7 @@ class SchedulesComponent(api: SysiphosApi) extends HtmlComponent with Layout {
   }
 
   @dom
-  override val element: Binding[Div] =
+  override def element: Binding[Div] =
     <div>
       { layout(schedulesSection.bind).bind }
     </div>

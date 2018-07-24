@@ -8,7 +8,7 @@ import org.scalajs.dom.html.{ Button, Div, Table, TableRow }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
+class ExecutionsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
   val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
   def loadDefinitions(): Unit = sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>

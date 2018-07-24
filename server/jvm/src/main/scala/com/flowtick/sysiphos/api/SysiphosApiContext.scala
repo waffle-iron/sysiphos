@@ -13,8 +13,8 @@ class SysiphosApiContext(
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
   val flowScheduleStateStore: FlowScheduleStateStore)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
   extends ApiContext {
-  override def schedules(id: Option[String]): Future[Seq[FlowScheduleDetails]] =
-    flowScheduleRepository.getFlowSchedules(onlyEnabled = false).map(_.filter(schedule => id.forall(_ == schedule.id)))
+  override def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]] =
+    flowScheduleRepository.getFlowSchedules(onlyEnabled = false, flowId).map(_.filter(schedule => id.forall(_ == schedule.id)))
 
   override def definitions(id: Option[String]): Future[Seq[FlowDefinitionSummary]] =
     for {
