@@ -6,7 +6,7 @@ import org.scalajs.dom.html.Div
 trait Layout {
   @dom
   def layout(content: Div): Binding[Div] =
-    <div>
+    <div id="layout">
       <nav class="navbar navbar-default navbar-fixed-top">
         <div class="container">
           <div class="navbar-header">

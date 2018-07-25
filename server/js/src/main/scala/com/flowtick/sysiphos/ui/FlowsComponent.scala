@@ -11,12 +11,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
   val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
-  def loadDefinitions(): Unit = sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
-    flows.value.clear()
-    flows.value.append(response.data.definitions: _*)
-  }
+  def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {
+    sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
+      flows.value.clear()
+      flows.value.append(response.data.definitions: _*)
+    }
 
-  override def init(): Unit = loadDefinitions()
+    flows
+  }
 
   @dom
   def instanceCountButton(count: InstanceCount): Binding[Button] =
@@ -51,26 +53,19 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
       </thead>
       <tbody>
         {
-          for (flow <- flows) yield flowRow(flow).bind
+          for (flow <- loadDefinitions.bind) yield flowRow(flow).bind
         }
       </tbody>
     </table>
   }
 
   @dom
-  def flowsSection: Binding[Div] = {
-    <div>
+  override def element: Binding[Div] =
+    <div id="flows">
       <h3>Flows <a class="btn btn-default" href="#/flow/new"><i class="fas fa-plus"></i> Add</a> </h3>
       {
         flowTable.bind
       }
-    </div>
-  }
-
-  @dom
-  override def element: Binding[Div] =
-    <div>
-      { layout(flowsSection.bind).bind }
     </div>
 
 }

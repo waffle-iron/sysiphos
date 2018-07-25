@@ -9,7 +9,7 @@ import pages.Page.{ Component, Routing, View, page }
 
 import scala.concurrent.ExecutionContext
 
-object SysiphosUI extends App {
+object SysiphosUI extends App with Layout {
   case class DomComponent(element: Binding[Div]) extends Component[Binding[Div]]
 
   val currentView = Vars.empty[Binding[Div]]
@@ -17,7 +17,7 @@ object SysiphosUI extends App {
   @dom
   def appView: Binding[Div] = {
     <div id="app-view">
-      { for (view <- currentView) yield view.bind }
+      { for (view <- currentView) yield layout(view.bind).bind }
     </div>
   }
 

@@ -2,8 +2,8 @@ package com.flowtick.sysiphos.ui
 
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
-import com.thoughtworks.binding.Binding.Vars
-import com.thoughtworks.binding.{ Binding, FutureBinding, dom }
+import com.thoughtworks.binding.Binding.{ SingletonBindingSeq, Vars }
+import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Div, Table, TableRow }
 import org.scalajs.dom.raw.{ Event, HTMLInputElement }
 
@@ -13,12 +13,14 @@ import scala.scalajs.js.Date
 class SchedulesComponent(flowId: Option[String], api: SysiphosApi) extends HtmlComponent with Layout {
   val schedules: Vars[FlowScheduleDetails] = Vars.empty[FlowScheduleDetails]
 
-  def getSchedules(): Unit = api.getSchedules(flowId).notifyError.foreach { response =>
-    schedules.value.clear()
-    schedules.value.append(response.data.schedules: _*)
-  }
+  def loadSchedules: Binding[Vars[FlowScheduleDetails]] = Binding {
+    api.getSchedules(flowId).notifyError.foreach { response =>
+      schedules.value.clear()
+      schedules.value.append(response.data.schedules: _*)
+    }
 
-  override def init(): Unit = getSchedules()
+    schedules
+  }
 
   def formatDate(epochSeconds: Long): String = {
     val date = new Date(epochSeconds * 1000)
@@ -30,14 +32,22 @@ class SchedulesComponent(flowId: Option[String], api: SysiphosApi) extends HtmlC
       .setFlowScheduleEnabled(id, enabled)
       .notifyError
       .successMessage(_ => s"$id is now ${if (enabled) "enabled" else "disabled"}")
-      .foreach(_ => getSchedules)
+      .foreach(_ => loadSchedules)
 
   def setExpression(id: String, expression: String): Unit = {
     api
       .setFlowScheduleExpression(id, expression)
       .notifyError
       .successMessage(_ => s"$id expression updated: $expression")
-      .foreach(_ => getSchedules)
+      .foreach(_ => loadSchedules)
+  }
+
+  def createSchedule(expression: String): Unit = flowId.foreach { id =>
+    api
+      .createFlowSchedule(id, expression)
+      .notifyError
+      .successMessage(schedule => s"schedule created: ${schedule.id}")
+      .foreach(_ => loadSchedules)
   }
 
   @dom
@@ -77,25 +87,39 @@ class SchedulesComponent(flowId: Option[String], api: SysiphosApi) extends HtmlC
       </thead>
       <tbody>
         {
-          for (schedule <- schedules) yield scheduleRow(schedule).bind
+          val schedules = for (schedule <- loadSchedules.bind) yield scheduleRow(schedule).bind
+          if (schedules.length.bind == 0)
+            SingletonBindingSeq(emptyRow).bind
+          else schedules.bind
         }
       </tbody>
     </table>
   }
 
   @dom
-  def schedulesSection: Binding[Div] = {
-    <div>
-      <h3>Schedules</h3>
-      {
-        schedulesTable.bind
-      }
-    </div>
-  }
+  def emptyRow: Binding[TableRow] =
+    <tr>
+      <td data:colspan="5">
+        <span>No schedules yet</span>
+        {
+          if (flowId.nonEmpty) {
+            <span>for flow { flowId.getOrElse("") }</span>
+          } else <!-- -->
+        }
+      </td>
+    </tr>
 
   @dom
   override def element: Binding[Div] =
-    <div>
-      { layout(schedulesSection.bind).bind }
+    <div id="schedules">
+      <h3>Schedules</h3>
+      {
+        if (flowId.isDefined) {
+          <button class="btn btn-default" type="button" onclick={ _: Event => createSchedule("0 * * * *") }><i class="fas fa-plus"></i> Add</button>
+        } else <!-- -->
+      }
+      {
+        schedulesTable.bind
+      }
     </div>
 }

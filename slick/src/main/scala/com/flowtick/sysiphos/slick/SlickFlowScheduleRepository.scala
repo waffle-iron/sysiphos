@@ -62,9 +62,8 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
   }
 
   override def getFlowSchedules(onlyEnabled: Boolean, flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] = {
-    val filteredSchedules = flowSchedulesTable
-      .filter(schedule => if (onlyEnabled) schedule.enabled === true else schedule.enabled === schedule.enabled)
-      .filter(schedule => flowId.map(schedule.flowDefinitionId === _).getOrElse(schedule.id === schedule.id))
+    val onlyEnabledSchedules = if (onlyEnabled) flowSchedulesTable.filter(_.enabled === true) else flowSchedulesTable
+    val filteredSchedules = onlyEnabledSchedules.filter(schedule => flowId.map(schedule.flowDefinitionId === _).getOrElse(schedule.id === schedule.id))
 
     db.run(filteredSchedules.result)
   }

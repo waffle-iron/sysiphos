@@ -13,6 +13,6 @@ class WelcomeComponent extends HtmlComponent with Layout {
   @dom
   override val element: Binding[Div] =
     <div>
-      { layout(welcomeMessage.bind).bind }
+      { welcomeMessage.bind }
     </div>
 }
