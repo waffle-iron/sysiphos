@@ -6,6 +6,8 @@ import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduler }
 import cron4s.Cron
 import cron4s.lib.javatime._
 
+import com.flowtick.sysiphos._
+
 object CronScheduler extends FlowScheduler with Logging {
   val offset: ZoneOffset = ZoneOffset.UTC
 

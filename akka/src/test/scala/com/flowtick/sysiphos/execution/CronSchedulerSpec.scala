@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.scheduler.FlowSchedule
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{ FlatSpec, Matchers }
 
 class CronSchedulerSpec extends FlatSpec with Matchers {
   "Cron Scheduler" should "give next occurrence for cron schedule" in {

@@ -9,7 +9,7 @@ class SlickFlowScheduleRepositorySpec extends SlickSpec {
   "Slick Schedule Repository" should "create schedule" in new RepositoryContext {
     override def currentUser: String = "test-user"
 
-    slickScheduleRepository.createFlowSchedule("id", "expression", "definition_id", None, None, Some(true))(this).futureValue
+    slickScheduleRepository.createFlowSchedule(Some("id"), Some("expression"), "definition_id", None, None)(this).futureValue
   }
 
 }
