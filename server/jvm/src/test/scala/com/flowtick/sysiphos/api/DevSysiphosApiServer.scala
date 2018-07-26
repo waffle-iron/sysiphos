@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.api
 
-import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
@@ -35,20 +34,19 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   }
 
   Try {
-    val definitionDetails = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+    val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
       "foo",
       CommandLineTask("foo", None, "ls -la"))).futureValue
 
-    val definitionDetails2 = flowDefinitionRepository.addFlowDefinition(SysiphosDefinition(
+    val definitionDetails2 = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
       "foo2",
       CommandLineTask("foo", None, "ls -la"))).futureValue
 
-    flowScheduleRepository.addFlowSchedule(
-      "test-schedule",
-      "0,15,30,45 * * ? * *",
+    flowScheduleRepository.createFlowSchedule(
+      Some("test-schedule"),
+      Some("0,15,30,45 * * ? * *"),
       definitionDetails.id,
       None,
-      Some(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)),
       Some(true)).futureValue
   }
 

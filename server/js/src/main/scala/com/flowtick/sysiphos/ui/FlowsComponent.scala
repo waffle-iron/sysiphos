@@ -9,16 +9,15 @@ import org.scalajs.dom.html.{ Button, Div, Table, TableRow }
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout {
-  sealed trait Action
-  case object Initial extends Action
-  case object Foo extends Action
-  case class SetDefinitions(definitions: Seq[FlowDefinitionSummary]) extends Action
+  val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
-  val flows = Vars.empty[FlowDefinitionSummary]
+  def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {
+    sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
+      flows.value.clear()
+      flows.value.append(response.data.definitions: _*)
+    }
 
-  def getDefinitions(): Unit = sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
-    flows.value.clear()
-    flows.value.append(response.data.definitions: _*)
+    flows
   }
 
   @dom
@@ -33,7 +32,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   @dom
   def flowRow(flow: FlowDefinitionSummary): Binding[TableRow] =
     <tr>
-      <td><h4><a href={ "#/flow/" + flow.id }> { flow.id }</a></h4></td>
+      <td><a href={ "#/flow/show/" + flow.id }> { flow.id }</a></td>
       <td>
         <div class="btn-group" data:role="group" data:aria-label="count-buttons">
           { Constants(flow.counts: _*).map(instanceCountButton(_).bind) }
@@ -54,27 +53,19 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
       </thead>
       <tbody>
         {
-          for (flow <- flows) yield flowRow(flow).bind
+          for (flow <- loadDefinitions.bind) yield flowRow(flow).bind
         }
       </tbody>
     </table>
   }
 
   @dom
-  def flowsSection: Binding[Div] = {
-    <div>
-      <h3>Flows</h3>
+  override def element: Binding[Div] =
+    <div id="flows">
+      <h3>Flows <a class="btn btn-default" href="#/flow/new"><i class="fas fa-plus"></i> Add</a> </h3>
       {
         flowTable.bind
       }
     </div>
-  }
-
-  @dom
-  override val element: Binding[Div] = {
-    <div>
-      { getDefinitions(); layout(flowsSection.bind).bind }
-    </div>
-  }
 
 }

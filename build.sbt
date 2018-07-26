@@ -140,6 +140,7 @@ lazy val serverJS = server.js.settings(
   artifactPath in (Compile, fullOptJS) := (artifactPath in (Compile, fastOptJS)).value,
   libraryDependencies ++= Seq(
     "com.thoughtworks.binding" %%% "dom" % "latest.release",
+    "com.thoughtworks.binding" %%% "futurebinding" % "latest.release",
     "org.scala-js" %%% "scalajs-dom" % "0.9.2",
     "be.doeraene" %%% "scalajs-jquery" % "0.9.3",
     "com.flowtick" %%% "pages" % "0.1.5"

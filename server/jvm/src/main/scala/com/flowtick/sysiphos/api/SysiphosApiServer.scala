@@ -31,7 +31,7 @@ trait SysiphosApiServer extends SysiphosApi
   implicit def scheduler: Scheduler
 
   def startExecutorSystem(
-    flowScheduleRepository: FlowScheduleRepository[FlowSchedule],
+    flowScheduleRepository: FlowScheduleRepository,
     flowInstanceRepository: FlowInstanceRepository[FlowInstance],
     flowScheduleStateStore: FlowScheduleStateStore,
     flowDefinitionRepository: FlowDefinitionRepository): Unit = {

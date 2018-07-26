@@ -20,7 +20,7 @@ class GitFlowDefinitionRepository(
   override def getFlowDefinitions(implicit repositoryContext: RepositoryContext): Future[Seq[FlowDefinitionDetails]] =
     list.map(definitions => definitions.map(definition => FlowDefinitionDetails(definition.id, None, None, None)))
 
-  override def addFlowDefinition(flowDefinition: FlowDefinition)(implicit repositoryContext: RepositoryContext): Future[FlowDefinitionDetails] =
+  override def createOrUpdateFlowDefinition(flowDefinition: FlowDefinition)(implicit repositoryContext: RepositoryContext): Future[FlowDefinitionDetails] =
     add(flowDefinition, s"${flowDefinition.id}.json").map(definition => FlowDefinitionDetails(definition.id, None, None, None))
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowDefinitionDetails]] =

@@ -8,9 +8,10 @@ import scala.scalajs.js.annotation.JSGlobal
 object AceEditorSupport extends js.Any {
   @js.native
   trait Editor extends js.Any {
-    def setValue(value: String, pos: Int = 0): js.native
+    def getValue(): String = js.native
+    def setValue(value: String, pos: Int = 0): Unit = js.native
     def resize(): Unit = js.native
-    def setTheme(theme: String): js.native
+    def setTheme(theme: String): Unit = js.native
     def session: Session = js.native
   }
 

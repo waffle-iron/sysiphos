@@ -1,12 +1,12 @@
 package com.flowtick.sysiphos.execution
 
-import com.flowtick.sysiphos.scheduler.CronSchedule
+import com.flowtick.sysiphos.scheduler.FlowSchedule
 import org.scalatest.{ FlatSpec, Matchers }
 
 class CronSchedulerSpec extends FlatSpec with Matchers {
   "Cron Scheduler" should "give next occurrence for cron schedule" in {
-    val testSchedule = new CronSchedule {
-      override def expression: String = "10-35 2,4,6 * ? * *"
+    val testSchedule = new FlowSchedule {
+      override def expression: Option[String] = Some("10-35 2,4,6 * ? * *")
 
       override def id: String = "test-schedule"
 

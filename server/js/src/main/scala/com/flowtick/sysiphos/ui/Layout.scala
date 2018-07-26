@@ -6,7 +6,7 @@ import org.scalajs.dom.html.Div
 trait Layout {
   @dom
   def layout(content: Div): Binding[Div] =
-    <div>
+    <div id="layout">
       <nav class="navbar navbar-default navbar-fixed-top">
         <div class="container">
           <div class="navbar-header">
@@ -21,7 +21,8 @@ trait Layout {
           </div>
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-              <li><a href="#/flows">Flows</a></li>
+              <li><a href="#/flows"><i class="fas fa-project-diagram"></i> Flows</a></li>
+              <li><a href="#/schedules"><i class="fas fa-clock"></i> Schedules</a></li>
               <li><a target="_blank" href="/graphiql"><i class="fa fa-keyboard" data:aria-hidden="true"></i> API Console</a></li>
             </ul>
           </div><!--/.nav-collapse -->

@@ -19,7 +19,7 @@ class SlickFlowDefinitionRepositorySpec extends SlickSpec {
       CommandLineTask("foo", None, "ls -la"))
 
     Try(slickDefinitionRepository.getFlowDefinitions(this).futureValue).failed.foreach(_.printStackTrace())
-    slickDefinitionRepository.addFlowDefinition(simpleDefinition)(this).futureValue.source.map(FlowDefinition.fromJson) should be(Some(Right(simpleDefinition)))
+    slickDefinitionRepository.createOrUpdateFlowDefinition(simpleDefinition)(this).futureValue.source.map(FlowDefinition.fromJson) should be(Some(Right(simpleDefinition)))
     slickDefinitionRepository.getFlowDefinitions(this).futureValue should have size 1
   }
 }
