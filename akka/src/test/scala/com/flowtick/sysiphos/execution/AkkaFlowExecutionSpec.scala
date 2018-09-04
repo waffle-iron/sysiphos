@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceRepository }
+import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository }
 import com.flowtick.sysiphos.scheduler._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
@@ -12,7 +12,7 @@ import scala.concurrent.Future
 class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with MockFactory
   with ScalaFutures with IntegrationPatience {
 
-  override val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = mock[FlowInstanceRepository[FlowInstance]]
+  override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
@@ -21,26 +21,8 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
     override def currentUser: String = "test-user"
   }
 
-  final case class TestSchedule(
-    id: String,
-    expression: Option[String],
-    flowDefinitionId: String,
-    flowTaskId: Option[String],
-    nextDueDate: Option[Long],
-    enabled: Option[Boolean]) extends FlowSchedule
-
-  final case class TestInstance(
-    id: String,
-    flowDefinitionId: String,
-    creationTime: Long,
-    startTime: Option[Long],
-    endTime: Option[Long],
-    status: String,
-    retries: Int,
-    context: Map[String, String]) extends FlowInstance
-
   "Akka flow executor" should "create child actors for due schedules" in new RepositoryContext {
-    val testInstance = TestInstance(
+    val testInstance = FlowInstanceDetails(
       id = "test-instance",
       flowDefinitionId = "flow-id",
       creationTime = 0,
@@ -48,7 +30,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       endTime = None,
       status = "new",
       retries = 3,
-      context = Map.empty)
+      context = Seq.empty)
 
     val testSchedule = FlowScheduleDetails(
       id = "test-schedule",

@@ -1,7 +1,8 @@
-package com.flowtick.sysiphos.ui
+package com.flowtick.sysiphos.ui.flow
 
 import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, InstanceCount }
 import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
+import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Button, Div, Table, TableRow }

@@ -15,7 +15,7 @@ trait FlowInstanceExecution extends Logging {
   var taskDefinitions: List[FlowTask] = List.empty[FlowTask]
 
   val flowInstance: FlowInstance
-  val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
+  val flowInstanceRepository: FlowInstanceRepository
   val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]
 
   def nextFlowTask(taskInstances: Seq[FlowTaskInstance]): Option[(FlowTaskInstance, FlowTask)] = {
@@ -35,7 +35,7 @@ trait FlowInstanceExecution extends Logging {
 
 class FlowInstanceExecutorActor(
   override val flowInstance: FlowInstance,
-  override val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+  override val flowInstanceRepository: FlowInstanceRepository,
   override val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance])(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
 

@@ -10,19 +10,27 @@ import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick._
-import com.twitter.finagle.{ Http, ListeningServer }
-import com.twitter.util.Await
+import com.twitter.finagle.Http
 import io.finch.Application
 import io.finch.circe._
 import monix.execution.Scheduler
+import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.ExecutionContext
+import scala.util.{ Failure, Success, Try }
 
 trait SysiphosApiServer extends SysiphosApi
   with SysiphosApiServerConfig
   with GraphIQLResources
   with TwitterBootstrapResources
   with UIResources {
+
+  val log: Logger = LoggerFactory.getLogger(getClass)
+
+  val flowDefinitionRepository: FlowDefinitionRepository
+  val flowScheduleRepository: SlickFlowScheduleRepository
+  val flowInstanceRepository: FlowInstanceRepository
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]
 
   def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext
 
@@ -32,7 +40,7 @@ trait SysiphosApiServer extends SysiphosApi
 
   def startExecutorSystem(
     flowScheduleRepository: FlowScheduleRepository,
-    flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+    flowInstanceRepository: FlowInstanceRepository,
     flowScheduleStateStore: FlowScheduleStateStore,
     flowDefinitionRepository: FlowDefinitionRepository,
     flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]): Unit = {
@@ -50,9 +58,28 @@ trait SysiphosApiServer extends SysiphosApi
     executorActor ! Init()
   }
 
-  def startApiServer: ListeningServer = {
-    val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
-    Await.ready(Http.server.serve(s"$bindAddress:$httpPort", service))
+  def startApiServer(): Unit = {
+    val address = s"$bindAddress:$httpPort"
+
+    Try {
+      DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
+
+      val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
+      val server = Http.server.serve(address, service)
+
+      log.info(s"running at ${server.boundAddress.toString}")
+
+      server
+    }.recoverWith {
+      case error => Failure(new RuntimeException(s"unable to start server at $address", error))
+    } match {
+      case Success(_) =>
+        startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
+      case Failure(error) =>
+        log.error("unable to start server", error)
+        executorSystem.terminate()
+    }
+
   }
 
 }
@@ -63,7 +90,7 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
 
   lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance] = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
@@ -73,9 +100,5 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
 
   def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutionContext, repositoryContext)
 
-  DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
-
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
-
-  startApiServer
+  startApiServer()
 }

@@ -10,7 +10,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 class SysiphosApiContext(
   val flowDefinitionRepository: FlowDefinitionRepository,
   val flowScheduleRepository: FlowScheduleRepository,
-  val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+  val flowInstanceRepository: FlowInstanceRepository,
   val flowScheduleStateStore: FlowScheduleStateStore)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
   extends ApiContext {
   override def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]] =
@@ -60,5 +60,9 @@ class SysiphosApiContext(
     expression: Option[String],
     enabled: Option[Boolean]): Future[FlowScheduleDetails] = {
     flowScheduleRepository.updateFlowSchedule(id, expression, enabled)
+  }
+
+  override def instances(flowDefinitionId: Option[String]): Future[Seq[FlowInstanceDetails]] = {
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId))
   }
 }

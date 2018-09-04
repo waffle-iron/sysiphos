@@ -1,4 +1,5 @@
 package com.flowtick.sysiphos.ui
+
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Div
 

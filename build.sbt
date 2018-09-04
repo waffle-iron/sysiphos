@@ -118,7 +118,7 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   ),
   resourceGenerators in Test += Def.task {
-    Seq((fastOptJS in Compile in serverJS).value.data.getAbsoluteFile)
+    Seq((fastOptJS in Compile in (serverJS, Test)).value.data.getAbsoluteFile)
   }.taskValue,
   resourceGenerators in Compile += Def.task {
     Seq((fullOptJS in Compile in serverJS).value.data.getAbsoluteFile)
@@ -142,9 +142,10 @@ lazy val serverJS = server.js.settings(
   libraryDependencies ++= Seq(
     "com.thoughtworks.binding" %%% "dom" % "latest.release",
     "com.thoughtworks.binding" %%% "futurebinding" % "latest.release",
+    "io.suzaku" %%% "diode" % "1.1.3",
     "org.scala-js" %%% "scalajs-dom" % "0.9.2",
     "be.doeraene" %%% "scalajs-jquery" % "0.9.3",
-    "com.flowtick" %%% "pages" % "0.1.5"
+    "com.flowtick" %%% "pages" % "0.1.6"
   ),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 ).dependsOn(coreJS)

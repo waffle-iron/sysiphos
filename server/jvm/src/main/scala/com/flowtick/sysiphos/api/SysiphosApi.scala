@@ -5,7 +5,7 @@ import java.io.{ PrintWriter, StringWriter }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowDefinitionSummary, InstanceCount }
+import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.twitter.finagle.http.Status
 import io.circe.Json
@@ -31,6 +31,9 @@ object SysiphosApi {
 
     @GraphQLField
     def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]]
+
+    @GraphQLField
+    def instances(flowDefinitionId: Option[String]): Future[Seq[FlowInstanceDetails]]
   }
 
   trait ApiMutationContext {
@@ -72,6 +75,14 @@ object SysiphosApi {
   implicit val FlowDefinitionDetailsType = deriveObjectType[SysiphosApiContext, FlowDefinitionDetails](
     ObjectTypeName("FlowDefinitionDetails"),
     ObjectTypeDescription("the details for a flow definition"))
+
+  implicit val FlowInstanceContextValueType = deriveObjectType[SysiphosApiContext, FlowInstanceContextValue](
+    ObjectTypeName("FlowInstanceContextValue"),
+    ObjectTypeDescription("the value of a context variable"))
+
+  implicit val FlowInstanceDetailsType = deriveObjectType[SysiphosApiContext, FlowInstanceDetails](
+    ObjectTypeName("FlowInstanceDetails"),
+    ObjectTypeDescription("the details for an execution (instance) of a flow definition"))
 
   val MutationType = deriveContextObjectType[ApiContext, ApiMutationContext, Unit](identity)
   val QueryType = deriveContextObjectType[ApiContext, ApiQueryContext, Unit](identity)

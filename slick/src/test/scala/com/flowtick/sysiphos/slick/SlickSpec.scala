@@ -1,7 +1,5 @@
 package com.flowtick.sysiphos.slick
 
-import java.util.UUID
-
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ BeforeAndAfterAll, FlatSpec, Matchers }
 import slick.jdbc.DriverDataSource

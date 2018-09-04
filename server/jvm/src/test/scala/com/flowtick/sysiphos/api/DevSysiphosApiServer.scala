@@ -28,11 +28,11 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
 
   def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutor, repositoryContext)
 
-  DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
-
   implicit val repositoryContext = new RepositoryContext {
     override def currentUser: String = "dev-test"
   }
+
+  startApiServer()
 
   Try {
     val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
@@ -49,8 +49,5 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
       definitionDetails.id,
       None,
       Some(true)).futureValue
-  }
-
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
-  startApiServer
+  }.failed.foreach(println)
 }

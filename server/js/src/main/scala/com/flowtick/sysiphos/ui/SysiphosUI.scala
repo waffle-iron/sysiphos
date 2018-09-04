@@ -1,42 +1,56 @@
 package com.flowtick.sysiphos.ui
 
-import com.thoughtworks.binding.Binding.Vars
+import com.flowtick.sysiphos.ui.flow.{ CreateFlowComponent, FlowCircuit, FlowsComponent, ShowFlowComponent }
+import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
+import com.thoughtworks.binding.Binding.Var
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Div
-import org.scalajs.dom.{ Event, HashChangeEvent, window }
-import pages.{ DomView, Page }
-import pages.Page.{ Component, Routing, View, page }
+import org.scalajs.dom.window
+import pages.DomView
+import pages.Page.{ Routing, page }
 
 import scala.concurrent.ExecutionContext
 
 object SysiphosUI extends App with Layout {
-  case class DomComponent(element: Binding[Div]) extends Component[Binding[Div]]
-
-  val currentView = Vars.empty[Binding[Div]]
+  val currentView: Var[Option[HtmlComponent]] = Var(None)
 
   @dom
   def appView: Binding[Div] = {
     <div id="app-view">
-      { for (view <- currentView) yield layout(view.bind).bind }
+      {
+        currentView.bind match {
+          case Some(view) =>
+            val viewElement = view.element.bind
+            view.init
+            layout(viewElement).bind
+          case None => <!-- no view -->
+        }
+      }
     </div>
   }
 
-  val domView = new DomView[Binding[Div]](element => {
-    currentView.value.clear()
-    currentView.value += element
+  val domView = new DomView[Binding[Div]]({
+    case html: HtmlComponent => currentView.value = Some(html)
+    case _ =>
   })
 
   val api = new SysiphosApiClient()(ExecutionContext.global)
-  val flowsComponent = new FlowsComponent(api)
-  val schedulesComponent = new SchedulesComponent(None, api)
 
-  page[Binding[Div]]("/flows", _ => flowsComponent)
-    .page("/flow/show/:id", ctx => new FlowComponent(ctx.pathParams.get("id"), api))
-    .page("/flow/new", _ => new FlowComponent(None, api))
-    .page("/schedules", _ => schedulesComponent)
-    .page("/schedules/show/:flowId", ctx => new SchedulesComponent(ctx.pathParams.get("flowId"), api))
-    .otherwise(_ => new WelcomeComponent)
-    .view(domView)
+  def flowsComponent = new FlowsComponent(api)
+  def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))
+  def flowComponent(id: String) = new ShowFlowComponent(id)(new FlowCircuit(api), schedulesComponent(Some(id)))
+  def createFlowComponent = new CreateFlowComponent(new FlowCircuit(api))
+  def welcome = new WelcomeComponent
+
+  val routes: Routing[Binding[Div]] =
+    page[Binding[Div]]("/flows", _ => flowsComponent)
+      .page("/flow/new", _ => createFlowComponent)
+      .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(welcome))
+      .page("/schedules", _ => schedulesComponent(None))
+      .page("/schedules/show/:flowId", ctx => ctx.pathParams.get("flowId").map(id => schedulesComponent(Some(id))).getOrElse(welcome))
+      .otherwise(_ => welcome)
 
   com.thoughtworks.binding.dom.render(window.document.getElementById("sysiphos-app"), appView)
+
+  routes.view(domView)
 }

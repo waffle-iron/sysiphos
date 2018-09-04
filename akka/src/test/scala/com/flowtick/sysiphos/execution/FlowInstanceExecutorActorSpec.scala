@@ -7,20 +7,20 @@ import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow.{ FlowTaskInstance, _ }
 import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers, MustMatchers }
+import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 
 import scala.concurrent.Future
 
 class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with ImplicitSender with MockFactory
   with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
-  val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = stub[FlowInstanceRepository[FlowInstance]]
+  val flowInstanceRepository: FlowInstanceRepository = stub[FlowInstanceRepository]
   val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance] = stub[FlowTaskInstanceRepository[FlowTaskInstance]]
 
   val flowInstance: FlowInstance = new FlowInstance {
     override def status: String = "new"
 
-    override def context: Map[String, String] = Map.empty
+    override def context: Seq[FlowInstanceContextValue] = Seq.empty
 
     override def id: String = "???"
 
@@ -31,6 +31,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     override def startTime: Option[Long] = None
 
     override def endTime: Option[Long] = None
+
+    override def retries: Int = 3
   }
 
   lazy val flowTaskInstance = FlowTaskInstanceDetails(

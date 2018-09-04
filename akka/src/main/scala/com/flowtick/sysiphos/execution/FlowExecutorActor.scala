@@ -22,7 +22,7 @@ object FlowExecutorActor {
 
 trait FlowExecution extends Logging {
   val flowScheduleRepository: FlowScheduleRepository
-  val flowInstanceRepository: FlowInstanceRepository[FlowInstance]
+  val flowInstanceRepository: FlowInstanceRepository
   val flowScheduleStateStore: FlowScheduleStateStore
   val flowScheduler: FlowScheduler
   implicit val repositoryContext: RepositoryContext
@@ -73,7 +73,7 @@ trait FlowExecution extends Logging {
 
 class FlowExecutorActor(
   val flowScheduleRepository: FlowScheduleRepository,
-  val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
+  val flowInstanceRepository: FlowInstanceRepository,
   val flowDefinitionRepository: FlowDefinitionRepository,
   val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance],
   val flowScheduleStateStore: FlowScheduleStateStore,
