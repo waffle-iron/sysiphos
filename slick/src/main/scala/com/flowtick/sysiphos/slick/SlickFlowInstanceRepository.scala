@@ -54,7 +54,6 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     value: String)
 
   case class InstanceWithContext(instance: SlickFlowInstance, context: Map[String, String]) extends FlowInstance {
-    override def retries: Int = instance.retries
 
     override def status: String = instance.status
 
@@ -136,5 +135,11 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     db.run(countQuery)
   }
+  override def setStatus(flowInstanceId: String, status: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
+      .map { instance => instance.status }
+      .update(status)
 
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).map { _ => () }
+  }
 }

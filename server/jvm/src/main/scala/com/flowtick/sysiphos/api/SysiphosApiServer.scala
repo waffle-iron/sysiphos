@@ -6,10 +6,10 @@ import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
-import com.flowtick.sysiphos.execution.{ FlowExecutorActor, CronScheduler }
+import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
-import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
 import com.twitter.util.Await
 import io.finch.Application
@@ -34,12 +34,14 @@ trait SysiphosApiServer extends SysiphosApi
     flowScheduleRepository: FlowScheduleRepository,
     flowInstanceRepository: FlowInstanceRepository[FlowInstance],
     flowScheduleStateStore: FlowScheduleStateStore,
-    flowDefinitionRepository: FlowDefinitionRepository): Unit = {
+    flowDefinitionRepository: FlowDefinitionRepository,
+    flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]): Unit = {
     val executorActorProps = Props(
       classOf[FlowExecutorActor],
       flowScheduleRepository,
       flowInstanceRepository,
       flowDefinitionRepository,
+      flowTaskInstanceRepository,
       flowScheduleStateStore,
       CronScheduler: FlowScheduler)
 
@@ -62,6 +64,7 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowInstanceRepository: FlowInstanceRepository[FlowInstance] = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance] = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
@@ -72,7 +75,7 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
 
   DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
 
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
+  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
 
   startApiServer
 }

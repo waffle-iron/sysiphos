@@ -6,18 +6,17 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ Actor, Cancellable, Props }
 import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.execution.FlowExecutorActor.DueFlowDefinitions
-import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Success
 
 object FlowExecutorActor {
   case class Init()
   case class Tick()
+  case class RunInstanceExecutors(instances: Seq[FlowInstance])
   case class DueFlowDefinitions(flows: Seq[FlowDefinition])
 }
 
@@ -33,7 +32,7 @@ trait FlowExecution extends Logging {
     flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty)
   }
 
-  def dueTaskInstances(now: Long): Future[Seq[Option[FlowInstance]]] = {
+  def dueTaskInstances(now: Long): Future[Seq[FlowInstance]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
       .getFlowSchedules(onlyEnabled = true, None)
@@ -54,7 +53,7 @@ trait FlowExecution extends Logging {
           maybeFlowInstance
         }
       }
-    }
+    }.map(_.flatten)
   }
 
   def createInstanceIfDue(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
@@ -76,6 +75,7 @@ class FlowExecutorActor(
   val flowScheduleRepository: FlowScheduleRepository,
   val flowInstanceRepository: FlowInstanceRepository[FlowInstance],
   val flowDefinitionRepository: FlowDefinitionRepository,
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance],
   val flowScheduleStateStore: FlowScheduleStateStore,
   val flowScheduler: FlowScheduler) extends Actor with FlowExecution with Logging {
 
@@ -93,26 +93,27 @@ class FlowExecutorActor(
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init
     case _: FlowExecutorActor.Tick =>
-      val futureTaskInstances = dueTaskInstances(now.toEpochSecond(zoneOffset))
-      val futureFlowDefinitions = futureTaskInstances.flatMap { taskInstances =>
-        Future.sequence(taskInstances.flatten.map { taskInstance =>
-          flowDefinitionRepository.findById(taskInstance.flowDefinitionId).map {
-            case Some(details) => details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
-            case None => None
-          }
-        }).map(maybeFlowDefinitions => DueFlowDefinitions(maybeFlowDefinitions.flatten))
-      }.recover {
-        case e: Exception =>
-          log.error(s"error while preparing flow definitions: ${e.getLocalizedMessage}")
-          DueFlowDefinitions(Seq.empty)
+      dueTaskInstances(now.toEpochSecond(zoneOffset)).map { FlowExecutorActor.RunInstanceExecutors }.pipeTo(self)(sender())
+    case FlowExecutorActor.RunInstanceExecutors(instances) => instances.foreach { instance =>
+      val flowInstanceActorProps = Props(
+        new FlowInstanceExecutorActor(
+          instance,
+          flowInstanceRepository,
+          flowTaskInstanceRepository)(repositoryContext))
+
+      val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
+        case Some(details) =>
+          details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
+        case None => None
       }
 
-      futureFlowDefinitions.pipeTo(self)(sender())
+      val flowInstanceInit: Future[FlowInstanceExecution.Init] = maybeFlowDefinition.flatMap {
+        case Some(t) => Future.successful(FlowInstanceExecution.Init(t))
+        case None =>
+          Future.failed(new RuntimeException(s"missing definition  ${instance.id}"))
+      }
 
-    case DueFlowDefinitions(flowDefinitions) => flowDefinitions.foreach { flowDefinition =>
-      val executorActorProps = Props(new FlowInstanceExecutorActor(flowDefinition, flowInstanceRepository))
-      log.info(s"starting a flow definition actor for $flowDefinition")
-      context.actorOf(executorActorProps) ! FlowInstanceExecution.Init
+      flowInstanceInit.pipeTo(context.actorOf(flowInstanceActorProps))(sender())
     }
   }
 

@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import akka.actor.ActorSystem
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
-import com.flowtick.sysiphos.slick.{ DefaultSlickRepositoryMigrations, SlickFlowDefinitionRepository, SlickFlowInstanceRepository, SlickFlowScheduleRepository }
+import com.flowtick.sysiphos.slick._
 import com.flowtick.sysiphos.task.CommandLineTask
 import monix.execution.Scheduler
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
@@ -20,6 +20,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutor)
   val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutor)
   val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutor)
+  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutor)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   implicit val executorSystem: ActorSystem = ActorSystem()
@@ -50,6 +51,6 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
       Some(true)).futureValue
   }
 
-  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository)
+  startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
   startApiServer
 }

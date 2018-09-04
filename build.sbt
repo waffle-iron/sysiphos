@@ -76,6 +76,7 @@ lazy val akka = project.in(file("akka")).
   settings(
     name := "sysiphos-akka",
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
+    libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.5.6" % Test,
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV

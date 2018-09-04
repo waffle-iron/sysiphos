@@ -10,4 +10,5 @@
     <include file="db/create_flow_schedule.xml" />
     <include file="db/create_flow_instance.xml" />
     <include file="db/create_flow_instance_context.xml" />
+    <include file="db/create_flow_task_instance.xml" />
 </databaseChangeLog>
