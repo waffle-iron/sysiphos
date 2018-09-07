@@ -1,13 +1,13 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository }
+import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowInstanceStatus }
 import com.flowtick.sysiphos.scheduler._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ FlatSpec, Matchers }
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 
 class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with MockFactory
   with ScalaFutures with IntegrationPatience {
@@ -21,6 +21,8 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
     override def currentUser: String = "test-user"
   }
 
+  override implicit val executionContext: ExecutionContext = ExecutionContext.Implicits.global
+
   "Akka flow executor" should "create child actors for due schedules" in new RepositoryContext {
     val testInstance = FlowInstanceDetails(
       id = "test-instance",
@@ -28,7 +30,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       creationTime = 0,
       startTime = None,
       endTime = None,
-      status = "new",
+      status = FlowInstanceStatus.New,
       retries = 3,
       context = Seq.empty)
 

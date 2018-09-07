@@ -22,7 +22,7 @@
             <column name="_FLOW_INSTANCE_ID" type="varchar(40)">
                 <constraints nullable="false"/>
             </column>
-            <column name="_USER_TASK_ID" type="varchar(40)">
+            <column name="_TASK_ID" type="varchar(40)">
                 <constraints nullable="false"/>
             </column>
             <column name="_STATUS" type="varchar(40)">
@@ -44,9 +44,6 @@
             </column>
             <column name="_UPDATED" type="bigint">
                 <constraints nullable="true"/>
-            </column>
-            <column name="_CREATOR" type="varchar(1024)">
-                <constraints nullable="false"/>
             </column>
         </createTable>
     </changeSet>

@@ -60,8 +60,8 @@ object FlowDefinition {
     }
   }
 
-  case class SysiphosDefinition(id: String, task: FlowTask) extends FlowDefinition
-  case class SysiphosTask(
+  final case class SysiphosDefinition(id: String, task: FlowTask) extends FlowDefinition
+  final case class SysiphosTask(
     id: String,
     `type`: String,
     children: Option[Seq[FlowTask]],

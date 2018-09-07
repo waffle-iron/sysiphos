@@ -83,7 +83,10 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
             instance.id,
             instance.flowDefinitionId,
             instance.created,
-            instance.startTime, instance.endTime, instance.retries, instance.status,
+            instance.startTime,
+            instance.endTime,
+            instance.retries,
+            FlowInstanceStatus.withName(instance.status),
             contextValues.flatMap(_._2).map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
       }.toSeq
 
@@ -118,7 +121,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
       newInstance.startTime,
       newInstance.endTime,
       newInstance.retries,
-      newInstance.status,
+      FlowInstanceStatus.withName(newInstance.status),
       context.toSeq.map(kv => FlowInstanceContextValue(kv._1, kv._2))))
   }
 
@@ -133,10 +136,10 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     db.run(countQuery)
   }
-  override def setStatus(flowInstanceId: String, status: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+  override def setStatus(flowInstanceId: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
     val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
       .map { instance => instance.status }
-      .update(status)
+      .update(status.toString)
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).map { _ => () }
   }

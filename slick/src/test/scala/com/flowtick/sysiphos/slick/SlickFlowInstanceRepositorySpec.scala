@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.slick
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceContextValue, FlowInstanceQuery }
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceContextValue, FlowInstanceQuery, FlowInstanceStatus }
 import slick.jdbc.H2Profile
 
 class SlickFlowInstanceRepositorySpec extends SlickSpec {
@@ -14,6 +14,6 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
     val newInstance: FlowInstance = slickInstanceRepository.createFlowInstance("some-definition", Map("foo" -> "bar"))(this).futureValue
     val instancesWithContext: Seq[FlowInstance] = slickInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition")))(this).futureValue
     instancesWithContext.head.context should be(Seq(FlowInstanceContextValue("foo", "bar")))
-    instancesWithContext.head.status should be("new")
+    instancesWithContext.head.status should be(FlowInstanceStatus.New)
   }
 }

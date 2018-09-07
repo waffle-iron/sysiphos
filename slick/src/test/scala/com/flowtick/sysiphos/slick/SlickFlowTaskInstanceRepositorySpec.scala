@@ -21,11 +21,10 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
 
     val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id")(this).futureValue
 
-    slickFlowTaskInstanceRepository.setStatus(newInstance.id, "failed")(this).futureValue
-    slickFlowTaskInstanceRepository.setRetries(newInstance.id, 42)(this).futureValue
+    slickFlowTaskInstanceRepository.setStatus(newInstance.id, FlowTaskInstanceStatus.Failed)(this).futureValue
 
-    val updatedInstance: Option[FlowTaskInstance] = slickFlowTaskInstanceRepository.findById(newInstance.id)(this).futureValue
-    updatedInstance.head.status should be("failed")
+    val updatedInstance: Option[FlowTaskInstance] = slickFlowTaskInstanceRepository.setRetries(newInstance.id, 42)(this).futureValue
+    updatedInstance.head.status should be(FlowTaskInstanceStatus.Failed)
     updatedInstance.head.retries should be(42)
   }
 }

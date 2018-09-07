@@ -5,6 +5,7 @@ import java.io.{ PrintWriter, StringWriter }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.twitter.finagle.http.Status
@@ -79,6 +80,8 @@ object SysiphosApi {
   implicit val FlowInstanceContextValueType = deriveObjectType[SysiphosApiContext, FlowInstanceContextValue](
     ObjectTypeName("FlowInstanceContextValue"),
     ObjectTypeDescription("the value of a context variable"))
+
+  implicit val FlowInstanceStatusType = deriveEnumType[FlowInstanceStatus]()
 
   implicit val FlowInstanceDetailsType = deriveObjectType[SysiphosApiContext, FlowInstanceDetails](
     ObjectTypeName("FlowInstanceDetails"),

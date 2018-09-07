@@ -30,7 +30,7 @@ trait SysiphosApiServer extends SysiphosApi
   val flowDefinitionRepository: FlowDefinitionRepository
   val flowScheduleRepository: SlickFlowScheduleRepository
   val flowInstanceRepository: FlowInstanceRepository
-  val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository
 
   def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext
 
@@ -43,15 +43,14 @@ trait SysiphosApiServer extends SysiphosApi
     flowInstanceRepository: FlowInstanceRepository,
     flowScheduleStateStore: FlowScheduleStateStore,
     flowDefinitionRepository: FlowDefinitionRepository,
-    flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance]): Unit = {
-    val executorActorProps = Props(
-      classOf[FlowExecutorActor],
+    flowTaskInstanceRepository: FlowTaskInstanceRepository): Unit = {
+    val executorActorProps = Props[FlowExecutorActor](new FlowExecutorActor(
       flowScheduleRepository,
       flowInstanceRepository,
       flowDefinitionRepository,
       flowTaskInstanceRepository,
       flowScheduleStateStore,
-      CronScheduler: FlowScheduler)
+      CronScheduler)(scheduler))
 
     val executorActor = executorSystem.actorOf(executorActorProps)
 
@@ -91,7 +90,7 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
   lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository[FlowTaskInstance] = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
