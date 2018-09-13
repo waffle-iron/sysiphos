@@ -48,7 +48,14 @@ class FlowExecutorActor(
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init
     case _: FlowExecutorActor.Tick =>
-      dueTaskInstances(now.toEpochSecond(zoneOffset)).map { FlowExecutorActor.RunInstanceExecutors }.pipeTo(self)(sender())
+      val currentTime = now.toEpochSecond(zoneOffset)
+
+      val taskInstances = for {
+        newTaskInstances <- dueTaskInstances(currentTime)
+        retryTaskInstances <- dueTaskRetries(currentTime)
+      } yield newTaskInstances ++ retryTaskInstances
+
+      taskInstances.map { FlowExecutorActor.RunInstanceExecutors }.pipeTo(self)(sender())
     case FlowExecutorActor.RunInstanceExecutors(instances) => instances.foreach { instance =>
 
       val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
@@ -57,10 +64,10 @@ class FlowExecutorActor(
         case None => None
       }
 
-      val flowInstanceInit: Future[FlowInstanceExecution.Execute] = maybeFlowDefinition.flatMap {
+      val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
         case Some(definition) =>
           Future
-            .successful(FlowInstanceExecution.Execute(definition))
+            .successful(FlowInstanceExecution.Execute)
             .pipeTo(context.actorOf(flowInstanceActorProps(definition, instance)))(sender())
         case None =>
           Future.failed(new RuntimeException(s"missing definition  ${instance.id}"))
@@ -68,6 +75,14 @@ class FlowExecutorActor(
 
       flowInstanceInit
     }
+    case FlowInstanceExecution.Finished(flowInstance) =>
+      flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
+    case FlowInstanceExecution.ExecutionFailed(flowTaskInstance) =>
+      flowInstanceRepository.setStatus(flowTaskInstance.flowInstanceId, FlowInstanceStatus.Failed)
+    case FlowInstanceExecution.Retry(_, flowTaskInstance) =>
+      val dueDate = now.toEpochSecond(zoneOffset) + flowTaskInstance.retryDelay.getOrElse(10L)
+      log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
+      flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))
   }
 
   def init: Cancellable = {

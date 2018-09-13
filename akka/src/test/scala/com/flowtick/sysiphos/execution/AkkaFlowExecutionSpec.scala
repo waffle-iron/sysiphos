@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowInstanceStatus }
+import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowInstanceStatus, FlowTaskInstanceRepository }
 import com.flowtick.sysiphos.scheduler._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
@@ -15,6 +15,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
   override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
+  override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
 
   override implicit val repositoryContext: RepositoryContext = new RepositoryContext {

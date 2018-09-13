@@ -1,9 +1,9 @@
 package com.flowtick.sysiphos.execution
 
-import akka.actor.{ Actor, ActorRef, Props }
+import akka.actor.{ Actor, ActorRef, PoisonPill, Props }
 import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ Failed, Retry }
+import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Finished, Retry, WorkTriggered }
 import com.flowtick.sysiphos.flow._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -28,7 +28,10 @@ class FlowInstanceExecutorActor(
 
         val runningInstance = for {
           taskInstance <- taskInstanceFuture
-          running <- flowTaskInstanceRepository.setStatus(taskInstance.id, FlowTaskInstanceStatus.Running)
+          running <- {
+            log.info(s"setting task ${taskInstance.id} to running")
+            flowTaskInstanceRepository.setStatus(taskInstance.id, FlowTaskInstanceStatus.Running)
+          }
         } yield running
 
         runningInstance.flatMap {
@@ -40,35 +43,43 @@ class FlowInstanceExecutorActor(
 
   def flowTaskExecutor(): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor))
 
+  def selfRef: ActorRef = self
+
+  def die() = if (context.children.isEmpty) { selfRef ! PoisonPill }
+
   override def receive: PartialFunction[Any, Unit] = {
-    case FlowInstanceExecution.Execute(_) =>
+    case FlowInstanceExecution.Execute =>
       log.info(s"executing $flowDefinition, $flowInstance ...")
-      execute(selectTask = None)
+      execute(selectTask = None).map { newExecutions =>
+        if (newExecutions.isEmpty && context.children.isEmpty) {
+          Finished(flowInstance)
+        } else
+          WorkTriggered(newExecutions)
+      }.pipeTo(context.parent)
 
     case FlowInstanceExecution.WorkFailed(e, task, flowTaskInstance) =>
+      log.warn(s"task ${flowTaskInstance.id} failed with ${e.getLocalizedMessage}")
       context.stop(sender())
-      val handleFailedTask: Future[FlowInstanceExecution.FlowInstanceMessage] = if (flowTaskInstance.retries == 0) {
-        flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed).flatMap { _ =>
-          flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Failed).map(_ => Failed(flowInstance))
-        }
-      } else flowTaskInstanceRepository.setRetries(flowTaskInstance.id, flowTaskInstance.retries - 1).flatMap {
-        case Some(updatedTaskInstance) => Future.successful(Retry(task, updatedTaskInstance))
-        case None => Future.failed(new IllegalStateException(s"unable to update task instance $flowTaskInstance"))
+      flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed).flatMap {
+        case Some(details) if flowTaskInstance.retries == 0 =>
+          log.info(s"retries exceeded for ${details.taskId}. sending failed execution")
+          Future.successful {
+            context.parent ! ExecutionFailed(flowTaskInstance)
+            die()
+          }
+        case Some(details) =>
+          log.info(s"retry sent from instance ${details.taskId}.")
+          context.parent ! Retry(task, flowTaskInstance)
+          Future.successful(die())
+        case None => Future.failed(new RuntimeException(s"unable to update status of ${flowTaskInstance.id}"))
       }
-
-      handleFailedTask.pipeTo(self)
-
-      log.error(e.getLocalizedMessage)
-
     case FlowInstanceExecution.WorkDone(flowTaskInstance) =>
       context.stop(sender())
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
-      flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done)
-      execute(selectTask = None)
 
-    case FlowInstanceExecution.Retry(task, flowTaskInstance) =>
-      log.info(s"retrying $task in $flowTaskInstance.")
-      execute(selectTask = Some(task))
+      flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done).map(_ => {
+        FlowInstanceExecution.Execute
+      }).pipeTo(selfRef)
   }
 
 }

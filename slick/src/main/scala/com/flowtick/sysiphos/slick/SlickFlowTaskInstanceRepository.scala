@@ -1,15 +1,15 @@
 package com.flowtick.sysiphos.slick
 
-import java.time.{LocalDateTime, ZoneOffset}
+import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.UUID
 
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow._
 import javax.sql.DataSource
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.{ Logger, LoggerFactory }
 import slick.jdbc.JdbcProfile
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowTaskInstanceRepository {
   val log: Logger = LoggerFactory.getLogger(getClass)
@@ -26,17 +26,18 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     def updated = column[Option[Long]]("_UPDATED")
     def status = column[String]("_STATUS")
     def retries = column[Int]("_RETRIES")
+    def retryDelay = column[Option[Long]]("_RETRY_DELAY")
+    def nextDueDate = column[Option[Long]]("_NEXT_DUE_DATE")
     def startTime = column[Option[Long]]("_START_TIME")
     def endTime = column[Option[Long]]("_END_TIME")
 
-    def fromTuple(tuple: (String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String)): FlowTaskInstanceDetails = tuple match {
-      case (id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, status) =>
+    def fromTuple(tuple: (String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long])): FlowTaskInstanceDetails = tuple match {
+      case (id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, status, retryDelay, nextDueDate) =>
         FlowTaskInstanceDetails(
-          id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, FlowTaskInstanceStatus.withName(status)
-        )
+          id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, FlowTaskInstanceStatus.withName(status), retryDelay, nextDueDate)
     }
 
-    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String)] = Some(
+    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long])] = Some(
       (
         instance.id,
         instance.flowInstanceId,
@@ -46,14 +47,13 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
         instance.startTime,
         instance.endTime,
         instance.retries,
-        instance.status.toString
-      )
-    )
+        instance.status.toString,
+        instance.retryDelay,
+        instance.nextDueDate))
 
-    def * = (id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, status) <>[FlowTaskInstanceDetails] (
+    def * = (id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, status, retryDelay, nextDueDate) <> (
       fromTuple,
-      toTuple
-    )
+      toTuple)
   }
 
   case class SysiphosFlowTaskInstanceContext(
@@ -89,8 +89,10 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       creationTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
       startTime = None,
       status = FlowTaskInstanceStatus.New,
-      retries = 0,
-      endTime = None)
+      retries = 3,
+      endTime = None,
+      retryDelay = Some(10L),
+      nextDueDate = None)
 
     db.run((taskInstancesTable += newInstance).transactionally).map(_ => newInstance)
   }
@@ -110,4 +112,19 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
   }
+
+  override def setNextDueDate(taskInstanceId: String, nextDueDate: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
+    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
+      .map { task => task.nextDueDate }
+      .update(nextDueDate)
+
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
+  }
+
+  override def getScheduled()(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
+    val queryBuilder = taskInstancesTable.filter(_.nextDueDate.isDefined).result
+
+    db.run(queryBuilder)
+  }
+
 }

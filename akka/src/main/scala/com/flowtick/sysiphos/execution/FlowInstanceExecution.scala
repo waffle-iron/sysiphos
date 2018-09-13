@@ -32,9 +32,11 @@ trait FlowInstanceExecution extends Logging {
 object FlowInstanceExecution {
   sealed trait FlowInstanceMessage
 
-  case class Execute(flowDefinition: FlowDefinition) extends FlowInstanceMessage
+  case object Execute extends FlowInstanceMessage
+  case class WorkTriggered(tasks: Seq[FlowTaskExecution.Execute]) extends FlowInstanceMessage
   case class WorkDone(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
-  case class Retry(task: FlowTask, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
-  case class Failed(flowInstance: FlowInstance) extends FlowInstanceMessage
   case class WorkFailed(e: Throwable, task: FlowTask, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class ExecutionFailed(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class Retry(task: FlowTask, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class Finished(flowInstance: FlowInstance) extends FlowInstanceMessage
 }

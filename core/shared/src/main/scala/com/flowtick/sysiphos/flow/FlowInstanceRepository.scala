@@ -9,6 +9,7 @@ final case class InstanceCount(flowDefinitionId: String, status: String, count: 
 final case class FlowDefinitionSummary(id: String, counts: Seq[InstanceCount])
 
 trait FlowInstanceRepository {
+  def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]]
   def setStatus(id: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit]
   def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]]
   def createFlowInstance(flowDefinitionId: String, context: Map[String, String])(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails]

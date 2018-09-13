@@ -143,4 +143,23 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).map { _ => () }
   }
+
+  override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
+    val instancesWithContext = (instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)).result.headOption
+    db.run(instancesWithContext).map { x =>
+      x.map {
+        case (instance, context) =>
+          FlowInstanceDetails(
+            instance.id,
+            instance.flowDefinitionId,
+            instance.created,
+            instance.startTime,
+            instance.endTime,
+            instance.retries,
+            FlowInstanceStatus.withName(instance.status),
+            context.map { c => Seq(FlowInstanceContextValue(c.key, c.value)) }.getOrElse(Seq.empty))
+      }
+    }
+
+  }
 }

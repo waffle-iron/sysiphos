@@ -31,6 +31,12 @@
             <column name="_RETRIES" type="int">
                 <constraints nullable="false"/>
             </column>
+            <column name="_RETRY_DELAY" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="_NEXT_DUE_DATE" type="bigint">
+                <constraints nullable="true"/>
+            </column>
             <column name="_START_TIME" type="bigint">
                 <constraints nullable="true"/>
             </column>
