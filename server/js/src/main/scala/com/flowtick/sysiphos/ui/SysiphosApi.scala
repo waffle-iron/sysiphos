@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui
 
-import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowDefinitionSummary }
+import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowDefinitionSummary, FlowInstanceDetails, FlowTaskInstanceDetails }
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import io.circe.{ Decoder, Json }
 import io.circe.generic.auto._
@@ -12,6 +12,10 @@ import scala.concurrent.{ ExecutionContext, Future }
 case class FlowDefinitionDetailsResult(definition: Option[FlowDefinitionDetails])
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
 case class FlowScheduleList(schedules: Seq[FlowScheduleDetails])
+case class FlowInstanceList(instances: Seq[FlowInstanceDetails])
+
+case class OverviewQueryResult(instances: Seq[FlowInstanceDetails], taskInstances: Seq[FlowTaskInstanceDetails])
+case class FlowInstanceOverview(instance: FlowInstanceDetails, tasks: Seq[FlowTaskInstanceDetails])
 
 case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class CreateFlowScheduleResult[T](createFlowSchedule: T)
@@ -23,7 +27,7 @@ case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
 case class GraphQLResponse[T](data: T)
 
 trait SysiphosApi {
-  def getFlowDefinitions: Future[GraphQLResponse[FlowDefinitionList]]
+  def getFlowDefinitions: Future[FlowDefinitionList]
 
   def getFlowDefinition(id: String): Future[Option[FlowDefinitionDetails]]
 
@@ -31,7 +35,7 @@ trait SysiphosApi {
 
   def createFlowSchedule(flowId: String, expression: String): Future[FlowScheduleDetails]
 
-  def getSchedules(flowId: Option[String]): Future[GraphQLResponse[FlowScheduleList]]
+  def getSchedules(flowId: Option[String]): Future[FlowScheduleList]
 
   def setFlowScheduleEnabled(
     id: String,
@@ -40,9 +44,15 @@ trait SysiphosApi {
   def setFlowScheduleExpression(
     id: String,
     expression: String): Future[String]
+
+  def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList]
+
+  def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]]
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
+  def quotedOrNull(optional: Option[String]): String = optional.map("\"" + _ + "\"").getOrElse("null")
+
   def query[T](query: String, variables: Map[String, Json] = Map.empty)(implicit ev: Decoder[T]): Future[GraphQLResponse[T]] = {
     val queryJson = Json.obj(
       "query" -> Json.fromString(query),
@@ -64,18 +74,18 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
     })
   }
 
-  override def getSchedules(flowId: Option[String]): Future[GraphQLResponse[FlowScheduleList]] =
+  override def getSchedules(flowId: Option[String]): Future[FlowScheduleList] =
     query[FlowScheduleList](
       s"""
          |{
-         |  schedules ${flowId.map("(flowId: \"" + _ + "\")").getOrElse("")}
+         |  schedules (flowId: ${quotedOrNull(flowId)})
          |  {id, creator, created, version, flowDefinitionId, enabled, expression, nextDueDate }
          |}
          |
-       """.stripMargin)
+       """.stripMargin).map(_.data)
 
-  override def getFlowDefinitions: Future[GraphQLResponse[FlowDefinitionList]] =
-    query[FlowDefinitionList]("{ definitions {id, counts { status, count, flowDefinitionId } } }")
+  override def getFlowDefinitions: Future[FlowDefinitionList] =
+    query[FlowDefinitionList]("{ definitions {id, counts { status, count, flowDefinitionId } } }").map(_.data)
 
   override def getFlowDefinition(id: String): Future[Option[FlowDefinitionDetails]] = {
     query[FlowDefinitionDetailsResult](s"""{ definition(id: "$id") {id, version, source, created} }""").map(_.data.definition)
@@ -119,5 +129,44 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
          |}
        """.stripMargin
     query[CreateFlowScheduleResult[FlowScheduleDetails]](createScheduleQuery).map(_.data.createFlowSchedule)
+  }
+
+  override def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList] = {
+    val instancesQuery =
+      s"""
+         |{
+         |  instances (flowDefinitionId: ${quotedOrNull(flowId)},
+         |             status: ${quotedOrNull(status)},
+         |             createdGreaterThan: ${createdGreaterThan.map(_.toString).getOrElse("null")}) {
+         |    id, flowDefinitionId, creationTime, startTime, endTime, retries, status, context {
+         |      key, value
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    query[FlowInstanceList](instancesQuery).map(_.data)
+  }
+
+  override def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]] = {
+    val instanceOverviewQuery =
+      s"""
+         |{
+         |  instances(instanceIds: ["$instanceId"]) {
+         |    id, flowDefinitionId, creationTime, startTime, endTime, retries, status, context {
+         |      key, value
+         |    }
+         |  },
+         |	taskInstances(flowInstanceId: "$instanceId") {
+         |    id, flowInstanceId, taskId, creationTime, updatedTime, startTime, endTime, status, retries
+         |  }
+         |}
+       """.stripMargin
+
+    def resultToOverview(result: OverviewQueryResult): Option[FlowInstanceOverview] =
+      result.instances.headOption.flatMap(details => {
+        Some(FlowInstanceOverview(details, result.taskInstances))
+      })
+
+    query[OverviewQueryResult](instanceOverviewQuery).map(result => resultToOverview(result.data))
   }
 }

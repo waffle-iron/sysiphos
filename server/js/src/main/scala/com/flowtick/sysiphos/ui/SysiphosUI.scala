@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.ui
 
+import com.flowtick.sysiphos.ui.execution.{ FlowInstancesCircuit, FlowInstancesComponent, ShowInstanceCircuit, ShowInstanceComponent }
 import com.flowtick.sysiphos.ui.flow.{ CreateFlowComponent, FlowCircuit, FlowsComponent, ShowFlowComponent }
 import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
 import com.thoughtworks.binding.Binding.Var
@@ -38,6 +39,8 @@ object SysiphosUI extends App with Layout {
 
   def flowsComponent = new FlowsComponent(api)
   def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))
+  def instancesComponent(flowId: Option[String], status: Option[String]) = new FlowInstancesComponent(flowId, status, new FlowInstancesCircuit(api))
+  def instanceComponent(instanceId: String) = new ShowInstanceComponent(instanceId, new ShowInstanceCircuit(api))
   def flowComponent(id: String) = new ShowFlowComponent(id)(new FlowCircuit(api), schedulesComponent(Some(id)))
   def createFlowComponent = new CreateFlowComponent(new FlowCircuit(api))
   def welcome = new WelcomeComponent
@@ -48,6 +51,9 @@ object SysiphosUI extends App with Layout {
       .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(welcome))
       .page("/schedules", _ => schedulesComponent(None))
       .page("/schedules/show/:flowId", ctx => ctx.pathParams.get("flowId").map(id => schedulesComponent(Some(id))).getOrElse(welcome))
+      .page("/instances", ctx => instancesComponent(None, ctx.queryParams.get("status")))
+      .page("/instances/filter/:flowId", ctx => instancesComponent(ctx.pathParams.get("flowId"), ctx.queryParams.get("status")))
+      .page("/instances/show/:instanceId", ctx => ctx.pathParams.get("instanceId").map(id => instanceComponent(id)).getOrElse(welcome))
       .otherwise(_ => welcome)
 
   com.thoughtworks.binding.dom.render(window.document.getElementById("sysiphos-app"), appView)

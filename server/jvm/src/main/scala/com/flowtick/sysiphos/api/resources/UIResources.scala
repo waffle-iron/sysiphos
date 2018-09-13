@@ -13,5 +13,6 @@ trait UIResources extends StaticResourceSupport {
       getResource("sysiphos-ui.js", "application/javascript") :+:
       getResource("sysiphos-ui.js.map", "application/json") :+:
       getResource("noun_694591_cc.svg", "image/svg+xml") :+:
+      getResource("style.css", "text/css") :+:
       indexPageRedirect
 }

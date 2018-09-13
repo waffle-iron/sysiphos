@@ -97,7 +97,12 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   implicit val executorSystem: ActorSystem = ActorSystem()
   implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
 
-  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutionContext, repositoryContext)
+  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(
+    flowDefinitionRepository,
+    flowScheduleRepository,
+    flowInstanceRepository,
+    flowScheduleRepository,
+    flowTaskInstanceRepository)(apiExecutionContext, repositoryContext)
 
   startApiServer()
 }

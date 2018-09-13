@@ -24,7 +24,8 @@ final case class SlickFlowInstance(
   startTime: Option[Long] = None,
   endTime: Option[Long] = None)
 
-class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository {
+class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository
+  with SlickRepositoryBase {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   import profile.api._
@@ -67,13 +68,15 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
   private[slick] def getFlowInstances: Future[Seq[SlickFlowInstance]] = db.run(instanceTable.result)
 
   override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]] = {
-    val instances = query
-      .flowDefinitionId
-      .map(flowId => instanceTable.filter(_.flowDefinitionId === flowId))
-      .getOrElse(instanceTable)
+    val filteredInstances = instanceTable
+      .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
+      .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
+      .filterOptional(query.status)(status => _.status === status)
+      .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
+      .sortBy(_.created.desc)
 
     val instancesWithContext = (for {
-      (instance, context) <- instances joinLeft contextTable on (_.id === _.flowInstanceId)
+      (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
     } yield (instance, context)).result
 
     db.run(instancesWithContext).flatMap(instances => {

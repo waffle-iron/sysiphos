@@ -8,10 +8,11 @@ import com.flowtick.sysiphos.scheduler.{ FlowScheduleDetails, FlowScheduleReposi
 import scala.concurrent.{ ExecutionContext, Future }
 
 class SysiphosApiContext(
-  val flowDefinitionRepository: FlowDefinitionRepository,
-  val flowScheduleRepository: FlowScheduleRepository,
-  val flowInstanceRepository: FlowInstanceRepository,
-  val flowScheduleStateStore: FlowScheduleStateStore)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
+  flowDefinitionRepository: FlowDefinitionRepository,
+  flowScheduleRepository: FlowScheduleRepository,
+  flowInstanceRepository: FlowInstanceRepository,
+  flowScheduleStateStore: FlowScheduleStateStore,
+  flowTaskInstanceRepository: FlowTaskInstanceRepository)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
   extends ApiContext {
   override def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]] =
     flowScheduleRepository.getFlowSchedules(onlyEnabled = false, flowId).map(_.filter(schedule => id.forall(_ == schedule.id)))
@@ -62,7 +63,15 @@ class SysiphosApiContext(
     flowScheduleRepository.updateFlowSchedule(id, expression, enabled)
   }
 
-  override def instances(flowDefinitionId: Option[String]): Future[Seq[FlowInstanceDetails]] = {
-    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId))
+  override def instances(
+    flowDefinitionId: Option[String],
+    instanceIds: Option[Seq[String]],
+    status: Option[String],
+    createdGreaterThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status, createdGreaterThan))
+  }
+
+  override def taskInstances(flowInstanceId: String): Future[Seq[FlowTaskInstanceDetails]] = {
+    flowTaskInstanceRepository.getFlowTaskInstances(flowInstanceId)
   }
 }

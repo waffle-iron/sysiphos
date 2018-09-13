@@ -12,7 +12,7 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     slickInstanceRepository.getFlowInstances.futureValue should be(empty)
     val newInstance: FlowInstance = slickInstanceRepository.createFlowInstance("some-definition", Map("foo" -> "bar"))(this).futureValue
-    val instancesWithContext: Seq[FlowInstance] = slickInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition")))(this).futureValue
+    val instancesWithContext: Seq[FlowInstance] = slickInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
     instancesWithContext.head.context should be(Seq(FlowInstanceContextValue("foo", "bar")))
     instancesWithContext.head.status should be(FlowInstanceStatus.New)
   }

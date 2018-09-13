@@ -23,6 +23,7 @@ trait Layout {
             <ul class="nav navbar-nav">
               <li><a href="#/flows"><i class="fas fa-project-diagram"></i> Flows</a></li>
               <li><a href="#/schedules"><i class="fas fa-clock"></i> Schedules</a></li>
+              <li><a href="#/instances"><i class="fas fa-list-ul"></i> Instances</a></li>
               <li><a target="_blank" href="/graphiql"><i class="fa fa-keyboard" data:aria-hidden="true"></i> API Console</a></li>
             </ul>
           </div><!--/.nav-collapse -->

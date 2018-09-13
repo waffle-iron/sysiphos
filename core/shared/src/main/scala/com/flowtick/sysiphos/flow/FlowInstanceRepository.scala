@@ -4,7 +4,11 @@ import com.flowtick.sysiphos.core.RepositoryContext
 
 import scala.concurrent.Future
 
-final case class FlowInstanceQuery(flowDefinitionId: Option[String])
+final case class FlowInstanceQuery(
+  flowDefinitionId: Option[String],
+  instanceIds: Option[Seq[String]],
+  status: Option[String],
+  createdGreaterThan: Option[Long])
 final case class InstanceCount(flowDefinitionId: String, status: String, count: Int)
 final case class FlowDefinitionSummary(id: String, counts: Seq[InstanceCount])
 

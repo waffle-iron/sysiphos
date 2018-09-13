@@ -1,11 +1,24 @@
 package com.flowtick.sysiphos.flow
 
+import com.flowtick.sysiphos.flow
+import io.circe.{ Decoder, Encoder }
+
+import scala.util.Try
+
 object FlowTaskInstanceStatus extends Enumeration {
   type FlowTaskInstanceStatus = Value
   val New: FlowTaskInstanceStatus.Value = Value("new")
   val Done: FlowTaskInstanceStatus.Value = Value("done")
   val Failed: FlowTaskInstanceStatus.Value = Value("failed")
   val Running: FlowTaskInstanceStatus.Value = Value("running")
+
+  implicit val decoder: Decoder[flow.FlowTaskInstanceStatus.Value] = Decoder.decodeString.flatMap { str =>
+    Decoder.instanceTry { _ =>
+      Try(FlowTaskInstanceStatus.withName(str.toLowerCase))
+    }
+  }
+
+  implicit val encoder: Encoder[flow.FlowTaskInstanceStatus.Value] = Encoder.enumEncoder(FlowTaskInstanceStatus)
 }
 
 trait FlowTaskInstance {

@@ -24,7 +24,7 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
     case (model: SchedulesModel, action) =>
       action match {
         case LoadSchedules(flowId) =>
-          val loadFuture = api.getSchedules(flowId).notifyError.map(result => FoundSchedules(result.data))
+          val loadFuture = api.getSchedules(flowId).notifyError.map(result => FoundSchedules(result))
           Some(ModelUpdateEffect(model.copy(flowId = flowId), Effect(loadFuture)))
 
         case FoundSchedules(list) =>

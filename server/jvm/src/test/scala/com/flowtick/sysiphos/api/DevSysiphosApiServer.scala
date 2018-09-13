@@ -26,7 +26,12 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   implicit val executorSystem: ActorSystem = ActorSystem()
   implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
 
-  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(flowDefinitionRepository, flowScheduleRepository, flowInstanceRepository, flowScheduleRepository)(apiExecutor, repositoryContext)
+  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(
+    flowDefinitionRepository,
+    flowScheduleRepository,
+    flowInstanceRepository,
+    flowScheduleRepository,
+    flowTaskInstanceRepository)(apiExecutor, repositoryContext)
 
   implicit val repositoryContext = new RepositoryContext {
     override def currentUser: String = "dev-test"

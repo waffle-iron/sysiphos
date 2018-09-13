@@ -1,21 +1,17 @@
 package com.flowtick.sysiphos.ui.schedule
 
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
+import com.flowtick.sysiphos.ui.util.DateSupport
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ SingletonBindingSeq, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Div, Table, TableRow }
 import org.scalajs.dom.raw.{ Event, HTMLInputElement }
 
-import scala.scalajs.js.Date
-
-class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) extends HtmlComponent with Layout {
+class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) extends HtmlComponent
+  with Layout
+  with DateSupport {
   val schedules: Vars[FlowScheduleDetails] = Vars.empty[FlowScheduleDetails]
-
-  def formatDate(epochSeconds: Long): String = {
-    val date = new Date(epochSeconds * 1000)
-    s"${date.toDateString()}, ${date.toTimeString()}"
-  }
 
   override def init: Unit = {
     circuit.subscribe(circuit.zoom(identity)) { model =>

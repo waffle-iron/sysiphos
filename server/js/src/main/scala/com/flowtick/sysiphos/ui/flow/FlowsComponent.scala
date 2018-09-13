@@ -5,7 +5,7 @@ import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
-import org.scalajs.dom.html.{ Button, Div, Table, TableRow }
+import org.scalajs.dom.html._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -15,20 +15,21 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {
     sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
       flows.value.clear()
-      flows.value.append(response.data.definitions: _*)
+      flows.value.append(response.definitions: _*)
     }
 
     flows
   }
 
   @dom
-  def instanceCountButton(count: InstanceCount): Binding[Button] =
-    <button type="button" class={
+  def instanceCountButton(count: InstanceCount): Binding[Anchor] =
+    <a href={ s"#/instances/filter/${count.flowDefinitionId}?status=${count.status}" } class={
       count.status match {
         case "new" => "btn btn-info"
+        case "failed" => "btn btn-danger"
         case _ => "btn btn-default"
       }
-    }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></button>
+    }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></a>
 
   @dom
   def flowRow(flow: FlowDefinitionSummary): Binding[TableRow] =
