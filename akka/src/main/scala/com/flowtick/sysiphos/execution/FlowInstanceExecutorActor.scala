@@ -5,6 +5,8 @@ import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Finished, Retry, WorkTriggered }
 import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.logging.{ FileLogger, Logger }
+import com.flowtick.sysiphos.logging.Logger.LogId
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -15,6 +17,8 @@ class FlowInstanceExecutorActor(
   flowInstanceRepository: FlowInstanceRepository,
   flowTaskInstanceRepository: FlowTaskInstanceRepository)(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
+
+  def createLogger: FileLogger = Logger.defaultLogger
 
   def execute(selectTask: Option[FlowTask]): Future[Seq[FlowTaskExecution.Execute]] = flowTaskInstanceRepository
     .getFlowTaskInstances(flowInstance.id)
@@ -35,13 +39,19 @@ class FlowInstanceExecutorActor(
         } yield running
 
         runningInstance.flatMap {
-          case Some(instance) => Future.successful(FlowTaskExecution.Execute(task)).pipeTo(flowTaskExecutor(instance))
+          case Some(taskInstance) =>
+            val log = createLogger.createLog(s"${taskInstance.taskId}-${taskInstance.id}")
+            Future.fromTry(log).flatMap { logId =>
+              Future.successful(FlowTaskExecution.Execute(task)).pipeTo(flowTaskExecutor(taskInstance, logId))
+            }
           case None => Future.failed(new IllegalStateException("unable to set instance to running"))
         }
       })
     }
 
-  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance)))
+  def flowTaskExecutor(
+    taskInstance: FlowTaskInstance,
+    logId: LogId): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, logId)))
 
   def selfRef: ActorRef = self
 

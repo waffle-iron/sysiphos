@@ -42,7 +42,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   Try {
     val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
       "foo",
-      CommandLineTask("foo", None, "blah"))).futureValue
+      CommandLineTask("foo", None, "ls -la"))).futureValue
 
     flowScheduleRepository.createFlowSchedule(
       Some("test-schedule-2"),

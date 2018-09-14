@@ -82,7 +82,7 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV
-  ).dependsOn(coreJVM)
+  ).dependsOn(coreJVM, logging)
 
 lazy val git = project.in(file("git")).
   settings(common).
@@ -100,6 +100,13 @@ lazy val slick = project.in(file("slick")).
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
     libraryDependencies += "com.h2database" % "h2" % "1.4.196",
     libraryDependencies += "org.liquibase" % "liquibase-core" % "3.6.1"
+  ).dependsOn(coreJVM)
+
+lazy val logging = project.in(file("logging")).
+  settings(common ++ crossCompile).
+  settings(
+    name := "sysiphos-logging",
+    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
   ).dependsOn(coreJVM)
 
 lazy val server = crossProject.in(file("server")).

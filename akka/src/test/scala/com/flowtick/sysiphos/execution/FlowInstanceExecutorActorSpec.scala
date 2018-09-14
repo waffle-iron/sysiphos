@@ -6,6 +6,7 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Retry, WorkDone, WorkFailed }
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
@@ -72,7 +73,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceExecutorActor = TestActorRef(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance) = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId) = flowTaskExecutorProbe.ref
       })
 
     (flowTaskInstanceRepository.getFlowTaskInstances(_: String)(_: RepositoryContext))
@@ -99,7 +100,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -117,7 +118,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -147,7 +148,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
