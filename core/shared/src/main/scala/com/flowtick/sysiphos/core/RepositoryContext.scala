@@ -1,8 +1,8 @@
 package com.flowtick.sysiphos.core
 
-import java.time.{ LocalDateTime, ZoneOffset }
+import java.time.{ LocalDateTime, ZoneId }
 
 trait RepositoryContext {
   def currentUser: String
-  def epochSeconds: Long = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+  def epochSeconds: Long = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond
 }

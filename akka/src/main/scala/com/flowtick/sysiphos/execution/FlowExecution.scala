@@ -46,7 +46,11 @@ trait FlowExecution extends Logging {
       log.debug(s"checking schedules: $schedules.")
       Future.sequence {
         schedules.map { s =>
-          val maybeFlowInstance = createInstanceIfDue(s, now)
+          val maybeFlowInstance = createInstanceIfDue(s, now).recoverWith {
+            case e =>
+              log.error("unable to create instance", e)
+              Future.successful(None)
+          }
 
           // schedule next occurrence
           maybeFlowInstance.foreach { _ =>

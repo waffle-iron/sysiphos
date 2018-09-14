@@ -1,8 +1,20 @@
 language: scala
-scala: 2.12.6
+
+scala:
+  - 2.12.6
+  - 2.11.12
+
 jdk: oraclejdk8
+
 sbt_args: "-J-Xmx2G"
 
 script:
-- sbt clean +test:compile
-- sbt +test
+  - sbt clean +test:compile
+  - sbt +test
+
+cache:
+  directories:
+  - $HOME/.m2
+  - $HOME/.ivy2/cache
+  - $HOME/.sbt
+  - $HOME/.coursier

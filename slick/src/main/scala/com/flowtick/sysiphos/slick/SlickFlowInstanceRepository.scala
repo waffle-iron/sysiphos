@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.slick
 
-import java.time.{ LocalDateTime, ZoneOffset }
+import java.time.{ LocalDateTime, ZoneId, ZoneOffset }
 import java.util.UUID
 
 import com.flowtick.sysiphos.core.RepositoryContext
@@ -80,8 +80,11 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     } yield (instance, context)).result
 
     db.run(instancesWithContext).flatMap(instances => {
-      val instancesWithContext = instances.groupBy(_._1).map {
-        case (instance, contextValues: Seq[(SlickFlowInstance, Option[SysiphosFlowInstanceContext])]) =>
+      val groupedByInstance = instances.groupBy(_._1)
+
+      Future.successful(instances.map {
+        case (instance, _) =>
+          val contextValues = groupedByInstance.getOrElse(instance, Seq.empty)
           FlowInstanceDetails(
             instance.id,
             instance.flowDefinitionId,
@@ -91,9 +94,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
             instance.retries,
             FlowInstanceStatus.withName(instance.status),
             contextValues.flatMap(_._2).map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
-      }.toSeq
-
-      Future.successful(instancesWithContext)
+      })
     })
   }
 
@@ -103,7 +104,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     val newInstance = SlickFlowInstance(
       id = UUID.randomUUID().toString,
       flowDefinitionId = flowDefinitionId,
-      created = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      created = repositoryContext.epochSeconds,
       version = 0L,
       creator = repositoryContext.currentUser,
       updated = None,

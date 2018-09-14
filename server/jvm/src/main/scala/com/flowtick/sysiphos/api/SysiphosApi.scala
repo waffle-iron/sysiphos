@@ -14,7 +14,9 @@ import io.circe.Json
 import sangria.ast.Document
 import sangria.execution.{ Executor, ValidationError }
 import sangria.macros.derive.GraphQLField
+import sangria.marshalling._
 import sangria.marshalling.circe._
+import io.circe.generic.auto._
 import sangria.parser.QueryParser
 import sangria.schema._
 
@@ -64,6 +66,9 @@ object SysiphosApi {
       enabled: Option[Boolean]): Future[FlowScheduleDetails]
 
     @GraphQLField
+    def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails]
+
+    @GraphQLField
     def setDueDate(flowScheduleId: String, dueDate: Long): Future[Boolean]
   }
 
@@ -88,6 +93,9 @@ object SysiphosApi {
   implicit val FlowInstanceContextValueType = deriveObjectType[SysiphosApiContext, FlowInstanceContextValue](
     ObjectTypeName("FlowInstanceContextValue"),
     ObjectTypeDescription("the value of a context variable"))
+
+  implicit val FlowInstanceContextValueInputType = deriveInputObjectType[FlowInstanceContextValue](
+    InputObjectTypeName("FlowInstanceContextValueInput"))
 
   implicit val FlowInstanceStatusType = deriveEnumType[FlowInstanceStatus]()
 

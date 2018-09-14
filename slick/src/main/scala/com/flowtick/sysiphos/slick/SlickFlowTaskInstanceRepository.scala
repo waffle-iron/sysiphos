@@ -86,7 +86,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       id = newId,
       flowInstanceId = instanceId,
       taskId = flowTaskId,
-      creationTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC),
+      creationTime = repositoryContext.epochSeconds,
       startTime = None,
       status = FlowTaskInstanceStatus.New,
       retries = 3,

@@ -74,4 +74,8 @@ class SysiphosApiContext(
   override def taskInstances(flowInstanceId: String): Future[Seq[FlowTaskInstanceDetails]] = {
     flowTaskInstanceRepository.getFlowTaskInstances(flowInstanceId)
   }
+
+  override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {
+    flowInstanceRepository.createFlowInstance(flowDefinitionId, context.map(value => (value.key, value.value)).toMap)
+  }
 }

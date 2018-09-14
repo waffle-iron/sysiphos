@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.execution
 
-import java.time.{ LocalDateTime, ZoneOffset }
+import java.time.{ LocalDateTime, ZoneId }
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, Cancellable, Props }
@@ -30,9 +30,7 @@ class FlowExecutorActor(
   val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
   val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
 
-  def now: LocalDateTime = LocalDateTime.now()
-
-  def zoneOffset: ZoneOffset = ZoneOffset.UTC
+  def now: Long = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond
 
   override implicit val repositoryContext: RepositoryContext = new RepositoryContext {
     override def currentUser: String = "undefined"
@@ -48,11 +46,9 @@ class FlowExecutorActor(
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init
     case _: FlowExecutorActor.Tick =>
-      val currentTime = now.toEpochSecond(zoneOffset)
-
       val taskInstances = for {
-        newTaskInstances <- dueTaskInstances(currentTime)
-        retryTaskInstances <- dueTaskRetries(currentTime)
+        newTaskInstances <- dueTaskInstances(now)
+        retryTaskInstances <- dueTaskRetries(now)
       } yield newTaskInstances ++ retryTaskInstances
 
       taskInstances.map { FlowExecutorActor.RunInstanceExecutors }.pipeTo(self)(sender())
@@ -80,7 +76,7 @@ class FlowExecutorActor(
     case FlowInstanceExecution.ExecutionFailed(flowTaskInstance) =>
       flowInstanceRepository.setStatus(flowTaskInstance.flowInstanceId, FlowInstanceStatus.Failed)
     case FlowInstanceExecution.Retry(_, flowTaskInstance) =>
-      val dueDate = now.toEpochSecond(zoneOffset) + flowTaskInstance.retryDelay.getOrElse(10L)
+      val dueDate = now + flowTaskInstance.retryDelay.getOrElse(10L)
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
       flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))
   }

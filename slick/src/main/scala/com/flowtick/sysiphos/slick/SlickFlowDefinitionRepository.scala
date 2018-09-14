@@ -1,7 +1,5 @@
 package com.flowtick.sysiphos.slick
 
-import java.time.{ LocalDateTime, ZoneOffset }
-
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionRepository }
 import javax.sql.DataSource
@@ -18,7 +16,7 @@ case class SlickFlowDefinition(
   updated: Option[Long],
   creator: String)
 
-class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowDefinitionRepository {
+class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowDefinitionRepository with SlickRepositoryBase {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   import profile.api._
@@ -38,14 +36,12 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
 
   private val flowDefinitionTable = TableQuery[FlowDefinitions]
 
-  def now: Long = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-
   override def createOrUpdateFlowDefinition(flowDefinition: FlowDefinition)(implicit repositoryContext: RepositoryContext): Future[FlowDefinitionDetails] = {
     val slickDefinition = SlickFlowDefinition(
       id = flowDefinition.id,
       json = FlowDefinition.toJson(flowDefinition),
       version = 0L,
-      created = now,
+      created = repositoryContext.epochSeconds,
       updated = None,
       creator = repositoryContext.currentUser)
 
@@ -57,7 +53,7 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
         val updated = flowDefinitionTable
           .filter(_.id === flowDefinition.id)
           .map(flow => (flow.json, flow.updated, flow.version))
-          .update((FlowDefinition.toJson(flowDefinition), Some(now), existing.version + 1))
+          .update((FlowDefinition.toJson(flowDefinition), Some(repositoryContext.epochSeconds), existing.version + 1))
         db.run(updated)
     }.map(_ => FlowDefinitionDetails(
       flowDefinition.id,

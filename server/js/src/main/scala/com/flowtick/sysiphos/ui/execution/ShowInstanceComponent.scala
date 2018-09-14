@@ -36,45 +36,82 @@ class ShowInstanceComponent(
 
   @dom
   def overviewPanel(instanceOverview: FlowInstanceOverview): Binding[Div] = {
-    <div>
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <strong>{ instanceOverview.instance.flowDefinitionId }</strong>
-          definition instance ({ instanceOverview.instance.id }
-          )
+    <div class="row">
+      <div class="col-lg-6">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4>
+              <strong><a href={ s"#/flow/show/${instanceOverview.instance.flowDefinitionId}" }>{ instanceOverview.instance.flowDefinitionId }</a></strong>
+              instance ({ instanceOverview.instance.id }
+              )
+            </h4>
+          </div>
+          <ul class="list-group">
+            <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>Status</strong></p>
+              <p class="list-group-item-text">{ instanceStatusLabel(instanceOverview.instance.status).bind }</p>
+            </li>
+            <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>Creation Time</strong></p>
+              <p class="list-group-item-text">{ formatDate(instanceOverview.instance.creationTime) }</p>
+            </li>
+            <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>Start Time</strong></p>
+              <p class="list-group-item-text">{ instanceOverview.instance.startTime.map(formatDate).getOrElse("not started yet") }</p>
+            </li>
+            <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>End Time</strong></p>
+              <p class="list-group-item-text">{ instanceOverview.instance.endTime.map(formatDate).getOrElse("not ended yet") }</p>
+            </li>
+            <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>Retries Left</strong></p>
+              <p class="list-group-item-text">{ instanceOverview.instance.retries.toString }</p>
+            </li>
+          </ul>
         </div>
-        <ul class="list-group">
-          <li class="list-group-item"><strong>Status:</strong> { instanceStatusLabel(instanceOverview.instance.status).bind } </li>
-          <li class="list-group-item"><strong>Retries:</strong> { instanceOverview.instance.retries.toString } </li>
-          <li class="list-group-item"><strong>Start Time:</strong> { instanceOverview.instance.startTime.map(formatDate).getOrElse("not started yet") }</li>
-          <li class="list-group-item"><strong>End Time:</strong> { instanceOverview.instance.endTime.map(formatDate).getOrElse("not ended yet") }</li>
-          <li class="list-group-item">
-            <strong>Context:</strong>
+      </div>
+      <div class="col-lg-6">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4>Context</h4>
+          </div>
+          <ul class="list-group">
             {
               if (instanceOverview.instance.context.isEmpty)
-                SingletonBindingSeq(Binding(<span>empty </span>))
+                SingletonBindingSeq(Binding(<li class="list-group-item"><span>empty</span></li>))
               else Constants(instanceOverview.instance.context: _*).map(contextValue => {
-                <span class="label label-default">{ contextValue.key } : { contextValue.value }</span>
+                <li class="list-group-item">
+                  <p class="list-group-item-heading"><strong>{ contextValue.key }</strong></p>
+                  <p class="list-group-item-text">
+                    { contextValue.value }
+                  </p>
+                </li>
               })
             }
-          </li>
-        </ul>
+          </ul>
+        </div>
       </div>
-      <h4>Task Instances</h4>
-      <table class="table table-striped">
-        <thead>
-          <th>Task ID</th>
-          <th>ID</th>
-          <th>Status</th>
-          <th>Retries</th>
-          <th>Actions</th>
-        </thead>
-        <tbody>
-          {
-            Constants(instanceOverview.tasks: _*).map(taskRow(_).bind)
-          }
-        </tbody>
-      </table>
+      <div class="col-lg-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4>Task Instances</h4>
+          </div>
+          <table class="table table-striped">
+            <thead>
+              <th>Task ID</th>
+              <th>ID</th>
+              <th>Status</th>
+              <th>Retries Left</th>
+              <th>Actions</th>
+            </thead>
+            <tbody>
+              {
+                Constants(instanceOverview.tasks: _*).map(taskRow(_).bind)
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   }
 
