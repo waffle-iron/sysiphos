@@ -43,6 +43,9 @@
             <column name="_END_TIME" type="bigint">
                 <constraints nullable="true"/>
             </column>
+            <column name="_LOG_ID" type="varchar(2048)">
+                <constraints nullable="true"/>
+            </column>
 
 
             <column name="_CREATED" type="bigint">

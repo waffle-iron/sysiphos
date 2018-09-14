@@ -27,4 +27,15 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
     updatedInstance.head.status should be(FlowTaskInstanceStatus.Failed)
     updatedInstance.head.retries should be(42)
   }
+
+  it should "set log id" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+
+    val newInstance: FlowTaskInstanceDetails = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id")(this).futureValue
+    val logId = "somelogid"
+
+    slickFlowTaskInstanceRepository
+      .setLogId(newInstance.id, logId)(this)
+      .futureValue should be(Some(newInstance.copy(logId = Some(logId))))
+  }
 }

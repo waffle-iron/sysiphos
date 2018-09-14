@@ -6,7 +6,6 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Finished, Retry, WorkTriggered }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.{ FileLogger, Logger }
-import com.flowtick.sysiphos.logging.Logger.LogId
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -18,7 +17,7 @@ class FlowInstanceExecutorActor(
   flowTaskInstanceRepository: FlowTaskInstanceRepository)(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
 
-  def createLogger: FileLogger = Logger.defaultLogger
+  def createLogger: Logger = Logger.defaultLogger
 
   def execute(selectTask: Option[FlowTask]): Future[Seq[FlowTaskExecution.Execute]] = flowTaskInstanceRepository
     .getFlowTaskInstances(flowInstance.id)
@@ -41,17 +40,20 @@ class FlowInstanceExecutorActor(
         runningInstance.flatMap {
           case Some(taskInstance) =>
             val log = createLogger.createLog(s"${taskInstance.taskId}-${taskInstance.id}")
-            Future.fromTry(log).flatMap { logId =>
-              Future.successful(FlowTaskExecution.Execute(task)).pipeTo(flowTaskExecutor(taskInstance, logId))
-            }
+
+            val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
+              logId <- Future.fromTry(log)
+              taskInstanceWithLog <- flowTaskInstanceRepository.setLogId(taskInstance.id, logId)
+            } yield FlowTaskExecution.Execute(task, logId)
+
+            executeWithLogId.pipeTo(flowTaskExecutor(taskInstance))
+
           case None => Future.failed(new IllegalStateException("unable to set instance to running"))
         }
       })
     }
 
-  def flowTaskExecutor(
-    taskInstance: FlowTaskInstance,
-    logId: LogId): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, logId)))
+  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance)))
 
   def selfRef: ActorRef = self
 

@@ -6,7 +6,8 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Retry, WorkDone, WorkFailed }
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.logging.Logger.LogId
+import com.flowtick.sysiphos.logging.{ ConsoleLogger, Logger }
+import com.flowtick.sysiphos.logging.Logger.{ LogId, LogStream }
 import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
@@ -41,7 +42,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     retries = 0,
     status = FlowTaskInstanceStatus.New,
     retryDelay = None,
-    nextDueDate = None)
+    nextDueDate = None,
+    logId = None)
 
   implicit val repositoryContext: RepositoryContext = new RepositoryContext {
     override def currentUser: String = "test-user"
@@ -73,7 +75,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceExecutorActor = TestActorRef(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId) = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance) = flowTaskExecutorProbe.ref
+        override def createLogger: Logger = new ConsoleLogger
       })
 
     (flowTaskInstanceRepository.getFlowTaskInstances(_: String)(_: RepositoryContext))
@@ -84,9 +87,13 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
       .when(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
+    (flowTaskInstanceRepository.setLogId(_: String, _: LogId)(_: RepositoryContext))
+      .when(flowTaskInstance.id, "console", *)
+      .returns(Future.successful(Some(flowTaskInstance)))
+
     flowInstanceExecutorActor ! FlowInstanceExecution.Execute
 
-    flowTaskExecutorProbe.expectMsg(FlowTaskExecution.Execute(flowDefinition.task))
+    flowTaskExecutorProbe.expectMsg(FlowTaskExecution.Execute(flowDefinition.task, "console"))
   }
 
   it should "update status on work done and execute the next task" in {
@@ -100,7 +107,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -118,7 +125,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -148,7 +155,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor(taskInstance: FlowTaskInstance, logId: LogId): ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 

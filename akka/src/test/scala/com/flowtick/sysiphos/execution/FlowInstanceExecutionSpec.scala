@@ -26,7 +26,7 @@ class FlowInstanceExecutionSpec extends FlatSpec with FlowInstanceExecution with
       flowInstanceId = "flowInstanceId",
       taskId = "cmd1",
       0, None, None, None, 3,
-      FlowTaskInstanceStatus.Done, None, None)
+      FlowTaskInstanceStatus.Done, None, None, None)
 
     nextFlowTasks(flowDefinition, Seq.empty) should be(Seq(root))
     nextFlowTasks(flowDefinition, Seq(doneTaskInstance)) should be(firstLevelChildren)
