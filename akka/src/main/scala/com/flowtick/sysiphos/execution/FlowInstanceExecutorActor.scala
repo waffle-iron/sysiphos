@@ -43,7 +43,7 @@ class FlowInstanceExecutorActor(
 
             val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
               logId <- Future.fromTry(log)
-              taskInstanceWithLog <- flowTaskInstanceRepository.setLogId(taskInstance.id, logId)
+              _ <- flowTaskInstanceRepository.setLogId(taskInstance.id, logId)
             } yield FlowTaskExecution.Execute(task, logId)
 
             executeWithLogId.pipeTo(flowTaskExecutor(taskInstance))
