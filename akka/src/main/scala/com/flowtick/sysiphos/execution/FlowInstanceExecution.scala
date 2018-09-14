@@ -35,8 +35,8 @@ object FlowInstanceExecution {
   case object Execute extends FlowInstanceMessage
   case class WorkTriggered(tasks: Seq[FlowTaskExecution.Execute]) extends FlowInstanceMessage
   case class WorkDone(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
-  case class WorkFailed(e: Throwable, task: FlowTask, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class WorkFailed(e: Throwable, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
   case class ExecutionFailed(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
-  case class Retry(task: FlowTask, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class Retry(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
   case class Finished(flowInstance: FlowInstance) extends FlowInstanceMessage
 }

@@ -20,8 +20,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
   val flowDefinition: FlowDefinition = SysiphosDefinition("ls-definition-id", CommandLineTask("ls-task-id", None, "ls"))
 
-  val flowInstance: FlowInstance = FlowInstanceDetails(
-    status = FlowInstanceStatus.New,
+  val flowInstance = FlowInstanceDetails(
+    status = FlowInstanceStatus.Scheduled,
     id = "???",
     flowDefinitionId = flowDefinition.id,
     creationTime = 1L,
@@ -72,7 +72,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceExecutorActor = TestActorRef(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor: ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance) = flowTaskExecutorProbe.ref
       })
 
     (flowTaskInstanceRepository.getFlowTaskInstances(_: String)(_: RepositoryContext))
@@ -85,7 +85,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     flowInstanceExecutorActor ! FlowInstanceExecution.Execute
 
-    flowTaskExecutorProbe.expectMsg(FlowTaskExecution.Execute(flowDefinition.task, flowTaskInstance))
+    flowTaskExecutorProbe.expectMsg(FlowTaskExecution.Execute(flowDefinition.task))
   }
 
   it should "update status on work done and execute the next task" in {
@@ -99,7 +99,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor: ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -117,7 +117,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor: ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -129,15 +129,15 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
       .when(flowTaskInstanceWithRetry.id, FlowInstanceStatus.Failed, *)
-      .returns(Future.successful(()))
+      .returns(Future.successful(Some(flowInstance)))
 
     (flowTaskInstanceRepository.setRetries(_: String, _: Int)(_: RepositoryContext))
       .when(flowTaskInstanceWithRetry.id, flowTaskInstanceWithRetry.retries - 1, *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry.copy(retries = 0))))
 
-    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowDefinition.task, flowTaskInstanceWithRetry)
+    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstanceWithRetry)
 
-    flowExecutorProbe.expectMsg(Retry(flowDefinition.task, flowTaskInstanceWithRetry))
+    flowExecutorProbe.expectMsg(Retry(flowTaskInstanceWithRetry))
   }
 
   it should "notify about failure" in {
@@ -147,7 +147,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
-        override def flowTaskExecutor: ActorRef = flowTaskExecutorProbe.ref
+        override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
 
@@ -159,9 +159,9 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
       .when(flowTaskInstance.id, FlowInstanceStatus.Failed, *)
-      .returns(Future.successful(()))
+      .returns(Future.successful(Some(flowInstance)))
 
-    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowDefinition.task, flowTaskInstance)
+    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstance)
 
     flowExecutorProbe.expectMsg(ExecutionFailed(flowTaskInstance))
   }

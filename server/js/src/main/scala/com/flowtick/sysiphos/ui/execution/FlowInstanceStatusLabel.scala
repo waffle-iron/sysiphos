@@ -9,7 +9,7 @@ trait FlowInstanceStatusLabel {
   @dom
   def instanceStatusLabel(instanceStatus: FlowInstanceStatus): Binding[Span] = {
     val labelType = instanceStatus match {
-      case FlowInstanceStatus.New => "label-info"
+      case FlowInstanceStatus.Scheduled | FlowInstanceStatus.ManuallyTriggered => "label-info"
       case FlowInstanceStatus.Running => "label-warning"
       case FlowInstanceStatus.Done => "label-success"
       case FlowInstanceStatus.Failed => "label-danger"

@@ -15,9 +15,9 @@ trait FlowExecution extends Logging {
   implicit val repositoryContext: RepositoryContext
   implicit val executionContext: ExecutionContext
 
-  def createInstance(flowSchedule: FlowSchedule): Future[FlowInstance] = {
+  def createFlowInstance(flowSchedule: FlowSchedule): Future[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
-    flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty)
+    flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty, FlowInstanceStatus.Scheduled)
   }
 
   def dueTaskRetries(now: Long): Future[Seq[FlowInstance]] = {
@@ -37,7 +37,14 @@ trait FlowExecution extends Logging {
     }.map(_.flatten)
   }
 
-  def dueTaskInstances(now: Long): Future[Seq[FlowInstance]] = {
+  def manuallyTriggeredInstances: Future[Seq[FlowInstance]] =
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(
+      flowDefinitionId = None,
+      instanceIds = None,
+      status = Some(FlowInstanceStatus.ManuallyTriggered),
+      createdGreaterThan = None))
+
+  def dueScheduledFlowInstances(now: Long): Future[Seq[FlowInstance]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
       .getFlowSchedules(onlyEnabled = true, None)
@@ -46,7 +53,7 @@ trait FlowExecution extends Logging {
       log.debug(s"checking schedules: $schedules.")
       Future.sequence {
         schedules.map { s =>
-          val maybeFlowInstance = createInstanceIfDue(s, now).recoverWith {
+          val maybeFlowInstance = createFlowInstanceIfDue(s, now).recoverWith {
             case e =>
               log.error("unable to create instance", e)
               Future.successful(None)
@@ -65,13 +72,13 @@ trait FlowExecution extends Logging {
     }.map(_.flatten)
   }
 
-  def createInstanceIfDue(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
+  def createFlowInstanceIfDue(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
     log.debug(s"checking if $schedule is due.")
     schedule.nextDueDate match {
       case Some(timestamp) if timestamp <= now =>
-        createInstance(schedule).map(Option(_))
+        createFlowInstance(schedule).map(Option(_))
       case None if schedule.enabled.contains(true) && schedule.expression.isDefined =>
-        createInstance(schedule).map(Option(_))
+        createFlowInstance(schedule).map(Option(_))
       case _ =>
         log.debug(s"not due: $schedule")
         Future.successful(None)

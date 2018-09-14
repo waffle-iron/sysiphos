@@ -10,7 +10,8 @@ final case class FlowInstanceContextValue(key: String, value: String)
 object FlowInstanceStatus extends Enumeration {
 
   type FlowInstanceStatus = Value
-  val New: FlowInstanceStatus.Value = Value("new")
+  val Scheduled: FlowInstanceStatus.Value = Value("scheduled")
+  val ManuallyTriggered: FlowInstanceStatus.Value = Value("manually_triggered")
   val Done: FlowInstanceStatus.Value = Value("done")
   val Failed: FlowInstanceStatus.Value = Value("failed")
   val Running: FlowInstanceStatus.Value = Value("running")

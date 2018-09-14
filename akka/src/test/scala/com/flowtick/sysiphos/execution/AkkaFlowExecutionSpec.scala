@@ -31,7 +31,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       creationTime = 0,
       startTime = None,
       endTime = None,
-      status = FlowInstanceStatus.New,
+      status = FlowInstanceStatus.Scheduled,
       retries = 3,
       context = Seq.empty)
 
@@ -45,11 +45,11 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
     val futureSchedules = Future.successful(Seq(testSchedule))
 
     (flowScheduleRepository.getFlowSchedules(_: Boolean, _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
-    (flowInstanceRepository.createFlowInstance(_: String, _: Map[String, String])(_: RepositoryContext)).expects("flow-id", Map.empty[String, String], *).returning(Future.successful(testInstance))
+    (flowInstanceRepository.createFlowInstance(_: String, _: Map[String, String], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Map.empty[String, String], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
     (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *)
 
-    dueTaskInstances(now = 0).futureValue
+    dueScheduledFlowInstances(now = 0).futureValue
 
     override def currentUser: String = "test-user"
   }

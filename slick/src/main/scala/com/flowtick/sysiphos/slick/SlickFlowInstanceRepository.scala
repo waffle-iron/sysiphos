@@ -1,9 +1,7 @@
 package com.flowtick.sysiphos.slick
 
-import java.time.{ LocalDateTime, ZoneId, ZoneOffset }
-import java.util.UUID
-
 import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow._
 import javax.sql.DataSource
 import org.slf4j.{ Logger, LoggerFactory }
@@ -24,7 +22,7 @@ final case class SlickFlowInstance(
   startTime: Option[Long] = None,
   endTime: Option[Long] = None)
 
-class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository
+class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerator = DefaultIdGenerator)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository
   with SlickRepositoryBase {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
@@ -71,7 +69,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     val filteredInstances = instanceTable
       .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
-      .filterOptional(query.status)(status => _.status === status)
+      .filterOptional(query.status)(status => _.status === status.toString)
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
       .sortBy(_.created.desc)
 
@@ -80,11 +78,14 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
     } yield (instance, context)).result
 
     db.run(instancesWithContext).flatMap(instances => {
-      val groupedByInstance = instances.groupBy(_._1)
-
-      Future.successful(instances.map {
+      val groupedByInstance = instances.groupBy { case (instance, _) => instance }
+      val instancesWithContextValues = instances.map {
         case (instance, _) =>
-          val contextValues = groupedByInstance.getOrElse(instance, Seq.empty)
+          val contextValues = groupedByInstance
+            .getOrElse(instance, Seq.empty)
+            .flatMap { case (_, contextValue) => contextValue }
+            .map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value))
+
           FlowInstanceDetails(
             instance.id,
             instance.flowDefinitionId,
@@ -93,29 +94,32 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
             instance.endTime,
             instance.retries,
             FlowInstanceStatus.withName(instance.status),
-            contextValues.flatMap(_._2).map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
-      })
+            contextValues)
+      }.distinct
+
+      Future.successful(instancesWithContextValues)
     })
   }
 
   override def createFlowInstance(
     flowDefinitionId: String,
-    context: Map[String, String])(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails] = {
+    context: Map[String, String],
+    initialStatus: FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails] = {
     val newInstance = SlickFlowInstance(
-      id = UUID.randomUUID().toString,
+      id = idGenerator.nextId,
       flowDefinitionId = flowDefinitionId,
       created = repositoryContext.epochSeconds,
       version = 0L,
       creator = repositoryContext.currentUser,
       updated = None,
-      status = "new",
+      status = initialStatus.toString,
       retries = 3,
       startTime = None,
       endTime = None)
 
     val contextActions = context.map {
       case (key, value) =>
-        contextTable += SysiphosFlowInstanceContext(UUID.randomUUID().toString, newInstance.id, key, value)
+        contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, newInstance.id, key, value)
     }.toSeq
 
     db.run(DBIO.seq(contextActions: _*) >> (instanceTable += newInstance).transactionally).map(_ => FlowInstanceDetails(
@@ -129,10 +133,14 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
       context.toSeq.map(kv => FlowInstanceContextValue(kv._1, kv._2))))
   }
 
-  override def counts(flowDefinitionId: Option[Seq[String]], status: Option[Seq[String]]): Future[Seq[InstanceCount]] = {
+  override def counts(
+    flowDefinitionId: Option[Seq[String]],
+    status: Option[Seq[String]],
+    createdGreaterThan: Option[Long]): Future[Seq[InstanceCount]] = {
     val countQuery: DBIOAction[Seq[InstanceCount], NoStream, Read] = instanceTable
-      .filter(instance => flowDefinitionId.map(instance.flowDefinitionId.inSet(_)).getOrElse(instance.id === instance.id))
-      .filter(instance => status.map(instance.status.inSet(_)).getOrElse(instance.id === instance.id))
+      .filterOptional(flowDefinitionId)(ids => _.flowDefinitionId inSet ids)
+      .filterOptional(status)(statuses => _.status inSet statuses)
+      .filterOptional(createdGreaterThan)(created => _.created >= created)
       .groupBy(q => (q.flowDefinitionId, q.status))
       .map {
         case ((idValue, statusValue), groupedByIdAndStatus) => (idValue, statusValue, groupedByIdAndStatus.length)
@@ -140,12 +148,12 @@ class SlickFlowInstanceRepository(dataSource: DataSource)(implicit val profile: 
 
     db.run(countQuery)
   }
-  override def setStatus(flowInstanceId: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+  override def setStatus(flowInstanceId: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
     val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
       .map { instance => instance.status }
       .update(status.toString)
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).map { _ => () }
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(flowInstanceId) }
   }
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {

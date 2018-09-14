@@ -7,22 +7,23 @@ import com.flowtick.sysiphos.task.CommandLineTask
 import scala.util.{ Failure, Success, Try }
 import sys.process._
 
-class FlowTaskExecutionActor extends Actor with Logging {
+class FlowTaskExecutionActor(taskInstance: FlowTaskInstance) extends Actor with Logging {
 
   override def receive: Receive = {
-    case execute @ FlowTaskExecution.Execute(CommandLineTask(id, _, command), flowTaskInstance) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command)) =>
       log.info(s"executing command with id $id")
       val result: Try[String] = Try { command.!! }
       result match {
-        case Failure(e) => sender() ! FlowInstanceExecution.WorkFailed(e, execute.flowTask, flowTaskInstance)
+        case Failure(e) => sender() ! FlowInstanceExecution.WorkFailed(e, taskInstance)
         case Success(value) =>
           log.info(value)
-          sender() ! FlowInstanceExecution.WorkDone(flowTaskInstance)
+          sender() ! FlowInstanceExecution.WorkDone(taskInstance)
       }
+    case other: Any => sender() ! FlowInstanceExecution.WorkFailed(new IllegalStateException(s"unable to handle $other"), taskInstance)
   }
 }
 
 object FlowTaskExecution {
-  case class Execute(flowTask: FlowTask, flowTaskInstance: FlowTaskInstance)
+  case class Execute(flowTask: FlowTask)
 }
 

@@ -20,7 +20,7 @@ class SysiphosApiContext(
   override def definitions(id: Option[String]): Future[Seq[FlowDefinitionSummary]] =
     for {
       definitions <- flowDefinitionRepository.getFlowDefinitions.map(_.filter(definitionDetails => id.forall(_ == definitionDetails.id)))
-      counts <- flowInstanceRepository.counts(Some(definitions.map(_.id)), None)
+      counts <- flowInstanceRepository.counts(Some(definitions.map(_.id)), None, None)
     } yield {
       val countsById = counts.groupBy(_.flowDefinitionId)
       definitions.map { definitionDetails =>
@@ -68,7 +68,7 @@ class SysiphosApiContext(
     instanceIds: Option[Seq[String]],
     status: Option[String],
     createdGreaterThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
-    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status, createdGreaterThan))
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(FlowInstanceStatus.withName), createdGreaterThan))
   }
 
   override def taskInstances(flowInstanceId: String): Future[Seq[FlowTaskInstanceDetails]] = {
@@ -76,6 +76,9 @@ class SysiphosApiContext(
   }
 
   override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {
-    flowInstanceRepository.createFlowInstance(flowDefinitionId, context.map(value => (value.key, value.value)).toMap)
+    flowInstanceRepository.createFlowInstance(
+      flowDefinitionId,
+      context.map(value => (value.key, value.value)).toMap,
+      FlowInstanceStatus.ManuallyTriggered)
   }
 }

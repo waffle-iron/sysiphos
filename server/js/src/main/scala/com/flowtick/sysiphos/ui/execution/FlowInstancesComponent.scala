@@ -74,9 +74,9 @@ class FlowInstancesComponent(
               <span class="input-group-btn">
                 <button class="btn btn-default" type="button" onclick={ (_: Event) => loadInstances() }>Show</button>
               </span>
-            </div><!-- /input-group -->
+            </div>
           </div>
-        </div><!-- /.col-lg-6 -->
+        </div>
       </div>
       <div class="row">
         <div class="col-lg-12">

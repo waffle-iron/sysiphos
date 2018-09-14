@@ -5,6 +5,7 @@ val scalaV = "2.12.6"
 val finchV = "0.16.0-RC1"
 val circeV = "0.8.0"
 val slf4jV = "1.7.25"
+val logbackV = "1.2.3"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -49,7 +50,8 @@ lazy val common = Seq(
     Developer(id = "adrobisch", name = "Andreas Drobisch", email = "github@drobisch.com", url = url("http://drobisch.com/"))
   ),
   libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % Test,
-  libraryDependencies += "org.scalamock" %%% "scalamock" % "4.1.0" % Test
+  libraryDependencies += "org.scalamock" %%% "scalamock" % "4.1.0" % Test,
+  libraryDependencies += "ch.qos.logback" % "logback-classic" % logbackV % Test
 )
 
 lazy val crossCompile = Seq(
@@ -114,7 +116,7 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     "com.github.finagle" %% "finch-circe" % finchV,
     "org.sangria-graphql" %% "sangria" % "1.3.2",
     "org.sangria-graphql" %% "sangria-circe" % "1.1.0",
-    "ch.qos.logback" % "logback-classic" % "1.2.3",
+    "ch.qos.logback" % "logback-classic" % logbackV,
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   ),
   resourceGenerators in Test += Def.task {

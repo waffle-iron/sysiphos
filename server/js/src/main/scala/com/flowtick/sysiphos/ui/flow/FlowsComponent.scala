@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui.flow
 
-import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, InstanceCount }
+import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, FlowInstanceStatus, InstanceCount }
 import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
@@ -24,10 +24,11 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   @dom
   def instanceCountButton(count: InstanceCount): Binding[Anchor] =
     <a href={ s"#/instances/filter/${count.flowDefinitionId}?status=${count.status}" } class={
-      count.status match {
-        case "new" => "btn btn-info"
-        case "failed" => "btn btn-danger"
-        case "done" => "btn btn-success"
+      FlowInstanceStatus.withName(count.status) match {
+        case FlowInstanceStatus.Scheduled | FlowInstanceStatus.ManuallyTriggered => "btn btn-info"
+        case FlowInstanceStatus.Running => "btn btn-warning"
+        case FlowInstanceStatus.Failed => "btn btn-danger"
+        case FlowInstanceStatus.Done => "btn btn-success"
         case _ => "btn btn-default"
       }
     }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></a>
@@ -46,7 +47,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
         </div>
       </td>
       <td>
-        <button class="btn btn-success"><i class="glyphicon glyphicon-play"></i></button>
+        <a href={ s"/graphiql?query=mutation%20%7B%0A%09createInstance(flowDefinitionId%3A%20%22${flow.id}%22%2C%20context%3A%20%5B%0A%20%20%20%20%7Bkey%3A%20%22somekey%22%2C%20value%3A%20%22somevalue%22%7D%2C%0A%20%20%20%20%7Bkey%3A%20%22somekey2%22%2C%20value%3A%20%22somevalue2%22%7D%0A%20%20%5D)%20%7B%0A%20%20%20%20id%2C%20context%20%7Bvalue%7D%0A%20%20%7D%0A%7D" } class="btn btn-success"><i class="glyphicon glyphicon-play"></i></a>
       </td>
     </tr>
 

@@ -43,39 +43,44 @@ class FlowExecutorActor(
       flowInstanceRepository,
       flowTaskInstanceRepository)(repositoryContext))
 
+  def executeInstance(instance: FlowInstance): Future[FlowInstanceExecution.FlowInstanceMessage] = {
+    val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
+      case Some(details) =>
+        details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
+      case None => None
+    }
+
+    val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
+      case Some(definition) =>
+        flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running).flatMap {
+          case Some(running) =>
+            Future
+              .successful(FlowInstanceExecution.Execute)
+              .pipeTo(context.actorOf(flowInstanceActorProps(definition, running)))(sender())
+          case None => Future.failed(new IllegalStateException("unable to update flow instance"))
+        }
+      case None => Future.failed(new IllegalStateException("unable to find flow definition"))
+    }
+
+    flowInstanceInit
+  }
+
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init
     case _: FlowExecutorActor.Tick =>
-      val taskInstances = for {
-        newTaskInstances <- dueTaskInstances(now)
+      val taskInstancesFuture: Future[Seq[FlowInstance]] = for {
+        manuallyTriggered <- manuallyTriggeredInstances
+        newTaskInstances <- dueScheduledFlowInstances(now)
         retryTaskInstances <- dueTaskRetries(now)
-      } yield newTaskInstances ++ retryTaskInstances
+      } yield newTaskInstances ++ retryTaskInstances ++ manuallyTriggered
 
-      taskInstances.map { FlowExecutorActor.RunInstanceExecutors }.pipeTo(self)(sender())
-    case FlowExecutorActor.RunInstanceExecutors(instances) => instances.foreach { instance =>
+      taskInstancesFuture.foreach { instances => instances.map(executeInstance) }
 
-      val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
-        case Some(details) =>
-          details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
-        case None => None
-      }
-
-      val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
-        case Some(definition) =>
-          Future
-            .successful(FlowInstanceExecution.Execute)
-            .pipeTo(context.actorOf(flowInstanceActorProps(definition, instance)))(sender())
-        case None =>
-          Future.failed(new RuntimeException(s"missing definition  ${instance.id}"))
-      }
-
-      flowInstanceInit
-    }
     case FlowInstanceExecution.Finished(flowInstance) =>
       flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
     case FlowInstanceExecution.ExecutionFailed(flowTaskInstance) =>
       flowInstanceRepository.setStatus(flowTaskInstance.flowInstanceId, FlowInstanceStatus.Failed)
-    case FlowInstanceExecution.Retry(_, flowTaskInstance) =>
+    case FlowInstanceExecution.Retry(flowTaskInstance) =>
       val dueDate = now + flowTaskInstance.retryDelay.getOrElse(10L)
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
       flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))

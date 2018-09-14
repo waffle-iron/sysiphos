@@ -26,7 +26,7 @@ class FlowInstanceExecutorActor(
           .map(Future.successful)
           .getOrElse(flowTaskInstanceRepository.createFlowTaskInstance(flowInstance.id, task.id))
 
-        val runningInstance = for {
+        val runningInstance: Future[Option[FlowTaskInstanceDetails]] = for {
           taskInstance <- taskInstanceFuture
           running <- {
             log.info(s"setting task ${taskInstance.id} to running")
@@ -35,13 +35,13 @@ class FlowInstanceExecutorActor(
         } yield running
 
         runningInstance.flatMap {
-          case Some(instance) => Future.successful(FlowTaskExecution.Execute(task, instance))
+          case Some(instance) => Future.successful(FlowTaskExecution.Execute(task)).pipeTo(flowTaskExecutor(instance))
           case None => Future.failed(new IllegalStateException("unable to set instance to running"))
-        }.pipeTo(flowTaskExecutor())
+        }
       })
     }
 
-  def flowTaskExecutor(): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor))
+  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance)))
 
   def selfRef: ActorRef = self
 
@@ -57,7 +57,7 @@ class FlowInstanceExecutorActor(
           WorkTriggered(newExecutions)
       }.pipeTo(context.parent)
 
-    case FlowInstanceExecution.WorkFailed(e, task, flowTaskInstance) =>
+    case FlowInstanceExecution.WorkFailed(e, flowTaskInstance) =>
       log.warn(s"task ${flowTaskInstance.id} failed with ${e.getLocalizedMessage}")
       context.stop(sender())
       flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed).flatMap {
@@ -69,7 +69,7 @@ class FlowInstanceExecutorActor(
           }
         case Some(details) =>
           log.info(s"retry sent from instance ${details.taskId}.")
-          context.parent ! Retry(task, flowTaskInstance)
+          context.parent ! Retry(flowTaskInstance)
           Future.successful(die())
         case None => Future.failed(new RuntimeException(s"unable to update status of ${flowTaskInstance.id}"))
       }
