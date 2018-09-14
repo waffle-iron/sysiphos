@@ -45,6 +45,9 @@ object SysiphosApi {
 
     @GraphQLField
     def taskInstances(flowInstanceId: String): Future[Seq[FlowTaskInstanceDetails]]
+
+    @GraphQLField
+    def log(logId: String): Future[String]
   }
 
   trait ApiMutationContext {

@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.api
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleDetails, FlowScheduleRepository, FlowScheduleStateStore }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -81,4 +82,8 @@ class SysiphosApiContext(
       context.map(value => (value.key, value.value)).toMap,
       FlowInstanceStatus.ManuallyTriggered)
   }
+
+  override def log(logId: String): Future[String] = Future.fromTry(
+    Logger.defaultLogger.getLog(logId).map(scala.io.Source.fromInputStream(_).getLines().mkString("\n")))
+
 }

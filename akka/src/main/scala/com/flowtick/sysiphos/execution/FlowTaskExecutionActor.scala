@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.execution
 
 import akka.actor.Actor
-import com.flowtick.sysiphos.flow.{ FlowTask, FlowTaskInstance }
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTask, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.{ FileLogger, Logger }
 import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CommandLineTask
@@ -9,7 +9,9 @@ import com.flowtick.sysiphos.task.CommandLineTask
 import scala.sys.process._
 import scala.util.{ Failure, Success, Try }
 
-class FlowTaskExecutionActor(taskInstance: FlowTaskInstance) extends Actor with Logging {
+class FlowTaskExecutionActor(
+  taskInstance: FlowTaskInstance,
+  flowInstance: FlowInstance) extends Actor with Logging {
 
   val logger: FileLogger = Logger.defaultLogger
 

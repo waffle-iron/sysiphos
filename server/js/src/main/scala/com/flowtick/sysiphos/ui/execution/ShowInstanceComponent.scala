@@ -7,6 +7,8 @@ import com.thoughtworks.binding.Binding.{ Constants, SingletonBindingSeq, Var }
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Div, TableRow }
 
+import scala.scalajs.js.URIUtils
+
 class ShowInstanceComponent(
   instanceId: String,
   circuit: ShowInstanceCircuit) extends HtmlComponent
@@ -31,7 +33,7 @@ class ShowInstanceComponent(
       <td>{ taskInstanceDetails.id }</td>
       <td>{ taskStatusLabel(taskInstanceDetails.status).bind }</td>
       <td><span>{ taskInstanceDetails.retries.toString }</span></td>
-      <td><button class="btn btn-primary">Log</button></td>
+      <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId.getOrElse(""))}" } class="btn btn-primary">Log</a></td>
     </tr>
 
   @dom

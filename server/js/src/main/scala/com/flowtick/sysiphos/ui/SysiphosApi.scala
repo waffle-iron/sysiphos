@@ -23,6 +23,7 @@ case class CreateFlowScheduleResult[T](createFlowSchedule: T)
 case class EnableResult(enabled: Boolean)
 case class ExpressionResult(expression: String)
 case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
+case class LogResult(log: String)
 
 case class GraphQLResponse[T](data: T)
 
@@ -48,6 +49,8 @@ trait SysiphosApi {
   def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList]
 
   def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]]
+
+  def getLog(logId: String): Future[String]
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
@@ -157,7 +160,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
          |    }
          |  },
          |	taskInstances(flowInstanceId: "$instanceId") {
-         |    id, flowInstanceId, taskId, creationTime, updatedTime, startTime, endTime, status, retries
+         |    id, flowInstanceId, taskId, creationTime, updatedTime, startTime, endTime, status, retries, logId
          |  }
          |}
        """.stripMargin
@@ -168,5 +171,9 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
       })
 
     query[OverviewQueryResult](instanceOverviewQuery).map(result => resultToOverview(result.data))
+  }
+
+  override def getLog(logId: String): Future[String] = {
+    query[LogResult](s"""{ log (logId: "$logId") }""").map(_.data.log)
   }
 }

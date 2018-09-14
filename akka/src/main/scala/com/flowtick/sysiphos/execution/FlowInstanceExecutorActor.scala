@@ -53,7 +53,7 @@ class FlowInstanceExecutorActor(
       })
     }
 
-  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance)))
+  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, flowInstance)))
 
   def selfRef: ActorRef = self
 
