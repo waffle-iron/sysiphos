@@ -27,6 +27,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
       count.status match {
         case "new" => "btn btn-info"
         case "failed" => "btn btn-danger"
+        case "done" => "btn btn-success"
         case _ => "btn btn-default"
       }
     }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></a>
@@ -38,6 +39,10 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
       <td>
         <div class="btn-group" data:role="group" data:aria-label="count-buttons">
           { Constants(flow.counts: _*).map(instanceCountButton(_).bind) }
+          <a class="btn btn-default" href={ s"#/instances/filter/${flow.id}" }>
+            <strong>all</strong>
+            <span class="badge"><i class="fas fa-search"></i></span>
+          </a>
         </div>
       </td>
       <td>
