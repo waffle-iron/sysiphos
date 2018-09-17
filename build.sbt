@@ -84,7 +84,7 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV
   ).dependsOn(coreJVM, logging)
 
-lazy val git = project.in(file("git")).
+lazy val gitProject = project.in(file("git")).
   settings(common).
   settings(
     name := "sysiphos-git",
@@ -142,7 +142,7 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     val classDir = (classDirectory in Test).value
     IO.copyFile(jsFile, classDir / jsFile.getName)
   }
-).dependsOn(git, akka, slick)
+).dependsOn(gitProject, akka, slick)
 
 lazy val serverJS = server.js.settings(
   scalaJSUseMainModuleInitializer := true,
@@ -160,11 +160,16 @@ lazy val serverJS = server.js.settings(
 ).dependsOn(coreJS)
 
 lazy val root = project.in(file(".")).
+  enablePlugins(ParadoxPlugin, ParadoxSitePlugin, ParadoxMaterialThemePlugin, GhpagesPlugin).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, git, slick).
+  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, gitProject, slick).
   settings(
     name := "sysiphos-root",
     publish := {},
     publishLocal := {},
-    PgpKeys.publishSigned := {}
+    PgpKeys.publishSigned := {},
+    sourceDirectory in Paradox := baseDirectory.value / "docs",
+    ParadoxMaterialThemePlugin.paradoxMaterialThemeSettings(Paradox),
+    paradoxProperties += ("version" -> version.value),
+    git.remoteRepo := "git@github.com:flowtick/sysiphos.git"
   )
