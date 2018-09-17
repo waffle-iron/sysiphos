@@ -25,7 +25,7 @@ class FlowTaskExecutionActor(
 
       val taskLogHeader =
         s"""=============================================
-           |running $command, retries left: ${taskInstance.retries}
+           |running $command , retries left: ${taskInstance.retries}
            |=============================================
          """.stripMargin
 

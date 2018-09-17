@@ -9,3 +9,22 @@
 .lb-lg {
     font-size: 20px;
 }
+
+pre{
+    counter-reset: line;
+}
+code{
+    counter-increment: line;
+}
+
+code:before{
+    content: counters(line, ".", decimal-leading-zero);
+    margin-right: 1em;
+    color: #aaa;
+}
+
+code:before{
+    -webkit-user-select: none;
+}
+
+

@@ -5,7 +5,7 @@ import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Finished, Retry, WorkTriggered }
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.logging.{ FileLogger, Logger }
+import com.flowtick.sysiphos.logging.{ Logger }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
