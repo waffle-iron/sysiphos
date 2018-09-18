@@ -28,6 +28,18 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
     updatedInstance.head.retries should be(42)
   }
 
+  it should "update time" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id")(this).futureValue
+
+    slickFlowTaskInstanceRepository.setStartTime(newInstance.id, 42)(this).futureValue
+    val updatedInstance: Option[FlowTaskInstance] = slickFlowTaskInstanceRepository.setEndTime(newInstance.id, 43)(this).futureValue
+
+    updatedInstance.head.startTime should be(Some(42))
+    updatedInstance.head.endTime should be(Some(43))
+  }
+
   it should "set log id" in new RepositoryContext {
     override def currentUser: String = "test-user"
 

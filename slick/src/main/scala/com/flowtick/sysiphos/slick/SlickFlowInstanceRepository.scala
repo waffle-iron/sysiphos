@@ -151,6 +151,22 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(flowInstanceId) }
   }
 
+  override def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
+    val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
+      .map { instance => instance.startTime }
+      .update(Some(startTime))
+
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(flowInstanceId) }
+  }
+
+  override def setEndTime(flowInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
+    val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
+      .map { instance => instance.endTime }
+      .update(Some(endTime))
+
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(flowInstanceId) }
+  }
+
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
     val instancesWithContext = (instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)).result.headOption
     db.run(instancesWithContext).map { x =>

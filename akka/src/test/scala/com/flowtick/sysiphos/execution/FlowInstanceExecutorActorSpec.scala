@@ -7,7 +7,7 @@ import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, 
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.{ ConsoleLogger, Logger }
-import com.flowtick.sysiphos.logging.Logger.{ LogId, LogStream }
+import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
@@ -46,6 +46,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
   implicit val repositoryContext: RepositoryContext = new RepositoryContext {
     override def currentUser: String = "test-user"
+
+    override def epochSeconds: Long = 0
   }
 
   val flowInstanceActorProps = Props(
@@ -86,6 +88,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
       .when(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
+    (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
+      .when(flowTaskInstance.id, 0, *)
+      .returns(Future.successful(Some(flowTaskInstance)))
+
     (flowTaskInstanceRepository.setLogId(_: String, _: LogId)(_: RepositoryContext))
       .when(flowTaskInstance.id, "console", *)
       .returns(Future.successful(Some(flowTaskInstance)))
@@ -102,6 +108,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
       .when(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
+      .returns(Future.successful(Some(flowTaskInstance)))
+
+    (flowTaskInstanceRepository.setEndTime(_: String, _: Long)(_: RepositoryContext))
+      .when(flowTaskInstance.id, 0, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     val flowInstanceActorProps = Props(

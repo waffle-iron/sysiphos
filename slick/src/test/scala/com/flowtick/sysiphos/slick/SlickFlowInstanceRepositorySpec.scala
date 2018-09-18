@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.slick
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow._
 import slick.jdbc.H2Profile
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class SlickFlowInstanceRepositorySpec extends SlickSpec {
   def createTestRepository = new SlickFlowInstanceRepository(dataSource, testIds)(H2Profile, scala.concurrent.ExecutionContext.Implicits.global)
@@ -40,5 +41,25 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
     instanceRepository
       .getFlowInstances(FlowInstanceQuery(None, status = Some(FlowInstanceStatus.ManuallyTriggered)))(this)
       .futureValue should contain only anotherInstance
+  }
+
+  it should "update instance" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+    override def epochSeconds: Long = 0
+
+    val instanceRepository = createTestRepository
+
+    val newInstance: FlowInstanceDetails =
+      instanceRepository.createFlowInstance("some-definition", Map("foo" -> "bar"), FlowInstanceStatus.Scheduled)(this).futureValue
+
+    val result = (for {
+      _ <- instanceRepository.setStartTime(newInstance.id, 42)(this)
+      _ <- instanceRepository.setEndTime(newInstance.id, 43)(this)
+      status <- instanceRepository.setStatus(newInstance.id, FlowInstanceStatus.Done)(this)
+    } yield status).futureValue
+
+    result should be(
+      Some(newInstance.copy(startTime = Some(42), endTime = Some(43), status = FlowInstanceStatus.Done)))
+
   }
 }

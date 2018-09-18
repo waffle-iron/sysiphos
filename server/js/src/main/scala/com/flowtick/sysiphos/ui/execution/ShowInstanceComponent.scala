@@ -31,6 +31,8 @@ class ShowInstanceComponent(
     <tr>
       <td>{ taskInstanceDetails.taskId }</td>
       <td>{ taskInstanceDetails.id }</td>
+      <td>{ taskInstanceDetails.startTime.map(formatDate).getOrElse("not started yet") }</td>
+      <td>{ taskInstanceDetails.endTime.map(formatDate).getOrElse("not ended yet") }</td>
       <td>{ taskStatusLabel(taskInstanceDetails.status).bind }</td>
       <td><span>{ taskInstanceDetails.retries.toString }</span></td>
       <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId.getOrElse(""))}" } class="btn btn-primary">Log</a></td>
@@ -98,6 +100,8 @@ class ShowInstanceComponent(
             <thead>
               <th>Task ID</th>
               <th>ID</th>
+              <th>Start Time</th>
+              <th>End Time</th>
               <th>Status</th>
               <th>Retries Left</th>
               <th>Actions</th>

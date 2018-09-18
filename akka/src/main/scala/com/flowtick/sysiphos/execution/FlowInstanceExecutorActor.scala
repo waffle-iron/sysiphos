@@ -5,7 +5,7 @@ import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Finished, Retry, WorkTriggered }
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.logging.{ Logger }
+import com.flowtick.sysiphos.logging.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -31,6 +31,7 @@ class FlowInstanceExecutorActor(
 
         val runningInstance: Future[Option[FlowTaskInstanceDetails]] = for {
           taskInstance <- taskInstanceFuture
+          _ <- flowTaskInstanceRepository.setStartTime(taskInstance.id, repositoryContext.epochSeconds)
           running <- {
             log.info(s"setting task ${taskInstance.id} to running")
             flowTaskInstanceRepository.setStatus(taskInstance.id, FlowTaskInstanceStatus.Running)
@@ -89,7 +90,12 @@ class FlowInstanceExecutorActor(
       context.stop(sender())
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
-      flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done).map(_ => {
+      val doneTaskInstance = for {
+        done <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done)
+        _ <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
+      } yield done
+
+      doneTaskInstance.map(_ => {
         FlowInstanceExecution.Execute
       }).pipeTo(selfRef)
   }

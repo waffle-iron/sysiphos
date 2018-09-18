@@ -52,7 +52,12 @@ class FlowExecutorActor(
 
     val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
       case Some(definition) =>
-        flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running).flatMap {
+        val runningInstance = for {
+          _ <- flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
+          running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
+        } yield running
+
+        runningInstance.flatMap {
           case Some(running) =>
             Future
               .successful(FlowInstanceExecution.Execute)
@@ -76,8 +81,11 @@ class FlowExecutorActor(
 
       taskInstancesFuture.foreach { instances => instances.map(executeInstance) }
 
-    case FlowInstanceExecution.Finished(flowInstance) =>
-      flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
+    case FlowInstanceExecution.Finished(flowInstance) => for {
+      _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
+      _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
+    } yield ()
+
     case FlowInstanceExecution.ExecutionFailed(flowTaskInstance) =>
       flowInstanceRepository.setStatus(flowTaskInstance.flowInstanceId, FlowInstanceStatus.Failed)
     case FlowInstanceExecution.Retry(flowTaskInstance) =>

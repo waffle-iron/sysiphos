@@ -106,6 +106,22 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
   }
 
+  override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
+    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
+      .map { task => task.startTime }
+      .update(Some(startTime))
+
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
+  }
+
+  override def setEndTime(taskInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
+    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
+      .map { task => task.endTime }
+      .update(Some(endTime))
+
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
+  }
+
   override def setRetries(taskInstanceId: String, retries: Int)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
     val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
       .map { task => task.retries }
