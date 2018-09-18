@@ -27,7 +27,6 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     id = "???",
     flowDefinitionId = flowDefinition.id,
     creationTime = 1L,
-    retries = 3,
     context = Seq.empty,
     startTime = None,
     endTime = None)

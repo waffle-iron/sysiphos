@@ -32,7 +32,6 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       startTime = None,
       endTime = None,
       status = FlowInstanceStatus.Scheduled,
-      retries = 3,
       context = Seq.empty)
 
     val testSchedule = FlowScheduleDetails(
