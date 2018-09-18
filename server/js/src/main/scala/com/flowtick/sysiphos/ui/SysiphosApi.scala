@@ -141,7 +141,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
          |  instances (flowDefinitionId: ${quotedOrNull(flowId)},
          |             status: ${quotedOrNull(status)},
          |             createdGreaterThan: ${createdGreaterThan.map(_.toString).getOrElse("null")}) {
-         |    id, flowDefinitionId, creationTime, startTime, endTime, retries, status, context {
+         |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
          |      key, value
          |    }
          |  }
@@ -155,7 +155,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
       s"""
          |{
          |  instances(instanceIds: ["$instanceId"]) {
-         |    id, flowDefinitionId, creationTime, startTime, endTime, retries, status, context {
+         |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
          |      key, value
          |    }
          |  },

@@ -31,12 +31,10 @@ final case class FlowInstanceDetails(
   creationTime: Long,
   startTime: Option[Long],
   endTime: Option[Long],
-  retries: Int,
   status: FlowInstanceStatus.FlowInstanceStatus,
   context: Seq[FlowInstanceContextValue]) extends FlowInstance
 
 trait FlowInstance extends FlowExecutable {
-  def retries: Int
   def status: FlowInstanceStatus.FlowInstanceStatus
   def context: Seq[FlowInstanceContextValue]
 }

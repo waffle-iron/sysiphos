@@ -65,10 +65,6 @@ class ShowInstanceComponent(
               <p class="list-group-item-heading"><strong>End Time</strong></p>
               <p class="list-group-item-text">{ instanceOverview.instance.endTime.map(formatDate).getOrElse("not ended yet") }</p>
             </li>
-            <li class="list-group-item">
-              <p class="list-group-item-heading"><strong>Retries Left</strong></p>
-              <p class="list-group-item-text">{ instanceOverview.instance.retries.toString }</p>
-            </li>
           </ul>
         </div>
       </div>

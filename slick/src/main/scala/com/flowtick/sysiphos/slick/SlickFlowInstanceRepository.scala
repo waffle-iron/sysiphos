@@ -18,7 +18,6 @@ final case class SlickFlowInstance(
   updated: Option[Long],
   creator: String,
   status: String,
-  retries: Int,
   startTime: Option[Long] = None,
   endTime: Option[Long] = None)
 
@@ -38,11 +37,10 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
     def updated = column[Option[Long]]("_UPDATED")
     def creator = column[String]("_CREATOR")
     def status = column[String]("_STATUS")
-    def retries = column[Int]("_RETRIES")
     def startTime = column[Option[Long]]("_START_TIME")
     def endTime = column[Option[Long]]("_END_TIME")
 
-    def * = (id, flowDefinitionId, created, version, updated, creator, status, retries, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
+    def * = (id, flowDefinitionId, created, version, updated, creator, status, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
   }
 
   case class SysiphosFlowInstanceContext(
@@ -92,7 +90,6 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
             instance.created,
             instance.startTime,
             instance.endTime,
-            instance.retries,
             FlowInstanceStatus.withName(instance.status),
             contextValues)
       }.distinct
@@ -113,7 +110,6 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
       creator = repositoryContext.currentUser,
       updated = None,
       status = initialStatus.toString,
-      retries = 3,
       startTime = None,
       endTime = None)
 
@@ -128,7 +124,6 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
       newInstance.created,
       newInstance.startTime,
       newInstance.endTime,
-      newInstance.retries,
       FlowInstanceStatus.withName(newInstance.status),
       context.toSeq.map(kv => FlowInstanceContextValue(kv._1, kv._2))))
   }
@@ -167,7 +162,6 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
             instance.created,
             instance.startTime,
             instance.endTime,
-            instance.retries,
             FlowInstanceStatus.withName(instance.status),
             context.map { c => Seq(FlowInstanceContextValue(c.key, c.value)) }.getOrElse(Seq.empty))
       }

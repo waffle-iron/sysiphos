@@ -25,9 +25,6 @@
             <column name="_STATUS" type="varchar(40)">
                 <constraints nullable="false"/>
             </column>
-            <column name="_RETRIES" type="int">
-                <constraints nullable="false"/>
-            </column>
             <column name="_START_TIME" type="bigint">
                 <constraints nullable="true"/>
             </column>

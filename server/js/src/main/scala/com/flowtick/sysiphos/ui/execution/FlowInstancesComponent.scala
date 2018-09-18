@@ -38,7 +38,6 @@ class FlowInstancesComponent(
       <td><a href={ "#/instances/show/" + flowInstance.id }> { flowInstance.id }</a></td>
       <td>{ formatDate(flowInstance.creationTime) }</td>
       <td>{ instanceStatusLabel(flowInstance.status).bind }</td>
-      <td><span>{ flowInstance.retries.toString }</span></td>
       <td></td>
     </tr>
 
@@ -50,7 +49,6 @@ class FlowInstancesComponent(
         <th>ID</th>
         <th>Created</th>
         <th>Status</th>
-        <th>Retries</th>
         <th>Actions</th>
       </thead>
       <tbody>
