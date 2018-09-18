@@ -160,7 +160,6 @@ lazy val serverJS = server.js.settings(
 ).dependsOn(coreJS)
 
 lazy val root = project.in(file(".")).
-  enablePlugins(ParadoxPlugin, ParadoxSitePlugin, ParadoxMaterialThemePlugin, GhpagesPlugin).
   settings(common).
   aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, gitProject, slick).
   settings(
@@ -168,8 +167,4 @@ lazy val root = project.in(file(".")).
     publish := {},
     publishLocal := {},
     PgpKeys.publishSigned := {},
-    sourceDirectory in Paradox := baseDirectory.value / "docs",
-    ParadoxMaterialThemePlugin.paradoxMaterialThemeSettings(Paradox),
-    paradoxProperties += ("version" -> version.value),
-    git.remoteRepo := "git@github.com:flowtick/sysiphos.git"
   )
