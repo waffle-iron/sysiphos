@@ -7,10 +7,8 @@ import Logger._
 import org.slf4j
 import org.slf4j.LoggerFactory
 
-class FileLogger extends Logger {
+class FileLogger(logBaseDir: File) extends Logger {
   val log: slf4j.Logger = LoggerFactory.getLogger(getClass)
-
-  val logBaseDir = new File("/tmp")
 
   override def createLog(logKey: String): Try[LogId] = Try {
     val logFile = new File(logBaseDir, s"log-$logKey.log")

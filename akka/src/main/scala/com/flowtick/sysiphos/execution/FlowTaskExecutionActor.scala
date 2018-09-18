@@ -13,7 +13,7 @@ class FlowTaskExecutionActor(
   taskInstance: FlowTaskInstance,
   flowInstance: FlowInstance) extends Actor with Logging {
 
-  val logger: FileLogger = Logger.defaultLogger
+  val logger: Logger = Logger.defaultLogger
 
   def writeToLog(logId: LogId)(line: String): Try[Unit] = logger.appendToLog(logId, Seq(line))
 
@@ -24,16 +24,13 @@ class FlowTaskExecutionActor(
       val taskLogger = writeToLog(logId) _
 
       val taskLogHeader =
-        s"""=============================================
-           |running $command , retries left: ${taskInstance.retries}
-           |=============================================
-         """.stripMargin
+        s"""### running $command ($id), retries left: ${taskInstance.retries}""".stripMargin
 
       taskLogger(taskLogHeader)
 
       val result: Try[Int] = Try {
         val exitCode = command.!(ProcessLogger(taskLogger(_), taskLogger(_)))
-        taskLogger(s"\ncommand finished with exit code $exitCode")
+        taskLogger(s"\n### command finished with exit code $exitCode")
         exitCode
       }.filter(_ == 0)
 

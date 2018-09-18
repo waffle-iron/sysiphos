@@ -1,6 +1,8 @@
 package com.flowtick.sysiphos.logging
 
-import java.io.InputStream
+import java.io.{ File, InputStream }
+
+import com.flowtick.sysiphos.config.Configuration.propOrEnv
 
 import scala.util.Try
 
@@ -14,5 +16,10 @@ object Logger {
   type LogId = String
   type LogStream = InputStream
 
-  def defaultLogger = new FileLogger
+  def defaultLogger: Logger = propOrEnv("logger.impl", "file").toLowerCase match {
+    case "file" =>
+      val baseDirPath = propOrEnv("logger.file.baseDir", sys.props.get("java.io.tmpdir").getOrElse("/tmp"))
+      new FileLogger(new File(baseDirPath))
+    case _ => new ConsoleLogger
+  }
 }
