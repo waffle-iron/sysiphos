@@ -7,7 +7,7 @@ A graph-based task scheduler.
 
 # Documentation
 
-please check the [the docs](docs).
+please check the [the docs](docs) or the [site](https://flowtick.github.io/sysiphos) .
 
 # Build
 
