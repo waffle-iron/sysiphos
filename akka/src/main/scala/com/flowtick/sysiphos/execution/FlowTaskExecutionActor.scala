@@ -1,8 +1,11 @@
 package com.flowtick.sysiphos.execution
 
+import java.time.LocalDateTime.ofEpochSecond
+import java.time.ZoneOffset
+
 import akka.actor.Actor
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTask, FlowTaskInstance }
-import com.flowtick.sysiphos.logging.{ FileLogger, Logger }
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
+import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CommandLineTask
 
@@ -11,11 +14,28 @@ import scala.util.{ Failure, Success, Try }
 
 class FlowTaskExecutionActor(
   taskInstance: FlowTaskInstance,
-  flowInstance: FlowInstance) extends Actor with Logging {
+  flowInstance: FlowInstance) extends Actor with FlowTaskExecution with Logging {
 
   val logger: Logger = Logger.defaultLogger
 
   def writeToLog(logId: LogId)(line: String): Try[Unit] = logger.appendToLog(logId, Seq(line))
+
+  def replaceContext(command: String): Try[String] = {
+    val creationDateTime = ofEpochSecond(taskInstance.creationTime, 0, ZoneOffset.UTC)
+    val additionalModel = sanitizedSysProps ++ Map("creationTime" -> creationDateTime)
+
+    replaceContextInTemplate(command, flowInstance.context, additionalModel)
+  }
+
+  def runCommand(command: String)(log: String => Try[Unit]): Try[Int] = Try {
+    val taskLogHeader =
+      s"""### running $command , retries left: ${taskInstance.retries}""".stripMargin
+
+    log(taskLogHeader)
+    val exitCode = command.!(ProcessLogger(log(_), log(_)))
+    log(s"\n### command finished with exit code $exitCode")
+    exitCode
+  }.filter(_ == 0)
 
   override def receive: Receive = {
     case FlowTaskExecution.Execute(CommandLineTask(id, _, command), logId) =>
@@ -23,18 +43,12 @@ class FlowTaskExecutionActor(
 
       val taskLogger = writeToLog(logId) _
 
-      val taskLogHeader =
-        s"""### running $command ($id), retries left: ${taskInstance.retries}""".stripMargin
+      val tryRun: Try[Int] = for {
+        finalCommand <- replaceContext(command)
+        result <- runCommand(finalCommand)(taskLogger)
+      } yield result
 
-      taskLogger(taskLogHeader)
-
-      val result: Try[Int] = Try {
-        val exitCode = command.!(ProcessLogger(taskLogger(_), taskLogger(_)))
-        taskLogger(s"\n### command finished with exit code $exitCode")
-        exitCode
-      }.filter(_ == 0)
-
-      result match {
+      tryRun match {
         case Failure(e) =>
           taskLogger(e.getMessage)
           sender() ! FlowInstanceExecution.WorkFailed(e, taskInstance)
@@ -43,8 +57,3 @@ class FlowTaskExecutionActor(
     case other: Any => sender() ! FlowInstanceExecution.WorkFailed(new IllegalStateException(s"unable to handle $other"), taskInstance)
   }
 }
-
-object FlowTaskExecution {
-  case class Execute(flowTask: FlowTask, logId: LogId)
-}
-

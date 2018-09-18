@@ -1,0 +1,38 @@
+package com.flowtick.sysiphos.execution
+
+import java.io.StringWriter
+
+import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowTask }
+import com.flowtick.sysiphos.logging.Logger.LogId
+import freemarker.template.{ Configuration, Template }
+
+import scala.util.Try
+
+trait FlowTaskExecution {
+  def sanitizedSysProps: Map[String, String] = sys.props.map(kv => (kv._1.replaceAll("\\.", "_"), kv._2)).toMap
+
+  def replaceContextInTemplate(
+    template: String,
+    context: Seq[FlowInstanceContextValue],
+    additionalModel: Map[String, Any]): Try[String] = Try {
+    import scala.collection.JavaConverters._
+
+    val cfg = new Configuration(Configuration.VERSION_2_3_28)
+    cfg.setDefaultEncoding("UTF-8")
+    // Don't log exceptions inside FreeMarker that it will thrown at you anyway:// Don't log exceptions inside FreeMarker that it will thrown at you anyway:
+    cfg.setLogTemplateExceptions(false)
+    // Wrap unchecked exceptions thrown during template processing into TemplateException-s.
+    cfg.setWrapUncheckedExceptions(true)
+
+    val javaModel = (context.map(value => (value.key, value.value)).toMap ++ additionalModel).asJava
+
+    val writer = new StringWriter()
+    new Template("template", template, cfg).process(javaModel, writer)
+    writer.toString
+  }
+}
+
+object FlowTaskExecution {
+  case class Execute(flowTask: FlowTask, logId: LogId)
+}
+
