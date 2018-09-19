@@ -22,6 +22,11 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
     circuit.dispatch(LoadSchedules(flowId))
   }
 
+  def updateScheduleExpression(schedule: FlowScheduleDetails, newExpression: String): Unit =
+    if (!schedule.expression.contains(newExpression)) {
+      circuit.dispatch(SetExpression(schedule.id, newExpression))
+    }
+
   @dom
   def scheduleRow(schedule: FlowScheduleDetails): Binding[TableRow] =
     <tr>
@@ -42,7 +47,7 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
       <td>{ schedule.id }</td>
       <td><a href={ "#/flow/show/" + schedule.flowDefinitionId }> { schedule.flowDefinitionId }</a></td>
       <td>
-        <input type="text" value={ schedule.expression.getOrElse("") } onblur={ (e: Event) => circuit.dispatch(SetExpression(schedule.id, e.target.asInstanceOf[HTMLInputElement].value)) }></input>
+        <input type="text" value={ schedule.expression.getOrElse("") } onblur={ (e: Event) => updateScheduleExpression(schedule, e.target.asInstanceOf[HTMLInputElement].value) }></input>
       </td>
       <td>{ schedule.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
     </tr>
@@ -82,6 +87,8 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
       </td>
     </tr>
 
+  def createNewSchedule(flowId: String): Unit = circuit.dispatch(CreateSchedule(flowId, "0 * * ? * *"))
+
   @dom
   override def element: Binding[Div] =
     <div id="schedules">
@@ -89,7 +96,7 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
       {
         flowId match {
           case Some(id) =>
-            <button class="btn btn-default" type="button" onclick={ _: Event => circuit.dispatch(CreateSchedule(id, "0 * * * *")) }><i class="fas fa-plus"></i> Add</button>
+            <button class="btn btn-default" type="button" onclick={ _: Event => createNewSchedule(id) }><i class="fas fa-plus"></i> Add</button>
           case None =>
             <!-- no schedules yet -->
         }

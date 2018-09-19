@@ -18,7 +18,7 @@ trait FlowScheduleRepository {
     enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
 
   def getFlowSchedules(
-    onlyEnabled: Boolean,
+    enabled: Option[Boolean],
     flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]]
 }
 

@@ -73,7 +73,7 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
     }
 
   override def getFlowDefinitions(implicit repositoryContext: RepositoryContext): Future[Seq[FlowDefinitionDetails]] =
-    db.run(flowDefinitionTable.result.map(definitions => definitions.flatMap(definitionDetails)))
+    db.run(flowDefinitionTable.sortBy(_.id).result.map(definitions => definitions.flatMap(definitionDetails)))
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowDefinitionDetails]] = {
     db.run(flowDefinitionTable.filter(_.id === id).result.map(_.headOption.flatMap(definitionDetails)))

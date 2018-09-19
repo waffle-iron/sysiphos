@@ -108,6 +108,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
     val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
+      .filter(_.startTime.isEmpty)
       .map { task => task.startTime }
       .update(Some(startTime))
 

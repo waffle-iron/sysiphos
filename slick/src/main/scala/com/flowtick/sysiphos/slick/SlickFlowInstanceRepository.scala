@@ -21,8 +21,10 @@ final case class SlickFlowInstance(
   startTime: Option[Long] = None,
   endTime: Option[Long] = None)
 
-class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerator = DefaultIdGenerator)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowInstanceRepository
-  with SlickRepositoryBase {
+class SlickFlowInstanceRepository(
+  dataSource: DataSource,
+  idGenerator: IdGenerator = DefaultIdGenerator)(implicit val profile: JdbcProfile, executionContext: ExecutionContext)
+  extends FlowInstanceRepository with SlickRepositoryBase {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   import profile.api._
@@ -153,6 +155,7 @@ class SlickFlowInstanceRepository(dataSource: DataSource, idGenerator: IdGenerat
 
   override def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
     val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
+      .filter(_.startTime.isEmpty)
       .map { instance => instance.startTime }
       .update(Some(startTime))
 

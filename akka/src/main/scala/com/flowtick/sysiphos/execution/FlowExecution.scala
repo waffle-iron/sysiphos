@@ -47,42 +47,46 @@ trait FlowExecution extends Logging {
   def dueScheduledFlowInstances(now: Long): Future[Seq[FlowInstance]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
-      .getFlowSchedules(onlyEnabled = true, None)
+      .getFlowSchedules(enabled = Some(true), None)
 
-    futureEnabledSchedules.flatMap { schedules =>
-      log.debug(s"checking schedules: $schedules.")
-      Future.sequence {
-        schedules.map { s =>
-          val maybeFlowInstance = createFlowInstanceIfDue(s, now).recoverWith {
-            case e =>
-              log.error("unable to create instance", e)
-              Future.successful(None)
-          }
-
-          // schedule next occurrence
-          maybeFlowInstance.foreach { _ =>
-            flowScheduler
-              .nextOccurrence(s, now)
-              .map(next => flowScheduleStateStore.setDueDate(s.id, next))
-          }
-
-          maybeFlowInstance
-        }
-      }
-    }.map(_.flatten)
+    for {
+      schedules: Seq[FlowSchedule] <- futureEnabledSchedules
+      applied: Seq[Option[FlowInstance]] <- Future.sequence(schedules.map(applySchedule(_, now)))
+    } yield applied.flatten
   }
 
-  def createFlowInstanceIfDue(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
-    log.debug(s"checking if $schedule is due.")
-    schedule.nextDueDate match {
-      case Some(timestamp) if timestamp <= now =>
-        createFlowInstance(schedule).map(Option(_))
-      case None if schedule.enabled.contains(true) && schedule.expression.isDefined =>
-        createFlowInstance(schedule).map(Option(_))
-      case _ =>
-        log.debug(s"not due: $schedule")
+  def applySchedule(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
+    val potentialInstance = if (isDue(schedule, now)) {
+      createFlowInstance(schedule).map(Option(_))
+    } else Future.successful(None)
+
+    potentialInstance.recoverWith {
+      case error =>
+        log.error("unable to create instance", error)
         Future.successful(None)
+    }.flatMap {
+      case Some(newInstance) =>
+        val next: Option[Long] = flowScheduler.nextOccurrence(schedule, now)
+        next
+          .map(setNextDueDate(schedule, _))
+          .getOrElse(Future.successful(()))
+          .map(_ => Some(newInstance))
+      case None => Future.successful(None)
     }
   }
+
+  def setNextDueDate(schedule: FlowSchedule, next: Long): Future[Unit] =
+    flowScheduleStateStore.setDueDate(schedule.id, next).recoverWith {
+      case error =>
+        log.error("unable to set due date", error)
+        Future.successful(())
+    }
+
+  def isDue(schedule: FlowSchedule, now: Long): Boolean =
+    schedule.nextDueDate match {
+      case Some(timestamp) if timestamp <= now => true
+      case None if schedule.enabled.contains(true) && schedule.expression.isDefined => true
+      case _ => false
+    }
 
 }

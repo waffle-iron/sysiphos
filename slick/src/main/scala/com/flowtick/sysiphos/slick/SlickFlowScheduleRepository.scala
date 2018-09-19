@@ -10,8 +10,8 @@ import slick.jdbc.JdbcProfile
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowScheduleRepository
-  with FlowScheduleStateStore {
+class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext)
+  extends FlowScheduleRepository with FlowScheduleStateStore with SlickRepositoryBase {
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
@@ -61,9 +61,11 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       .map(_ => newSchedule)
   }
 
-  override def getFlowSchedules(onlyEnabled: Boolean, flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] = {
-    val onlyEnabledSchedules = if (onlyEnabled) flowSchedulesTable.filter(_.enabled === true) else flowSchedulesTable
-    val filteredSchedules = onlyEnabledSchedules.filter(schedule => flowId.map(schedule.flowDefinitionId === _).getOrElse(schedule.id === schedule.id))
+  override def getFlowSchedules(enabled: Option[Boolean], flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] = {
+    val filteredSchedules = flowSchedulesTable
+      .filterOptional(enabled)(enabled => _.enabled === enabled)
+      .filterOptional(flowId)(flowId => _.flowDefinitionId === flowId)
+      .sortBy(_.flowTaskId)
 
     db.run(filteredSchedules.result)
   }
@@ -75,7 +77,7 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       .update((Some(dueDate), Some(repositoryContext.epochSeconds)))
 
     db.run(dueDateUpdate)
-      .filter(_ > 0)
+      .filter(_ == 1)
       .map(_ => ())
   }
 

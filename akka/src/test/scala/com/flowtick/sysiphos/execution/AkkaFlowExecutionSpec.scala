@@ -43,10 +43,10 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       enabled = Some(true), created = 0, updated = None, creator = "test", version = 0)
     val futureSchedules = Future.successful(Seq(testSchedule))
 
-    (flowScheduleRepository.getFlowSchedules(_: Boolean, _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
+    (flowScheduleRepository.getFlowSchedules(_: Option[Boolean], _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
     (flowInstanceRepository.createFlowInstance(_: String, _: Map[String, String], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Map.empty[String, String], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
     (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
-    (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *)
+    (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *).returning(Future.successful(()))
 
     dueScheduledFlowInstances(now = 0).futureValue
 
