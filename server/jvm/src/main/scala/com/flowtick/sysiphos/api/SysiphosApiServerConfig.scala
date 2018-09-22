@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.api
 
-import slick.jdbc.{ DriverDataSource, H2Profile, MySQLProfile }
+import slick.jdbc._
 import com.flowtick.sysiphos.config.Configuration._
 
 trait SysiphosApiServerConfig {
@@ -12,10 +12,15 @@ trait SysiphosApiServerConfig {
 
   def dbProfileName: String = propOrEnv("database.profile", "h2")
 
-  def dataSource = new DriverDataSource(
+  def dataSource(jdbcProfile: JdbcProfile) = new DriverDataSource(
     propOrEnv("database.url", "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1"),
     propOrEnv("database.user", "sa"),
-    propOrEnv("database.password", ""))
+    propOrEnv("database.password", ""),
+    driverClassName = jdbcProfile match {
+      case MySQLProfile => classOf[com.mysql.jdbc.Driver].getName
+      case H2Profile => classOf[org.h2.Driver].getName
+      case _ => throw new RuntimeException(s"unknown driver for $dbProfileName")
+    })
 
   def dbProfile = dbProfileName match {
     case "mysql" => MySQLProfile

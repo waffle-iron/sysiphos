@@ -20,13 +20,21 @@ there seems to be a place for a solution that is
 
 Sysiphos wants to be that solution.
 
-License
-=======
-
-Sysiphos is published under the terms of the Apache 2.0 License. See the [LICENSE](LICENSE) file.
+That being that, Sysiphos is heavily influenced by the usage of the above mentioned tools and 
+tries to pick the best features of each. Its currently not a feature-rich as any of those solutions and 
+provides basic scheduling.
 
 @@@ index
 
+* [Introduction](intro.md)
 * [Run](run.md)
+* [Tutorial](tutorial.md)
+* [Tasks](tasks.md)
+* [Configuration](configuration.md)
+* [Build](build.md)
+* [Screenshots](screenshots.md)
+* [Acknowledgments](acknowledgments.md)
+* [License](license.md)
+
 
 @@@

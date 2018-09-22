@@ -10,7 +10,7 @@ import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick._
-import com.twitter.finagle.Http
+import com.twitter.finagle.{ Http, ListeningServer }
 import io.finch.Application
 import io.finch.circe._
 import monix.execution.Scheduler
@@ -57,20 +57,31 @@ trait SysiphosApiServer extends SysiphosApi
     executorActor ! Init()
   }
 
-  def startApiServer(): Unit = {
+  def bindServerToAddress: Try[ListeningServer] = Try {
     val address = s"$bindAddress:$httpPort"
 
-    Try {
-      DefaultSlickRepositoryMigrations.updateDatabase(dataSource)
+    val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
+    val server = Http.server.serve(address, service)
 
-      val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
-      val server = Http.server.serve(address, service)
+    log.info(s"running at ${server.boundAddress.toString}")
 
-      log.info(s"running at ${server.boundAddress.toString}")
+    server
+  }
 
-      server
-    }.recoverWith {
-      case error => Failure(new RuntimeException(s"unable to start server at $address", error))
+  def updateDatabase(): Try[Unit] = Try {
+    log.info(s"using database $dbProfile for migrations")
+
+    DefaultSlickRepositoryMigrations.updateDatabase(dataSource(dbProfile))
+  }.flatten
+
+  def startApiServer(): Unit = {
+    val listeningServer = for {
+      _ <- updateDatabase()
+      listening <- bindServerToAddress
+    } yield listening
+
+    listeningServer.recoverWith {
+      case error => Failure(new RuntimeException(s"unable to start server", error))
     } match {
       case Success(_) =>
         startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
@@ -87,10 +98,10 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutionContext)
-  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutionContext)
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 

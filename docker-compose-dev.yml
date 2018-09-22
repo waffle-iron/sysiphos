@@ -1,0 +1,30 @@
+version: '3.1'
+
+services:
+
+  db:
+    image: mysql:5.5
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: sysiphos
+
+  # to have a look at the tables etc.
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+    - 9091:8080
+
+  sysiphos:
+    image: flowtick/sysiphos:latest
+    links:
+      - db
+    ports:
+      - 9090:8080
+    environment:
+      DATABASE_PROFILE: mysql
+      DATABASE_URL: jdbc:mysql://db:3306/sysiphos
+      DATABASE_USER: root
+      DATABASE_PASSWORD: example
+

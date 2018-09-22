@@ -17,10 +17,10 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(dbProfile, slickExecutor)
-  val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource)(dbProfile, slickExecutor)
-  val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(dataSource)(dbProfile, slickExecutor)
-  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource)(dbProfile, slickExecutor)
+  val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
+  val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
+  val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
+  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   implicit val executorSystem: ActorSystem = ActorSystem()

@@ -127,6 +127,11 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     "ch.qos.logback" % "logback-classic" % logbackV,
     "org.eclipse.jgit" % "org.eclipse.jgit" % "4.9.0.201710071750-r"
   ),
+  maintainer := "flowtick.com",
+  dockerAliases := Seq(
+    DockerAlias(None, Some("flowtick"), "sysiphos", Some("latest")),
+    DockerAlias(None, Some("flowtick"), "sysiphos", Some(version.value))
+  ),
   resourceGenerators in Test += Def.task {
     Seq((fastOptJS in Compile in (serverJS, Test)).value.data.getAbsoluteFile)
   }.taskValue,
