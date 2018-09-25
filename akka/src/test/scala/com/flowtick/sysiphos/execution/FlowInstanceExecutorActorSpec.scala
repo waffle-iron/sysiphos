@@ -3,8 +3,9 @@ package com.flowtick.sysiphos.execution
 import akka.actor.{ ActorRef, ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.execution.FlowInstanceExecution.{ ExecutionFailed, Retry, WorkDone, WorkFailed }
+import com.flowtick.sysiphos.execution.FlowInstanceExecution._
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
+import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.{ ConsoleLogger, Logger }
 import com.flowtick.sysiphos.logging.Logger.LogId
@@ -17,8 +18,8 @@ import scala.concurrent.Future
 class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with ImplicitSender with MockFactory
   with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
-  val flowInstanceRepository: FlowInstanceRepository = stub[FlowInstanceRepository]
-  val flowTaskInstanceRepository: FlowTaskInstanceRepository = stub[FlowTaskInstanceRepository]
+  val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
 
   val flowDefinition: FlowDefinition = SysiphosDefinition("ls-definition-id", CommandLineTask("ls-task-id", None, "ls"))
 
@@ -61,13 +62,30 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     TestKit.shutdownActorSystem(system)
   }
 
-  "FlowInstanceExecutorActor" should "create on start task definition list" in {
-    val flowInstanceExecutorActor = TestActorRef.apply[FlowInstanceExecutorActor](flowInstanceActorProps)
-    (flowTaskInstanceRepository.getFlowTaskInstances(_: String)(_: RepositoryContext))
-      .when(flowInstance.id, *)
-      .returns(Future.successful(Seq(flowTaskInstance)))
+  "FlowInstanceExecutorActor" should "execute task with existing instance" in {
+    val flowExecutorProbe = TestProbe()
+    val flowInstanceExecutorActor = TestActorRef.apply[FlowInstanceExecutorActor](flowInstanceActorProps, flowExecutorProbe.ref)
 
-    flowInstanceExecutorActor ! FlowInstanceExecution.Execute
+    (flowTaskInstanceRepository.getFlowTaskInstances(_: Option[String], _: Option[Long], _: Option[Seq[FlowTaskInstanceStatus.FlowTaskInstanceStatus]])(_: RepositoryContext))
+      .expects(Some(flowInstance.id), None, None, *)
+      .returning(Future.successful(Seq(flowTaskInstance)))
+
+    (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
+      .expects(flowTaskInstance.id, 0, *)
+      .returning(Future.successful(Some(flowTaskInstance)))
+
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus)(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+      .returning(Future.successful(Some(flowTaskInstance)))
+
+    (flowTaskInstanceRepository.setLogId(_: String, _: String)(_: RepositoryContext))
+      .expects(flowTaskInstance.id, *, *)
+      .returning(Future.successful(Some(flowTaskInstance)))
+
+    flowInstanceExecutorActor ! FlowInstanceExecution.Execute(None)
+    flowExecutorProbe.expectMsgPF() {
+      case WorkTriggered(tasks) if tasks.head.flowTask == flowDefinition.task => true
+    }
   }
 
   it should "start the root task on initial execute" in {
@@ -80,25 +98,27 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
         override def createLogger: Logger = new ConsoleLogger
       })
 
-    (flowTaskInstanceRepository.getFlowTaskInstances(_: String)(_: RepositoryContext))
-      .when(flowInstance.id, *)
+    (flowTaskInstanceRepository.getFlowTaskInstances(_: Option[String], _: Option[Long], _: Option[Seq[FlowTaskInstanceStatus]])(_: RepositoryContext))
+      .expects(Some(flowInstance.id), None, None, *)
       .returns(Future.successful(Seq(flowTaskInstance)))
 
     (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
-      .when(flowTaskInstance.id, 0, *)
+      .expects(flowTaskInstance.id, 0, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     (flowTaskInstanceRepository.setLogId(_: String, _: LogId)(_: RepositoryContext))
-      .when(flowTaskInstance.id, "console", *)
+      .expects(flowTaskInstance.id, *, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
-    flowInstanceExecutorActor ! FlowInstanceExecution.Execute
+    flowInstanceExecutorActor ! FlowInstanceExecution.Execute(None)
 
-    flowTaskExecutorProbe.expectMsg(FlowTaskExecution.Execute(flowDefinition.task, "console"))
+    flowTaskExecutorProbe.expectMsgPF() {
+      case FlowTaskExecution.Execute(_, _) => true
+    }
   }
 
   it should "update status on work done and execute the next task" in {
@@ -107,11 +127,11 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     val flowTaskExecutorProbe = TestProbe()
 
     (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     (flowTaskInstanceRepository.setEndTime(_: String, _: Long)(_: RepositoryContext))
-      .when(flowTaskInstance.id, 0, *)
+      .expects(flowTaskInstance.id, 0, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     val flowInstanceActorProps = Props(
@@ -123,10 +143,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     val flowInstanceExecutorActor = TestActorRef(flowInstanceActorProps, flowExecutorProbe.ref)
 
     flowInstanceExecutorActor ! WorkDone(flowTaskInstance)
-    flowInstanceExecutorProbe.expectMsg(FlowInstanceExecution.Execute)
+    flowInstanceExecutorProbe.expectMsg(FlowInstanceExecution.Execute(None))
   }
 
-  it should "ask parent for retry of a task" in {
+  it should "set due date for retry on failure with retries left" in {
     val flowExecutorProbe = TestProbe()
     val flowInstanceExecutorProbe = TestProbe()
     val flowTaskExecutorProbe = TestProbe()
@@ -140,24 +160,28 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceExecutorActor = TestActorRef(flowInstanceActorProps, flowExecutorProbe.ref)
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstanceWithRetry.id, FlowTaskInstanceStatus.Failed, *)
+    (flowTaskInstanceRepository.setEndTime(_: String, _: Long)(_: RepositoryContext))
+      .expects(flowTaskInstanceWithRetry.id, 0, *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
-    (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstanceWithRetry.id, FlowInstanceStatus.Failed, *)
-      .returns(Future.successful(Some(flowInstance)))
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
+      .expects(flowTaskInstanceWithRetry.id, FlowTaskInstanceStatus.Retry, *)
+      .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
     (flowTaskInstanceRepository.setRetries(_: String, _: Int)(_: RepositoryContext))
-      .when(flowTaskInstanceWithRetry.id, flowTaskInstanceWithRetry.retries - 1, *)
-      .returns(Future.successful(Some(flowTaskInstanceWithRetry.copy(retries = 0))))
+      .expects(flowTaskInstanceWithRetry.id, 0, *)
+      .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
+
+    (flowTaskInstanceRepository.setNextDueDate(_: String, _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstanceWithRetry.id, Some(18000L), *)
+      .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstanceWithRetry)
 
-    flowExecutorProbe.expectMsg(Retry(flowTaskInstanceWithRetry))
+    flowExecutorProbe.expectMsg(RetryScheduled(flowTaskInstanceWithRetry))
   }
 
-  it should "notify about failure" in {
+  it should "notify about failure when retries are exhausted" in {
     val flowExecutorProbe = TestProbe()
     val flowInstanceExecutorProbe = TestProbe()
     val flowTaskExecutorProbe = TestProbe()
@@ -170,16 +194,16 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
 
     val flowInstanceExecutorActor = TestActorRef(flowInstanceActorProps, flowExecutorProbe.ref)
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, *)
+    (flowTaskInstanceRepository.setEndTime(_: String, _: Long)(_: RepositoryContext))
+      .expects(flowTaskInstance.id, 0, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
-    (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
-      .when(flowTaskInstance.id, FlowInstanceStatus.Failed, *)
-      .returns(Future.successful(Some(flowInstance)))
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, *)
+      .returns(Future.successful(Some(flowTaskInstance)))
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstance)
 
-    flowExecutorProbe.expectMsg(ExecutionFailed(flowTaskInstance))
+    flowExecutorProbe.expectMsg(ExecutionFailed(flowInstance))
   }
 }

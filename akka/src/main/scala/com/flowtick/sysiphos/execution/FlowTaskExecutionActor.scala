@@ -2,19 +2,25 @@ package com.flowtick.sysiphos.execution
 
 import java.time.LocalDateTime.ofEpochSecond
 import java.time.ZoneOffset
+import java.util.concurrent.TimeUnit
 
-import akka.actor.Actor
+import akka.actor.{ Actor, ActorRef }
+import akka.pattern.{ ask, pipe }
+import akka.util.Timeout
+import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
-import com.flowtick.sysiphos.task.CommandLineTask
+import com.flowtick.sysiphos.task.{ CommandLineTask, TriggerFlowTask }
 
 import scala.sys.process._
 import scala.util.{ Failure, Success, Try }
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class FlowTaskExecutionActor(
   taskInstance: FlowTaskInstance,
-  flowInstance: FlowInstance) extends Actor with FlowTaskExecution with Logging {
+  flowInstance: FlowInstance,
+  flowExecutorActor: ActorRef) extends Actor with FlowTaskExecution with Logging {
 
   val logger: Logger = Logger.defaultLogger
 
@@ -38,7 +44,7 @@ class FlowTaskExecutionActor(
   }.filter(_ == 0)
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command), logId) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _), logId) =>
       log.info(s"executing command with id $id")
 
       val taskLogger = writeToLog(logId) _
@@ -54,6 +60,22 @@ class FlowTaskExecutionActor(
           sender() ! FlowInstanceExecution.WorkFailed(e, taskInstance)
         case Success(_) => sender() ! FlowInstanceExecution.WorkDone(taskInstance)
       }
+
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), logId) =>
+      log.info(s"executing task with id $id")
+
+      val taskLogger = writeToLog(logId) _
+
+      ask(flowExecutorActor, RequestInstance(flowDefinitionId, flowInstance.context))(Timeout(30, TimeUnit.SECONDS)).map {
+        case NewInstance(Right(instance)) =>
+          taskLogger(s"created ${instance.flowDefinitionId} instance ${instance.id}")
+          FlowInstanceExecution.WorkDone(taskInstance)
+        case NewInstance(Left(error)) =>
+          taskLogger(s"unable to trigger instance $flowDefinitionId: ${error.getMessage}")
+          FlowInstanceExecution.WorkFailed(error, taskInstance)
+      }.pipeTo(sender())
+
     case other: Any => sender() ! FlowInstanceExecution.WorkFailed(new IllegalStateException(s"unable to handle $other"), taskInstance)
   }
+
 }

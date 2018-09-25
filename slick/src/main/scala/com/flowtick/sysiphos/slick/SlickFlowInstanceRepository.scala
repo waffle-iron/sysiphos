@@ -69,7 +69,7 @@ class SlickFlowInstanceRepository(
     val filteredInstances = instanceTable
       .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
-      .filterOptional(query.status)(status => _.status === status.toString)
+      .filterOptional(query.status)(status => _.status.inSet(status.map(_.toString)))
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
       .sortBy(_.created.desc)
 
@@ -102,7 +102,7 @@ class SlickFlowInstanceRepository(
 
   override def createFlowInstance(
     flowDefinitionId: String,
-    context: Map[String, String],
+    context: Seq[FlowInstanceContextValue],
     initialStatus: FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails] = {
     val newInstance = SlickFlowInstance(
       id = idGenerator.nextId,
@@ -115,10 +115,9 @@ class SlickFlowInstanceRepository(
       startTime = None,
       endTime = None)
 
-    val contextActions = context.map {
-      case (key, value) =>
-        contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, newInstance.id, key, value)
-    }.toSeq
+    val contextActions = context.map { contextValue =>
+      contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, newInstance.id, contextValue.key, contextValue.value)
+    }
 
     db.run(DBIO.seq(contextActions: _*) >> (instanceTable += newInstance).transactionally).map(_ => FlowInstanceDetails(
       newInstance.id,
@@ -127,7 +126,7 @@ class SlickFlowInstanceRepository(
       newInstance.startTime,
       newInstance.endTime,
       FlowInstanceStatus.withName(newInstance.status),
-      context.toSeq.map(kv => FlowInstanceContextValue(kv._1, kv._2))))
+      context))
   }
 
   override def counts(
@@ -155,7 +154,6 @@ class SlickFlowInstanceRepository(
 
   override def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
     val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
-      .filter(_.startTime.isEmpty)
       .map { instance => instance.startTime }
       .update(Some(startTime))
 

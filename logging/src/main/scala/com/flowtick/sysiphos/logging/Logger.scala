@@ -18,7 +18,8 @@ object Logger {
 
   def defaultLogger: Logger = propOrEnv("logger.impl", "file").toLowerCase match {
     case "file" =>
-      val baseDirPath = propOrEnv("logger.file.baseDir", sys.props.get("java.io.tmpdir").getOrElse("/tmp"))
+      val baseDirDefault = sys.props.get("java.io.tmpdir").map(_ + s"${File.separatorChar}sysiphos").getOrElse(s"${File.separatorChar}tmp")
+      val baseDirPath = propOrEnv("logger.file.baseDir", baseDirDefault)
       new FileLogger(new File(baseDirPath))
     case _ => new ConsoleLogger
   }

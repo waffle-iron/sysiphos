@@ -21,4 +21,5 @@ environment variable and then fallback to default if possible.
 | http.port | 8080 | Port to use to bind the http server |
 | instance.threads | 10 | number of threads to use for database access during instance execution |
 | api.threads | 10 | number of threads to use for api request handling |
-
+| task.retries.default | 3 | default number of retries for a task, if not specified otherwise |
+| task.retry.delay.default | 18000 | default number of seconds to wait until next try, if not specified otherwise |

@@ -10,7 +10,7 @@ trait FlowTaskInstanceStatusLabel {
   def taskStatusLabel(taskStatus: FlowTaskInstanceStatus): Binding[Span] = {
     val labelType = taskStatus match {
       case FlowTaskInstanceStatus.New => "label-info"
-      case FlowTaskInstanceStatus.Running => "label-warning"
+      case FlowTaskInstanceStatus.Running | FlowTaskInstanceStatus.Retry => "label-warning"
       case FlowTaskInstanceStatus.Done => "label-success"
       case FlowTaskInstanceStatus.Failed => "label-danger"
       case _ => "label-default"

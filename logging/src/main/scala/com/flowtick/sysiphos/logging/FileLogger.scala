@@ -11,7 +11,10 @@ class FileLogger(logBaseDir: File) extends Logger {
   val log: slf4j.Logger = LoggerFactory.getLogger(getClass)
 
   override def createLog(logKey: String): Try[LogId] = Try {
-    val logFile = new File(logBaseDir, s"log-$logKey.log")
+    val logFileDir = new File(logBaseDir, s"${logKey.replace('/', File.separatorChar)}")
+    logFileDir.mkdirs()
+
+    val logFile = new File(logFileDir, "log.txt")
     logFile.createNewFile()
     logFile
   }.flatMap { logFile =>

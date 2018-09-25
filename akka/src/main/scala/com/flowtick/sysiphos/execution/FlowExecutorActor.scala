@@ -3,10 +3,12 @@ package com.flowtick.sysiphos.execution
 import java.time.{ LocalDateTime, ZoneId }
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ Actor, Cancellable, Props }
+import akka.actor.{ Actor, Cancellable, PoisonPill, Props }
 import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
+import Logging._
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -15,6 +17,8 @@ import scala.concurrent.duration.FiniteDuration
 object FlowExecutorActor {
   case class Init()
   case class Tick()
+  case class RequestInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue])
+  case class NewInstance(result: Either[Throwable, FlowInstanceDetails])
   case class RunInstanceExecutors(instances: Seq[FlowInstance])
   case class DueFlowDefinitions(flows: Seq[FlowDefinition])
 }
@@ -43,7 +47,7 @@ class FlowExecutorActor(
       flowInstanceRepository,
       flowTaskInstanceRepository)(repositoryContext))
 
-  def executeInstance(instance: FlowInstance): Future[FlowInstanceExecution.FlowInstanceMessage] = {
+  def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] = {
     val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
       case Some(details) =>
         details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
@@ -53,15 +57,21 @@ class FlowExecutorActor(
     val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
       case Some(definition) =>
         val runningInstance = for {
-          _ <- flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
+          _ <- if (instance.startTime.isEmpty)
+            flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
+          else
+            Future.successful(())
           running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
         } yield running
 
         runningInstance.flatMap {
           case Some(running) =>
+            val instanceActor = context.child(running.id).getOrElse(
+              context.actorOf(flowInstanceActorProps(definition, running), running.id))
+
             Future
-              .successful(FlowInstanceExecution.Execute)
-              .pipeTo(context.actorOf(flowInstanceActorProps(definition, running)))(sender())
+              .successful(FlowInstanceExecution.Execute(selectedTaskId))
+              .pipeTo(instanceActor)(sender())
           case None => Future.failed(new IllegalStateException("unable to update flow instance"))
         }
       case None => Future.failed(new IllegalStateException("unable to find flow definition"))
@@ -70,28 +80,59 @@ class FlowExecutorActor(
     flowInstanceInit
   }
 
+  def executeScheduled(): Unit = {
+    val taskInstancesFuture: Future[Seq[FlowInstance]] = for {
+      manuallyTriggered <- manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")
+      newTaskInstances <- dueScheduledFlowInstances(now).logFailed("unable to get scheduled flow instance")
+    } yield newTaskInstances ++ manuallyTriggered
+
+    taskInstancesFuture.foreach { instances => instances.foreach(executeInstance(_, None)) }
+  }
+
+  def executeRetries(): Unit = {
+    dueTaskRetries(now).logFailed("unable to get due tasks").foreach { dueTasks =>
+      dueTasks.foreach {
+        case (Some(instance), taskId) => executeInstance(instance, Some(taskId))
+        case _ =>
+      }
+    }
+  }
+
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init
     case _: FlowExecutorActor.Tick =>
-      val taskInstancesFuture: Future[Seq[FlowInstance]] = for {
-        manuallyTriggered <- manuallyTriggeredInstances
-        newTaskInstances <- dueScheduledFlowInstances(now)
-        retryTaskInstances <- dueTaskRetries(now)
-      } yield newTaskInstances ++ retryTaskInstances ++ manuallyTriggered
+      executeScheduled()
+      executeRetries()
 
-      taskInstancesFuture.foreach { instances => instances.map(executeInstance) }
+    case RequestInstance(flowDefinitionId, instanceContext) =>
+      flowDefinitionRepository.findById(flowDefinitionId).flatMap {
+        case Some(flowDefinition) =>
+          flowInstanceRepository
+            .createFlowInstance(flowDefinition.id, instanceContext, initialStatus = FlowInstanceStatus.Triggered)
+            .map(instance => NewInstance(Right(instance)))
+        case None =>
+          Future.successful(FlowExecutorActor.NewInstance(Left(new IllegalArgumentException(s"unable to find flow id $flowDefinitionId"))))
+      }.pipeTo(sender())
 
-    case FlowInstanceExecution.Finished(flowInstance) => for {
-      _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
-      _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
-    } yield ()
+    case FlowInstanceExecution.Finished(flowInstance) =>
+      log.info(s"finished $flowInstance")
+      for {
+        _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
+        _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
+      } yield ()
 
-    case FlowInstanceExecution.ExecutionFailed(flowTaskInstance) =>
-      flowInstanceRepository.setStatus(flowTaskInstance.flowInstanceId, FlowInstanceStatus.Failed)
-    case FlowInstanceExecution.Retry(flowTaskInstance) =>
-      val dueDate = now + flowTaskInstance.retryDelay.getOrElse(10L)
-      log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
-      flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))
+    case FlowInstanceExecution.WorkTriggered(tasks) =>
+      log.info(s"new work started: $tasks")
+
+    case FlowInstanceExecution.ExecutionFailed(flowInstance) =>
+      context.sender() ! PoisonPill
+      for {
+        _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Failed)
+        _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
+      } yield ()
+
+    case FlowInstanceExecution.RetryScheduled(instance) =>
+      log.info(s"retry scheduled: $instance")
   }
 
   def init: Cancellable = {

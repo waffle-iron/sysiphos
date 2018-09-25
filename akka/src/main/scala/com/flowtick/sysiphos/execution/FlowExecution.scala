@@ -17,31 +17,21 @@ trait FlowExecution extends Logging {
 
   def createFlowInstance(flowSchedule: FlowSchedule): Future[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
-    flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Map.empty, FlowInstanceStatus.Scheduled)
+    flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Seq.empty, FlowInstanceStatus.Scheduled)
   }
 
-  def dueTaskRetries(now: Long): Future[Seq[FlowInstance]] = {
-    flowTaskInstanceRepository.getScheduled().flatMap { tasks =>
+  def dueTaskRetries(now: Long): Future[Seq[(Option[FlowInstance], String)]] =
+    flowTaskInstanceRepository.getFlowTaskInstances(None, Some(now), Some(Seq(FlowTaskInstanceStatus.Retry))).flatMap { tasks =>
       Future.sequence(tasks.map { task =>
-        task.nextDueDate match {
-          case Some(timestamp) if timestamp <= now =>
-            log.info(s"found ${task.id} that is due for retry")
-            for {
-              instance <- flowInstanceRepository.findById(task.flowInstanceId)
-              _ <- flowTaskInstanceRepository.setNextDueDate(task.id, None)
-              _ <- flowTaskInstanceRepository.setRetries(task.id, task.retries - 1)
-            } yield instance
-          case None => Future.successful(None)
-        }
+        flowInstanceRepository.findById(task.flowInstanceId).map(instance => (instance, task.taskId))
       })
-    }.map(_.flatten)
-  }
+    }
 
   def manuallyTriggeredInstances: Future[Seq[FlowInstance]] =
     flowInstanceRepository.getFlowInstances(FlowInstanceQuery(
       flowDefinitionId = None,
       instanceIds = None,
-      status = Some(FlowInstanceStatus.ManuallyTriggered),
+      status = Some(Seq(FlowInstanceStatus.Triggered)),
       createdGreaterThan = None))
 
   def dueScheduledFlowInstances(now: Long): Future[Seq[FlowInstance]] = {

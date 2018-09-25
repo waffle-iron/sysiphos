@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui.execution
 
-import com.flowtick.sysiphos.flow.{ FlowTaskInstanceDetails, FlowTaskInstanceStatus }
+import com.flowtick.sysiphos.flow.{ FlowTaskInstanceDetails }
 import com.flowtick.sysiphos.ui.util.DateSupport
 import com.flowtick.sysiphos.ui.{ FlowInstanceOverview, HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ Constants, SingletonBindingSeq, Var }
@@ -33,6 +33,7 @@ class ShowInstanceComponent(
       <td>{ taskInstanceDetails.id }</td>
       <td>{ taskInstanceDetails.startTime.map(formatDate).getOrElse("not started yet") }</td>
       <td>{ taskInstanceDetails.endTime.map(formatDate).getOrElse("not ended yet") }</td>
+      <td>{ taskInstanceDetails.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
       <td>{ taskStatusLabel(taskInstanceDetails.status).bind }</td>
       <td><span>{ taskInstanceDetails.retries.toString }</span></td>
       <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId.getOrElse(""))}" } class="btn btn-primary">Log</a></td>
@@ -102,6 +103,7 @@ class ShowInstanceComponent(
               <th>ID</th>
               <th>Start Time</th>
               <th>End Time</th>
+              <th>Due Date</th>
               <th>Status</th>
               <th>Retries Left</th>
               <th>Actions</th>

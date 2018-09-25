@@ -10,7 +10,8 @@ import slick.jdbc.JdbcProfile
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext) extends FlowTaskInstanceRepository {
+class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext)
+  extends FlowTaskInstanceRepository with SlickRepositoryBase {
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   import profile.api._
@@ -66,8 +67,15 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   private[slick] def getFlowTaskInstances: Future[Seq[FlowTaskInstanceDetails]] = db.run(taskInstancesTable.result)
 
-  override def getFlowTaskInstances(flowInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
-    val queryBuilder = taskInstancesTable.filter(_.flowInstanceId === flowInstanceId).result
+  override def getFlowTaskInstances(
+    flowInstanceId: Option[String],
+    dueBefore: Option[Long],
+    status: Option[Seq[FlowTaskInstanceStatus.FlowTaskInstanceStatus]])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
+    val queryBuilder = taskInstancesTable
+      .filterOptional(flowInstanceId)(flowInstanceId => _.flowInstanceId === flowInstanceId)
+      .filterOptional(dueBefore)(dueBefore => _.nextDueDate < dueBefore)
+      .filterOptional(status)(status => _.status.inSet(status.map(_.toString)))
+      .result
 
     db.run(queryBuilder)
   }
@@ -80,7 +88,10 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   protected def newId: String = UUID.randomUUID().toString
 
-  override def createFlowTaskInstance(instanceId: String, flowTaskId: String)(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails] = {
+  override def createFlowTaskInstance(
+    instanceId: String,
+    flowTaskId: String,
+    retries: Int)(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails] = {
 
     val newInstance = FlowTaskInstanceDetails(
       id = newId,
@@ -89,7 +100,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       creationTime = repositoryContext.epochSeconds,
       startTime = None,
       status = FlowTaskInstanceStatus.New,
-      retries = 3,
+      retries = retries,
       endTime = None,
       retryDelay = Some(10L),
       nextDueDate = None,
@@ -108,7 +119,6 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
     val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
-      .filter(_.startTime.isEmpty)
       .map { task => task.startTime }
       .update(Some(startTime))
 
@@ -137,12 +147,6 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .update(nextDueDate)
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
-  }
-
-  override def getScheduled()(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
-    val queryBuilder = taskInstancesTable.filter(_.nextDueDate.isDefined).result
-
-    db.run(queryBuilder)
   }
 
   override def setLogId(taskInstanceId: String, logId: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {

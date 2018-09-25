@@ -1,11 +1,11 @@
 package com.flowtick.sysiphos.flow
 
-import com.flowtick.sysiphos.task.CommandLineTask
+import com.flowtick.sysiphos.task.{ CommandLineTask, TriggerFlowTask }
 import io.circe.Decoder.Result
 import io.circe._
 import com.flowtick.sysiphos._
 
-import scala.util.{ Either, Right }
+import scala.util.Either
 
 trait FlowTask {
   def id: String
@@ -15,6 +15,20 @@ trait FlowTask {
 trait FlowDefinition {
   def id: String
   def task: FlowTask
+
+  def findTask(id: String): Option[FlowTask] = {
+    def findInTask(task: FlowTask): Option[FlowTask] =
+      if (task.id == id) {
+        Some(task)
+      } else task
+        .children
+        .getOrElse(Seq.empty)
+        .map(task => findInTask(task))
+        .flatMap(result => result.find(_.id == id))
+        .headOption
+
+    findInTask(task)
+  }
 }
 
 object FlowDefinition {
@@ -43,11 +57,8 @@ object FlowDefinition {
 
   implicit val taskEncoder: Encoder[FlowTask] = new Encoder[FlowTask] {
     override def apply(a: FlowTask): Json = a match {
-      case cmd: CommandLineTask => Json.obj(
-        "id" -> Json.fromString(cmd.id),
-        "type" -> Json.fromString("shell"),
-        "command" -> Json.fromString(cmd.command),
-        "children" -> cmd.children.asJson)
+      case task: CommandLineTask => task.asJson
+      case task: TriggerFlowTask => task.asJson
       case task: SysiphosTask => task.asJson
       case _ => Json.obj()
     }
@@ -56,6 +67,7 @@ object FlowDefinition {
   def taskFromCursor(typeHint: String, cursor: HCursor): Either[DecodingFailure, FlowTask] = {
     typeHint match {
       case "shell" => cursor.as[CommandLineTask]
+      case "trigger" => cursor.as[TriggerFlowTask]
       case _ => cursor.as[SysiphosTask]
     }
   }

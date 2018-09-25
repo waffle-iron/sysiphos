@@ -25,7 +25,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with Layout
   def instanceCountButton(count: InstanceCount): Binding[Anchor] =
     <a href={ s"#/instances/filter/${count.flowDefinitionId}?status=${count.status}" } class={
       FlowInstanceStatus.withName(count.status) match {
-        case FlowInstanceStatus.Scheduled | FlowInstanceStatus.ManuallyTriggered => "btn btn-info"
+        case FlowInstanceStatus.Scheduled | FlowInstanceStatus.Triggered => "btn btn-info"
         case FlowInstanceStatus.Running => "btn btn-warning"
         case FlowInstanceStatus.Failed => "btn btn-danger"
         case FlowInstanceStatus.Done => "btn btn-success"

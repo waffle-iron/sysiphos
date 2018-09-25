@@ -32,7 +32,13 @@ class CreateFlowComponent(circuit: FlowCircuit) extends HtmlComponent with Layou
          |    "id": "new-task",
          |    "type": "shell",
          |    "command": "ls",
-         |    "children": []
+         |    "children": [
+         |      {
+         |        "id" : "trigger-next",
+         |        "type" : "trigger",
+         |        "flowDefinitionId":  "existing-flow-id"
+         |      }
+         |    ]
          |  }
          |}
        """.stripMargin.trim, 0)

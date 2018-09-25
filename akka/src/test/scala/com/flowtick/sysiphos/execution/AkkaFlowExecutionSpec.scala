@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowInstanceStatus, FlowTaskInstanceRepository }
+import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
@@ -44,7 +44,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
     val futureSchedules = Future.successful(Seq(testSchedule))
 
     (flowScheduleRepository.getFlowSchedules(_: Option[Boolean], _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
-    (flowInstanceRepository.createFlowInstance(_: String, _: Map[String, String], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Map.empty[String, String], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
+    (flowInstanceRepository.createFlowInstance(_: String, _: Seq[FlowInstanceContextValue], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Seq.empty[FlowInstanceContextValue], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
     (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *).returning(Future.successful(()))
 

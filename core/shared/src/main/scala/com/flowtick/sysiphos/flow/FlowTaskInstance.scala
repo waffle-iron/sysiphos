@@ -9,6 +9,7 @@ object FlowTaskInstanceStatus extends Enumeration {
   type FlowTaskInstanceStatus = Value
   val New: FlowTaskInstanceStatus.Value = Value("new")
   val Done: FlowTaskInstanceStatus.Value = Value("done")
+  val Retry: FlowTaskInstanceStatus.Value = Value("retry")
   val Failed: FlowTaskInstanceStatus.Value = Value("failed")
   val Running: FlowTaskInstanceStatus.Value = Value("running")
 

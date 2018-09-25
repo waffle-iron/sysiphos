@@ -67,20 +67,23 @@ class SysiphosApiContext(
   override def instances(
     flowDefinitionId: Option[String],
     instanceIds: Option[Seq[String]],
-    status: Option[String],
+    status: Option[Seq[String]],
     createdGreaterThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
-    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(FlowInstanceStatus.withName), createdGreaterThan))
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(_.map(FlowInstanceStatus.withName)), createdGreaterThan))
   }
 
-  override def taskInstances(flowInstanceId: String): Future[Seq[FlowTaskInstanceDetails]] = {
-    flowTaskInstanceRepository.getFlowTaskInstances(flowInstanceId)
+  override def taskInstances(
+    flowInstanceId: Option[String],
+    dueBefore: Option[Long],
+    status: Option[Seq[String]]): Future[Seq[FlowTaskInstanceDetails]] = {
+    flowTaskInstanceRepository.getFlowTaskInstances(flowInstanceId, dueBefore, status.map(_.map(FlowTaskInstanceStatus.withName)))
   }
 
   override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {
     flowInstanceRepository.createFlowInstance(
       flowDefinitionId,
-      context.map(value => (value.key, value.value)).toMap,
-      FlowInstanceStatus.ManuallyTriggered)
+      context,
+      FlowInstanceStatus.Triggered)
   }
 
   override def log(logId: String): Future[String] = Future.fromTry(
