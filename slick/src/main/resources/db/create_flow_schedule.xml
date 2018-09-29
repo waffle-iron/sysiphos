@@ -31,6 +31,9 @@
             <column name="_ENABLED" type="boolean">
                 <constraints nullable="true"/>
             </column>
+            <column name="_BACK_FILL" type="boolean">
+                <constraints nullable="true"/>
+            </column>
             <column name="_EXPRESSION" type="varchar(255)">
                 <constraints nullable="true"/>
             </column>

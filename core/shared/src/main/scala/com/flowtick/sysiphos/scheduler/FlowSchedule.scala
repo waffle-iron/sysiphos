@@ -7,6 +7,7 @@ trait FlowSchedule {
   def nextDueDate: Option[Long]
   def enabled: Option[Boolean]
   def expression: Option[String]
+  def backFill: Option[Boolean]
 }
 
 final case class FlowScheduleDetails(
@@ -19,4 +20,5 @@ final case class FlowScheduleDetails(
   flowDefinitionId: String,
   flowTaskId: Option[String],
   nextDueDate: Option[Long],
-  enabled: Option[Boolean]) extends FlowSchedule
+  enabled: Option[Boolean],
+  backFill: Option[Boolean]) extends FlowSchedule

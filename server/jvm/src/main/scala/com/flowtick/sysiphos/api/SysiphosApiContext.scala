@@ -44,13 +44,15 @@ class SysiphosApiContext(
     flowDefinitionId: String,
     flowTaskId: Option[String],
     expression: Option[String],
-    enabled: Option[Boolean]): Future[FlowScheduleDetails] = {
+    enabled: Option[Boolean],
+    backFill: Option[Boolean]): Future[FlowScheduleDetails] = {
     flowScheduleRepository.createFlowSchedule(
       id,
       expression,
       flowDefinitionId,
       flowTaskId,
-      enabled)
+      enabled,
+      backFill)
   }
 
   override def setDueDate(flowScheduleId: String, dueDate: Long): Future[Boolean] = {
@@ -60,8 +62,9 @@ class SysiphosApiContext(
   override def updateFlowSchedule(
     id: String,
     expression: Option[String],
-    enabled: Option[Boolean]): Future[FlowScheduleDetails] = {
-    flowScheduleRepository.updateFlowSchedule(id, expression, enabled)
+    enabled: Option[Boolean],
+    backFill: Option[Boolean]): Future[FlowScheduleDetails] = {
+    flowScheduleRepository.updateFlowSchedule(id, expression, enabled, backFill)
   }
 
   override def instances(

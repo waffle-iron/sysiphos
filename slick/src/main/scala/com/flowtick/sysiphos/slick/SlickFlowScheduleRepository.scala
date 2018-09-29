@@ -30,8 +30,9 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
     def flowTaskId = column[Option[String]]("_FLOW_TASK_ID")
     def nextDueDate = column[Option[Long]]("_NEXT_DUE_DATE")
     def enabled = column[Option[Boolean]]("_ENABLED")
+    def backFill = column[Option[Boolean]]("_BACK_FILL")
 
-    def * = (id, creator, created, version, updated, expression, flowDefinitionId, flowTaskId, nextDueDate, enabled) <> (FlowScheduleDetails.tupled, FlowScheduleDetails.unapply)
+    def * = (id, creator, created, version, updated, expression, flowDefinitionId, flowTaskId, nextDueDate, enabled, backFill) <> (FlowScheduleDetails.tupled, FlowScheduleDetails.unapply)
   }
 
   val flowSchedulesTable = TableQuery[FlowSchedules]
@@ -43,7 +44,8 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
     expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
     val newSchedule = FlowScheduleDetails(
       id = id.getOrElse(newId),
       creator = repositoryContext.currentUser,
@@ -54,7 +56,8 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       flowDefinitionId = flowDefinitionId,
       flowTaskId,
       None,
-      enabled = enabled)
+      enabled = enabled,
+      backFill = backFill)
 
     db.run(flowSchedulesTable += newSchedule)
       .filter(_ > 0)
@@ -68,6 +71,12 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       .sortBy(_.flowTaskId)
 
     db.run(filteredSchedules.result)
+  }
+
+  def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowScheduleDetails]] = {
+    val filteredSchedules = flowSchedulesTable.filter(_.id === id).result.headOption
+
+    db.run(filteredSchedules)
   }
 
   override def setDueDate(flowScheduleId: String, dueDate: Long)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
@@ -84,21 +93,27 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
   override def updateFlowSchedule(
     id: String,
     expression: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
     db.run(flowSchedulesTable.filter(_.id === id).result.headOption).flatMap {
       case Some(existing) =>
         val newExpression = expression.orElse(existing.expression)
         val newEnabled = enabled.orElse(existing.enabled)
+        val newBackFill = backFill.orElse(existing.backFill)
 
         val scheduleUpdate =
           flowSchedulesTable
             .filter(_.id === existing.id)
-            .map(flow => (flow.expression, flow.enabled, flow.nextDueDate, flow.version, flow.updated))
-            .update((newExpression, newEnabled, existing.nextDueDate, existing.version + 1, Some(repositoryContext.epochSeconds)))
+            .map(flow => (flow.expression, flow.enabled, flow.backFill, flow.nextDueDate, flow.version, flow.updated))
+            .update((newExpression, newEnabled, newBackFill, existing.nextDueDate, existing.version + 1, Some(repositoryContext.epochSeconds)))
 
         db.run(scheduleUpdate)
           .filter(_ > 0)
-          .map(_ => existing.copy(enabled = newEnabled, expression = newExpression))
+          .flatMap(_ => findById(id))
+          .flatMap {
+            case Some(schedule) => Future.successful(schedule)
+            case None => Future.failed(new IllegalArgumentException(s"unable to find $id"))
+          }
       case None => Future.failed(new IllegalArgumentException(s"could not find schedule with id $id"))
     }
   }

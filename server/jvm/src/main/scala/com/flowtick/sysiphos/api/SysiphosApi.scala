@@ -63,13 +63,15 @@ object SysiphosApi {
       flowDefinitionId: String,
       flowTaskId: Option[String],
       expression: Option[String],
-      enabled: Option[Boolean]): Future[FlowScheduleDetails]
+      enabled: Option[Boolean],
+      backFill: Option[Boolean]): Future[FlowScheduleDetails]
 
     @GraphQLField
     def updateFlowSchedule(
       id: String,
       expression: Option[String],
-      enabled: Option[Boolean]): Future[FlowScheduleDetails]
+      enabled: Option[Boolean],
+      backFill: Option[Boolean]): Future[FlowScheduleDetails]
 
     @GraphQLField
     def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails]

@@ -21,6 +21,7 @@ case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class CreateFlowScheduleResult[T](createFlowSchedule: T)
 
 case class EnableResult(enabled: Boolean)
+case class BackFillResult(backFill: Boolean)
 case class ExpressionResult(expression: String)
 case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
 case class LogResult(log: String)
@@ -41,6 +42,10 @@ trait SysiphosApi {
   def setFlowScheduleEnabled(
     id: String,
     enabled: Boolean): Future[Boolean]
+
+  def setFlowScheduleBackFill(
+    id: String,
+    backFill: Boolean): Future[Boolean]
 
   def setFlowScheduleExpression(
     id: String,
@@ -82,7 +87,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
       s"""
          |{
          |  schedules (flowId: ${quotedOrNull(flowId)})
-         |  {id, creator, created, version, flowDefinitionId, enabled, expression, nextDueDate }
+         |  {id, creator, created, version, flowDefinitionId, enabled, expression, nextDueDate, backFill }
          |}
          |
        """.stripMargin).map(_.data)
@@ -113,6 +118,13 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
     enabled: Boolean): Future[Boolean] = {
     val queryString = s"""mutation { updateFlowSchedule(id: "$id", enabled: $enabled) { enabled } }"""
     query[UpdateFlowScheduleResponse[EnableResult]](queryString).map(_.data.updateFlowSchedule.enabled)
+  }
+
+  override def setFlowScheduleBackFill(
+    id: String,
+    backFill: Boolean): Future[Boolean] = {
+    val queryString = s"""mutation { updateFlowSchedule(id: "$id", backFill: $backFill) { backFill } }"""
+    query[UpdateFlowScheduleResponse[BackFillResult]](queryString).map(_.data.updateFlowSchedule.backFill)
   }
 
   override def setFlowScheduleExpression(

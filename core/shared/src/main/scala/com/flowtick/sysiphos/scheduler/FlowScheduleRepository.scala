@@ -10,16 +10,20 @@ trait FlowScheduleRepository {
     expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
 
   def updateFlowSchedule(
     id: String,
     expression: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails]
 
   def getFlowSchedules(
     enabled: Option[Boolean],
     flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]]
+
+  def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowScheduleDetails]]
 }
 
 trait FlowScheduleStateStore {

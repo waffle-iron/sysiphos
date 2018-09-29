@@ -30,7 +30,8 @@ class GitFlowScheduleRepository(
     expression: Option[String],
     flowDefinitionId: String,
     flowTaskId: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = {
     val newSchedule = FlowScheduleDetails(
       id = id.getOrElse(UUID.randomUUID().toString),
       expression = expression,
@@ -41,12 +42,17 @@ class GitFlowScheduleRepository(
       creator = repositoryContext.currentUser,
       created = repositoryContext.epochSeconds,
       version = 0,
-      updated = None)
+      updated = None,
+      backFill = backFill)
     add(newSchedule, s"$flowDefinitionId.json")
   }
 
   override def updateFlowSchedule(
     id: String,
     expression: Option[String],
-    enabled: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = ???
+    enabled: Option[Boolean],
+    backFill: Option[Boolean])(implicit repositoryContext: RepositoryContext): Future[FlowScheduleDetails] = ???
+
+  override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowScheduleDetails]] =
+    getFlowSchedules(None, None).map(_.find(_.id == id))
 }

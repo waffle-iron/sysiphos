@@ -14,6 +14,7 @@ case class SchedulesModel(schedules: Seq[FlowScheduleDetails], flowId: Option[St
 case class LoadSchedules(flowId: Option[String]) extends Action
 case class FoundSchedules(list: FlowScheduleList) extends Action
 case class ToggleEnabled(scheduleId: String, enabled: Boolean) extends Action
+case class ToggleBackFill(scheduleId: String, backFill: Boolean) extends Action
 case class SetExpression(scheduleId: String, expression: String) extends Action
 case class CreateSchedule(flowId: String, expression: String) extends Action
 
@@ -34,6 +35,10 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
           val toggleFuture = Effect(toggleEnable(scheduleId, enabled).map(_ => LoadSchedules(model.flowId)))
           Some(EffectOnly(toggleFuture))
 
+        case ToggleBackFill(scheduleId, backFill) =>
+          val toggleFuture = Effect(toggleBackFill(scheduleId, backFill).map(_ => LoadSchedules(model.flowId)))
+          Some(EffectOnly(toggleFuture))
+
         case SetExpression(scheduleId, expression) =>
           val setFuture = Effect(setExpression(scheduleId, expression).map(_ => LoadSchedules(model.flowId)))
           Some(EffectOnly(setFuture))
@@ -49,6 +54,12 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
       .setFlowScheduleEnabled(id, enabled)
       .notifyError
       .successMessage(_ => s"$id is now ${if (enabled) "enabled" else "disabled"}")
+
+  def toggleBackFill(id: String, backFill: Boolean): Future[Boolean] =
+    api
+      .setFlowScheduleBackFill(id, backFill)
+      .notifyError
+      .successMessage(_ => s"$id back fill is now ${if (backFill) "enabled" else "disabled"}")
 
   def setExpression(id: String, expression: String): Future[String] =
     api

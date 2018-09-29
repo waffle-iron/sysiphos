@@ -40,7 +40,12 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
       flowDefinitionId = "flow-id",
       flowTaskId = None,
       nextDueDate = None,
-      enabled = Some(true), created = 0, updated = None, creator = "test", version = 0)
+      enabled = Some(true),
+      created = 0,
+      updated = None,
+      creator = "test",
+      version = 0,
+      backFill = None)
     val futureSchedules = Future.successful(Seq(testSchedule))
 
     (flowScheduleRepository.getFlowSchedules(_: Option[Boolean], _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)

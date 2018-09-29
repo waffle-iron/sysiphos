@@ -49,6 +49,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
       Some("0 * * ? * *"),
       definitionDetails.id,
       None,
-      Some(true)).futureValue
+      Some(true),
+      None).futureValue
   }.failed.foreach(println)
 }

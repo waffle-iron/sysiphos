@@ -14,9 +14,11 @@ object CronScheduler extends FlowScheduler with Logging {
   def toDateTime(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, offset)
 
   override def nextOccurrence(schedule: FlowSchedule, now: Long): Option[Long] = {
-    schedule.expression
-      .flatMap(Cron(_).toOption)
-      .flatMap(_.next(toDateTime(now)))
-      .map(_.toEpochSecond(offset))
+    for {
+      isBackFill <- schedule.backFill.orElse(Some(true))
+      scheduleTime <- if (isBackFill) schedule.nextDueDate.orElse(Some(now)) else Some(now)
+      cron <- schedule.expression.flatMap(Cron(_).toOption)
+      next <- cron.next(toDateTime(scheduleTime))
+    } yield next.toEpochSecond(offset)
   }
 }

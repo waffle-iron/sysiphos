@@ -49,6 +49,20 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
       <td>
         <input type="text" value={ schedule.expression.getOrElse("") } onblur={ (e: Event) => updateScheduleExpression(schedule, e.target.asInstanceOf[HTMLInputElement].value) }></input>
       </td>
+      <td>
+        {
+          if (schedule.backFill.getOrElse(true)) {
+            <button type="button" class="btn btn-lg btn-default active" onclick={ _: Event => circuit.dispatch(ToggleBackFill(schedule.id, backFill = false)) }>
+              <i class="fas fa-toggle-on"></i>
+              On
+            </button>
+          } else
+            <button type="button" class="btn btn-lg btn-danger" onclick={ _: Event => circuit.dispatch(ToggleBackFill(schedule.id, backFill = true)) }>
+              <i class="fas fa-toggle-off"></i>
+              Off
+            </button>
+        }
+      </td>
       <td>{ schedule.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
     </tr>
 
@@ -56,10 +70,11 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
   def schedulesTable: Binding[Table] = {
     <table class="table table-striped">
       <thead>
-        <th></th>
+        <th>Enabled</th>
         <th>ID</th>
         <th>Flow</th>
         <th>Expression</th>
+        <th>Back Fill</th>
         <th>Next Due</th>
       </thead>
       <tbody>
