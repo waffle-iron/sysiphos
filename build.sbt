@@ -3,7 +3,7 @@ import sbtrelease.ReleaseStateTransformations._
 
 val scalaV = "2.12.6"
 val finchV = "0.16.0-RC1"
-val circeV = "0.8.0"
+val circeV = "0.10.0"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
 
@@ -82,7 +82,8 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.freemarker" % "freemarker" % "2.3.28",
-    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV
+    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
+    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0"
   ).dependsOn(coreJVM, logging)
 
 lazy val gitProject = project.in(file("git")).

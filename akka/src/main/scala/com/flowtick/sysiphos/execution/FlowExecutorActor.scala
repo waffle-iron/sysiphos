@@ -9,10 +9,14 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
 import Logging._
+import cats.data.{ EitherT, OptionT }
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Future
+import cats.instances.future._
+import cats.instances._
 
 object FlowExecutorActor {
   case class Init()
@@ -48,36 +52,40 @@ class FlowExecutorActor(
       flowTaskInstanceRepository)(repositoryContext))
 
   def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] = {
-    val maybeFlowDefinition = flowDefinitionRepository.findById(instance.flowDefinitionId).map {
-      case Some(details) =>
-        details.source.flatMap(FlowDefinition.fromJson(_).right.toOption)
-      case None => None
+
+    val maybeFlowDefinition: EitherT[Future, String, FlowDefinition] = for {
+      details <- EitherT.fromOptionF(flowDefinitionRepository.findById(instance.flowDefinitionId), s"unable to find definition for id ${instance.flowDefinitionId}")
+      source <- EitherT.fromOption(details.source, s"source flow definition missing for id ${instance.flowDefinitionId}")
+      parsedFlowDefinition <- EitherT.fromEither(FlowDefinition.fromJson(source)).leftMap(e => e.getLocalizedMessage)
+    } yield parsedFlowDefinition
+
+    val flowInstanceInit = maybeFlowDefinition.flatMap { definition =>
+      val runningInstance = for {
+        _ <- if (instance.startTime.isEmpty)
+          flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
+        else
+          Future.successful(())
+        running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
+      } yield running
+
+      EitherT.fromOptionF(runningInstance, "unable to update flow instance").map { running =>
+        val instanceActor = context.child(running.id).getOrElse(
+          context.actorOf(flowInstanceActorProps(definition, running), running.id))
+
+        val executeMessage = FlowInstanceExecution.Execute(selectedTaskId)
+
+        Future
+          .successful(executeMessage)
+          .pipeTo(instanceActor)(sender())
+
+        executeMessage
+      }
     }
 
-    val flowInstanceInit: Future[FlowInstanceExecution.FlowInstanceMessage] = maybeFlowDefinition.flatMap {
-      case Some(definition) =>
-        val runningInstance = for {
-          _ <- if (instance.startTime.isEmpty)
-            flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
-          else
-            Future.successful(())
-          running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
-        } yield running
-
-        runningInstance.flatMap {
-          case Some(running) =>
-            val instanceActor = context.child(running.id).getOrElse(
-              context.actorOf(flowInstanceActorProps(definition, running), running.id))
-
-            Future
-              .successful(FlowInstanceExecution.Execute(selectedTaskId))
-              .pipeTo(instanceActor)(sender())
-          case None => Future.failed(new IllegalStateException("unable to update flow instance"))
-        }
-      case None => Future.failed(new IllegalStateException("unable to find flow definition"))
+    flowInstanceInit.value.flatMap {
+      case Left(message) => Future.failed(new IllegalStateException(message))
+      case Right(value) => Future.successful(value)
     }
-
-    flowInstanceInit
   }
 
   def executeScheduled(): Unit = {
