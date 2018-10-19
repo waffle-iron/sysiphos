@@ -2,6 +2,7 @@ package com.flowtick.sysiphos.api.resources
 
 import com.twitter.finagle.http.Status
 import io.finch._
+import io.finch.syntax._
 
 trait UIResources extends StaticResourceSupport {
   val indexPageRedirect: Endpoint[Unit] = get(/) { _: Any =>

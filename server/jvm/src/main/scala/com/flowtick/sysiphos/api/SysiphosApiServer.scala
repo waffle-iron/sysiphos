@@ -4,6 +4,7 @@ import java.util.concurrent.Executors
 
 import akka.actor.{ ActorSystem, Props }
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
+import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
 import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
@@ -11,8 +12,12 @@ import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
+import com.typesafe.config.{ Config, ConfigFactory, ConfigValueFactory }
 import io.finch.Application
 import io.finch.circe._
+import kamon.Kamon
+import kamon.prometheus.PrometheusReporter
+import kamon.statsd.StatsDReporter
 import monix.execution.Scheduler
 import org.slf4j.{ Logger, LoggerFactory }
 
@@ -72,12 +77,34 @@ trait SysiphosApiServer extends SysiphosApi
   }
 
   def updateDatabase(): Try[Unit] = Try {
-    log.info(s"using database $dbProfile for migrations")
+    log.info(s"using database profile $dbProfileName for migrations: $dbUrl")
 
     DefaultSlickRepositoryMigrations.updateDatabase(dataSource(dbProfile))
   }.flatten
 
+  def addStatsReporter(): Unit = {
+    if (Configuration.propOrEnv("stats.enabled", "false").toBoolean) {
+      log.info("adding stats reporters...")
+      val statsDReporter = new StatsDReporter()
+
+      val baseConfig = ConfigFactory.load()
+
+      val config: Option[Config] = for {
+        statsHost <- Configuration.propOrEnv("stats.host")
+        statsPort <- Configuration.propOrEnv("stats.port")
+      } yield baseConfig
+        .withValue("kamon.statsd.hostname", ConfigValueFactory.fromAnyRef(statsHost))
+        .withValue("kamon.statsd.port", ConfigValueFactory.fromAnyRef(statsPort))
+
+      statsDReporter.reconfigure(config.getOrElse(baseConfig))
+      Kamon.addReporter(statsDReporter)
+      Kamon.addReporter(new PrometheusReporter)
+    }
+  }
+
   def startApiServer(): Unit = {
+    addStatsReporter()
+
     val listeningServer = for {
       _ <- updateDatabase()
       listening <- bindServerToAddress

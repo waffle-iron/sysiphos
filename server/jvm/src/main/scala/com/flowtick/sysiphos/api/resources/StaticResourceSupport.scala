@@ -5,13 +5,14 @@ import java.util.concurrent.TimeUnit
 import com.twitter.finagle.http.{ Response, Status }
 import com.twitter.io.{ Buf, Reader }
 import com.twitter.util.{ Duration, Future }
-import io.finch.{ Endpoint, get }
+import io.finch.Endpoint
+import io.finch.syntax._
 
 import scala.util.Try
 import com.flowtick.sysiphos._
 
 trait StaticResourceSupport {
-  def readerResponse(reader: Try[Reader], contentType: String): Future[Response] = {
+  def readerResponse(reader: Try[Reader[Buf]], contentType: String): Future[Response] = {
     val response = Response()
 
     reader.fold(error => {
@@ -28,7 +29,7 @@ trait StaticResourceSupport {
     })
   }
 
-  def classPathResource(path: String): Try[Reader] =
+  def classPathResource(path: String): Try[Reader[Buf]] =
     Try(
       Option(getClass.getClassLoader.getResourceAsStream(path)).getOrElse(throw new RuntimeException(s"$path not found in classpath"))).map(Reader.fromStream)
 

@@ -5,9 +5,11 @@ import java.io.{ PrintWriter, StringWriter }
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
 import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.twitter.finagle.http.Status
 import io.circe.Json
@@ -17,6 +19,7 @@ import sangria.macros.derive.GraphQLField
 import sangria.marshalling._
 import sangria.marshalling.circe._
 import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
 import sangria.parser.QueryParser
 import sangria.schema._
 
@@ -126,6 +129,7 @@ object SysiphosApi {
 trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch._
   import io.finch.circe._
+  import io.finch.syntax._
 
   def apiContext(repositoryContext: RepositoryContext): ApiContext
   implicit val executionContext: ExecutionContext
@@ -157,7 +161,9 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
     result.map(Ok).asTwitter
   }.handle {
     case invalidQuery: ValidationError => errorResponse(Status.BadRequest, invalidQuery)
-    case error: Exception => errorResponse(Status.InternalServerError, error)
+    case error: Exception =>
+      LoggerFactory.getLogger(getClass).error("unknown error", error)
+      errorResponse(Status.InternalServerError, error)
   }
 
   def parseQuery(query: String): Try[Document] = QueryParser.parse(query)

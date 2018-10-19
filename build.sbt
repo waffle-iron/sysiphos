@@ -2,7 +2,7 @@ import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
 val scalaV = "2.12.6"
-val finchV = "0.16.0-RC1"
+val finchV = "0.24.0"
 val circeV = "0.10.0"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
@@ -83,7 +83,12 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.freemarker" % "freemarker" % "2.3.28",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
-    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0"
+    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0",
+    libraryDependencies += "io.kamon" %% "kamon-core" % "1.1.3",
+    libraryDependencies += "io.kamon" %% "kamon-statsd" % "1.0.0",
+    libraryDependencies += "io.kamon" %% "kamon-akka-2.5" % "1.1.0",
+    libraryDependencies += "io.kamon" %% "kamon-prometheus" % "1.0.0",
+    libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0"
   ).dependsOn(coreJVM, logging)
 
 lazy val gitProject = project.in(file("git")).
@@ -119,7 +124,7 @@ lazy val server = crossProject.in(file("server")).
 
 val updateUi = taskKey[Unit]("copy ui resources to class dir")
 
-lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
+lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent).settings(
   libraryDependencies ++= Seq(
     "com.github.finagle" %% "finch-core" % finchV,
     "com.github.finagle" %% "finch-circe" % finchV,
@@ -133,6 +138,8 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging).settings(
     DockerAlias(None, Some("flowtick"), "sysiphos", Some("latest")),
     DockerAlias(None, Some("flowtick"), "sysiphos", Some(version.value))
   ),
+  javaAgents += "org.aspectj" % "aspectjweaver" % "1.8.13",
+  javaOptions in Universal += "-Dorg.aspectj.tracing.factory=default",
   resourceGenerators in Test += Def.task {
     Seq((fastOptJS in Compile in (serverJS, Test)).value.data.getAbsoluteFile)
   }.taskValue,

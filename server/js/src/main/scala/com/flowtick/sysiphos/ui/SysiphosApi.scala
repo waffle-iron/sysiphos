@@ -66,7 +66,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
       "query" -> Json.fromString(query),
       "variables" -> Json.fromFields(variables)).noSpaces
 
-    Ajax.post("/api", queryJson).flatMap(response => decode[GraphQLResponse[T]](response.responseText) match {
+    Ajax.post("/api", queryJson, headers = Map("Content-Type" -> "application/json")).flatMap(response => decode[GraphQLResponse[T]](response.responseText) match {
       case Right(parsed) =>
         Future.successful(parsed)
       case Left(error) =>

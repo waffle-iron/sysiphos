@@ -11,9 +11,10 @@ trait SysiphosApiServerConfig {
   def flowSchedulesRemoteUrl: Option[String] = propOrEnv("flow.schedules.remote.url")
 
   def dbProfileName: String = propOrEnv("database.profile", "h2")
+  def dbUrl: String = propOrEnv("database.url", "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1")
 
   def dataSource(jdbcProfile: JdbcProfile) = new DriverDataSource(
-    propOrEnv("database.url", "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1"),
+    dbUrl,
     propOrEnv("database.user", "sa"),
     propOrEnv("database.password", ""),
     driverClassName = jdbcProfile match {
