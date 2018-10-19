@@ -57,4 +57,7 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
 
     override def currentUser: String = "test-user"
   }
+
+  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] =
+    Future.successful(FlowInstanceExecution.Execute(None))
 }

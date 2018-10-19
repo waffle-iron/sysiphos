@@ -41,27 +41,32 @@ trait FlowExecution extends Logging {
 
     for {
       schedules: Seq[FlowSchedule] <- futureEnabledSchedules
-      applied: Seq[Option[FlowInstance]] <- Future.sequence(schedules.map(applySchedule(_, now)))
+      applied <- Future.sequence(schedules.map(applySchedule(_, now)))
     } yield applied.flatten
   }
 
-  def applySchedule(schedule: FlowSchedule, now: Long): Future[Option[FlowInstance]] = {
-    val potentialInstance = if (isDue(schedule, now)) {
-      createFlowInstance(schedule).map(Option(_))
-    } else Future.successful(None)
+  def applySchedule(schedule: FlowSchedule, now: Long): Future[Seq[FlowInstance]] = {
+    val potentialInstance: Future[Seq[FlowInstance]] = if (isDue(schedule, now))
+      createFlowInstance(schedule).map(Seq(_))
+    else Future.successful(Seq.empty)
 
-    potentialInstance.recoverWith {
+    val missedInstances: Future[Seq[FlowInstance]] = if (schedule.backFill.contains(true))
+      Future.sequence(flowScheduler.missedOccurrences(schedule, now).map { _ => createFlowInstance(schedule) })
+    else Future.successful(Seq.empty)
+
+    val potentialInstances = for {
+      instance <- potentialInstance
+      missed <- missedInstances
+    } yield instance ++ missed
+
+    potentialInstances.recoverWith {
       case error =>
         log.error("unable to create instance", error)
-        Future.successful(None)
-    }.flatMap {
-      case Some(newInstance) =>
-        val next: Option[Long] = flowScheduler.nextOccurrence(schedule, now)
-        next
-          .map(setNextDueDate(schedule, _))
-          .getOrElse(Future.successful(()))
-          .map(_ => Some(newInstance))
-      case None => Future.successful(None)
+        Future.successful(Seq.empty)
+    }.flatMap { instances =>
+      flowScheduler.nextOccurrence(schedule, now).map { next =>
+        setNextDueDate(schedule, next)
+      }.getOrElse(Future.successful()).map { _ => instances }
     }
   }
 
@@ -78,5 +83,24 @@ trait FlowExecution extends Logging {
       case None if schedule.enabled.contains(true) && schedule.expression.isDefined => true
       case _ => false
     }
+
+  def latestOnly(definition: FlowDefinition, instancesToRun: Seq[FlowInstance]): Future[Seq[FlowInstance]] =
+    if (definition.latestOnly) {
+      val lastInstances: Seq[FlowInstance] = instancesToRun
+        .groupBy(_.context.toSet)
+        .flatMap { case (_, instances) => if (instances.isEmpty) None else Some(instances.maxBy(_.creationTime)) }
+        .toSeq
+
+      val olderInstances = instancesToRun.filterNot(lastInstances.contains)
+
+      val skipOlderInstances: Future[Seq[FlowInstanceDetails]] = Future.sequence(
+        olderInstances.map { instance =>
+          flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Skipped)
+        }).map(_.flatten)
+
+      skipOlderInstances.map(_ => lastInstances)
+    } else Future.successful(instancesToRun)
+
+  def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage]
 
 }

@@ -5,7 +5,6 @@ import java.time.{ LocalDateTime, ZoneOffset }
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduler }
 import cron4s.Cron
 import cron4s.lib.javatime._
-
 import com.flowtick.sysiphos._
 
 object CronScheduler extends FlowScheduler with Logging {
@@ -14,11 +13,24 @@ object CronScheduler extends FlowScheduler with Logging {
   def toDateTime(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, offset)
 
   override def nextOccurrence(schedule: FlowSchedule, now: Long): Option[Long] = {
-    for {
-      isBackFill <- schedule.backFill.orElse(Some(true))
-      scheduleTime <- if (isBackFill) schedule.nextDueDate.orElse(Some(now)) else Some(now)
-      cron <- schedule.expression.flatMap(Cron(_).toOption)
-      next <- cron.next(toDateTime(scheduleTime))
-    } yield next.toEpochSecond(offset)
+    schedule.expression
+      .flatMap(Cron(_).toOption)
+      .flatMap(_.next(toDateTime(now)))
+      .map(_.toEpochSecond(offset))
   }
+
+  def missedOccurrences(schedule: FlowSchedule, now: Long): Seq[Long] = {
+
+    def fill(next: Long, acc: Seq[Long]): Seq[Long] = {
+      nextOccurrence(schedule, next).map { nextSchedule =>
+        if (nextSchedule > now)
+          acc
+        else
+          fill(nextSchedule, acc ++ Seq(nextSchedule))
+      }.getOrElse(acc)
+    }
+
+    schedule.nextDueDate.map { next => fill(next, Seq.empty) }.getOrElse(Seq.empty)
+  }
+
 }

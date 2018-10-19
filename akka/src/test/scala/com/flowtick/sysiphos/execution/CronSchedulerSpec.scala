@@ -22,7 +22,7 @@ class CronSchedulerSpec extends FlatSpec with Matchers {
     next should be(Some(60))
   }
 
-  it should "take the next occurrence relative to old schedule date if defined and back fill enabled" in {
+  it should "return all occurrences between to old schedule and now" in {
     val testSchedule = FlowScheduleDetails(
       id = "test-schedule",
       creator = "test",
@@ -32,16 +32,13 @@ class CronSchedulerSpec extends FlatSpec with Matchers {
       expression = Some("0 * * ? * *"), // every minute on second 0
       flowDefinitionId = "test-flow-id",
       flowTaskId = None,
-      nextDueDate = Some(60),
+      nextDueDate = Some(70),
       enabled = None,
       backFill = None)
 
-    val now = 180
-    val nextBackFill = CronScheduler.nextOccurrence(testSchedule.copy(backFill = Some(true)), now)
-    nextBackFill should be(Some(120))
-
-    val nextNoBackFill = CronScheduler.nextOccurrence(testSchedule.copy(backFill = Some(false)), now)
-    nextNoBackFill should be(Some(240))
+    val now = 190
+    val nextBackFill = CronScheduler.missedOccurrences(testSchedule.copy(backFill = Some(true)), now)
+    nextBackFill should be(Seq(120, 180))
   }
 
 }

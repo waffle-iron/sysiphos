@@ -5,16 +5,16 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, Cancellable, PoisonPill, Props }
 import akka.pattern.pipe
+import cats.data.{ EitherT, OptionT }
+import cats.instances.future._
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
+import com.flowtick.sysiphos.execution.Logging._
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
-import Logging._
-import cats.data.{ EitherT, OptionT }
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
-import scala.concurrent.ExecutionContext
+
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.Future
-import cats.instances.future._
 
 object FlowExecutorActor {
   case class Init()
@@ -49,39 +49,28 @@ class FlowExecutorActor(
       flowInstanceRepository,
       flowTaskInstanceRepository)(repositoryContext))
 
-  def executeInstances(flowDefinitionFuture: Future[Option[FlowDefinitionDetails]], instancesToRun: Seq[FlowInstance]): Future[Seq[FlowInstanceExecution.FlowInstanceMessage]] = {
+  def executeInstances(
+    flowDefinition: FlowDefinition,
+    instancesToRun: Seq[FlowInstance]): Future[Seq[FlowInstanceExecution.FlowInstanceMessage]] = {
     def runningInstances(flowDefinitionId: String): Future[Seq[InstanceCount]] =
       flowInstanceRepository.counts(Option(Seq(flowDefinitionId)), Option(Seq(FlowInstanceStatus.Running)), None)
 
-    val withParallelism: OptionT[Future, Seq[FlowInstance]] = for {
-      flowDefinitionDetails <- OptionT[Future, FlowDefinitionDetails](flowDefinitionFuture)
-      counts <- OptionT.liftF(runningInstances(flowDefinitionDetails.id))
-    } yield {
+    val withParallelism = runningInstances(flowDefinition.id).map { counts =>
       val definitionInstancesRunning: Option[Int] = counts
         .groupBy(_.flowDefinitionId)
         .get(FlowInstanceStatus.Running.toString)
         .flatMap(_.headOption.map(_.count))
 
-      val flowDefinition: Either[Exception, FlowDefinition] = flowDefinitionDetails.source
-        .map(FlowDefinition.fromJson)
-        .getOrElse(Left(new IllegalArgumentException(s"no source for ${flowDefinitionDetails.id}")))
-
-      flowDefinition.left.foreach(log.error("unable to get flow definition", _))
-
       val chosenInstances = for {
-        definition <- flowDefinition.toOption
-        parallelism <- Option(definition.parallelism.getOrElse(Integer.MAX_VALUE))
         runningInstances <- definitionInstancesRunning
+        parallelism <- Option(flowDefinition.parallelism.getOrElse(Integer.MAX_VALUE))
         newInstances <- Option(parallelism - runningInstances).filter(_ > 0)
       } yield instancesToRun.take(newInstances)
 
       chosenInstances.getOrElse(Seq.empty)
     }
 
-    withParallelism
-      .map(instances => Future.sequence(instances.map(executeInstance(_, None))))
-      .value
-      .flatMap(_.getOrElse(Future.successful(Seq.empty)))
+    withParallelism.flatMap(instances => Future.sequence(instances.map(executeInstance(_, None))))
   }
 
   def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] = {
@@ -127,14 +116,25 @@ class FlowExecutorActor(
       newTaskInstances <- dueScheduledFlowInstances(now).logFailed("unable to get scheduled flow instance")
     } yield newTaskInstances ++ manuallyTriggered
 
-    taskInstancesFuture.foreach { instances =>
-      instances
-        .groupBy(_.flowDefinitionId)
-        .foreach {
-          case (flowDefinitionId, triggeredInstances) =>
-            executeInstances(flowDefinitionRepository.findById(flowDefinitionId), triggeredInstances)
-        }
-    }
+    for {
+      instances <- taskInstancesFuture
+      newInstances <- Future.successful(instances.groupBy(_.flowDefinitionId).toSeq.map {
+        case (flowDefinitionId, triggeredInstances) =>
+          val flowDefinitionFuture: Future[Option[FlowDefinitionDetails]] = flowDefinitionRepository.findById(flowDefinitionId)
+
+          (for {
+            flowDefinitionOrError: Either[Exception, FlowDefinition] <- OptionT(flowDefinitionFuture)
+              .getOrElseF(Future.failed(new IllegalStateException("flow definition not found")))
+              .map(FlowDefinition.apply)
+            flowDefinition <- flowDefinitionOrError match {
+              case Right(flowDefinition) => Future.successful(flowDefinition)
+              case Left(error) => Future.failed(new IllegalStateException("unable to parse flow definition", error))
+            }
+            latestTriggered <- latestOnly(flowDefinition, triggeredInstances)
+            running <- executeInstances(flowDefinition, latestTriggered)
+          } yield running): Future[Seq[FlowInstanceExecution.FlowInstanceMessage]]
+      })
+    } yield newInstances
   }
 
   def executeRetries(): Unit = {

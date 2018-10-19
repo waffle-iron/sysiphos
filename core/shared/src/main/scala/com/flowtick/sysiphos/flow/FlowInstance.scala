@@ -15,6 +15,7 @@ object FlowInstanceStatus extends Enumeration {
   val Done: FlowInstanceStatus.Value = Value("done")
   val Failed: FlowInstanceStatus.Value = Value("failed")
   val Running: FlowInstanceStatus.Value = Value("running")
+  val Skipped: FlowInstanceStatus.Value = Value("skipped")
 
   implicit val decoder: Decoder[flow.FlowInstanceStatus.Value] = Decoder.decodeString.flatMap { str =>
     Decoder.instanceTry { _ =>

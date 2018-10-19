@@ -46,6 +46,29 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
     tryParse should be(Right(expectedDefinition))
   }
 
+  it should "parse execution options" in {
+    val tryParse = FlowDefinition.fromJson(
+      s"""
+         |
+         |{
+         |  "id": "test-flow",
+         |  "latestOnly" : true,
+         |  "parallelism": 5,
+         |  "task": {
+         |    "id": "test-task",
+         |    "type": "shell",
+         |    "command": "ls",
+         |    "children": []
+         |  }
+         |}
+         |
+       """.stripMargin.trim)
+
+    val parsedDefinition = tryParse.right.get
+    parsedDefinition.parallelism should be(Some(5))
+    parsedDefinition.latestOnly should be(true)
+  }
+
   it should "find a task" in {
     val triggerTask = TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", children = Some(
       Seq(

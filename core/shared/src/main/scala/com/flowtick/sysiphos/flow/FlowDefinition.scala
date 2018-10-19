@@ -5,8 +5,6 @@ import io.circe.Decoder.Result
 import io.circe._
 import com.flowtick.sysiphos._
 
-import scala.util.Either
-
 trait FlowTask {
   def id: String
   def children: Option[Seq[FlowTask]]
@@ -15,6 +13,7 @@ trait FlowTask {
 trait FlowDefinition {
   def id: String
   def task: FlowTask
+  def latestOnly: Boolean
 
   def findTask(id: String): Option[FlowTask] = {
     def findInTask(task: FlowTask): Option[FlowTask] =
@@ -38,11 +37,19 @@ object FlowDefinition {
   import io.circe.parser._
   import io.circe.syntax._
 
+  def apply(flowDefinitionDetails: FlowDefinitionDetails): Either[Exception, FlowDefinition] =
+    for {
+      json <- Either.fromOption(flowDefinitionDetails.source, new IllegalStateException("source is empty"))
+      flowDefinition <- FlowDefinition.fromJson(json)
+    } yield flowDefinition
+
   implicit val definitionDecoder: Decoder[FlowDefinition] = new Decoder[FlowDefinition] {
     override def apply(c: HCursor): Result[FlowDefinition] = for {
       id <- c.downField("id").as[String]
       task <- c.downField("task").as[FlowTask]
-    } yield SysiphosDefinition(id, task, None)
+      latestOnly <- c.downField("latestOnly").as[Option[Boolean]]
+      parallelism <- c.downField("parallelism").as[Option[Int]]
+    } yield SysiphosDefinition(id, task, latestOnly = latestOnly.getOrElse(false), parallelism = parallelism)
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
@@ -74,7 +81,7 @@ object FlowDefinition {
     }
   }
 
-  final case class SysiphosDefinition(id: String, task: FlowTask, parallelism: Option[Int] = None) extends FlowDefinition
+  final case class SysiphosDefinition(id: String, task: FlowTask, latestOnly: Boolean = false, parallelism: Option[Int] = None) extends FlowDefinition
   final case class SysiphosTask(
     id: String,
     `type`: String,
