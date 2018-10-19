@@ -131,11 +131,11 @@ class SlickFlowInstanceRepository(
 
   override def counts(
     flowDefinitionId: Option[Seq[String]],
-    status: Option[Seq[String]],
+    status: Option[Seq[FlowInstanceStatus.FlowInstanceStatus]],
     createdGreaterThan: Option[Long]): Future[Seq[InstanceCount]] = {
     val countQuery: DBIOAction[Seq[InstanceCount], NoStream, Read] = instanceTable
       .filterOptional(flowDefinitionId)(ids => _.flowDefinitionId inSet ids)
-      .filterOptional(status)(statuses => _.status inSet statuses)
+      .filterOptional(status)(statuses => _.status inSet statuses.map(_.toString))
       .filterOptional(createdGreaterThan)(created => _.created >= created)
       .groupBy(q => (q.flowDefinitionId, q.status))
       .map {

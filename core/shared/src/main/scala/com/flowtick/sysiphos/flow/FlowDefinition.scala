@@ -29,6 +29,8 @@ trait FlowDefinition {
 
     findInTask(task)
   }
+
+  def parallelism: Option[Int]
 }
 
 object FlowDefinition {
@@ -40,7 +42,7 @@ object FlowDefinition {
     override def apply(c: HCursor): Result[FlowDefinition] = for {
       id <- c.downField("id").as[String]
       task <- c.downField("task").as[FlowTask]
-    } yield SysiphosDefinition(id, task)
+    } yield SysiphosDefinition(id, task, None)
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
@@ -72,7 +74,7 @@ object FlowDefinition {
     }
   }
 
-  final case class SysiphosDefinition(id: String, task: FlowTask) extends FlowDefinition
+  final case class SysiphosDefinition(id: String, task: FlowTask, parallelism: Option[Int] = None) extends FlowDefinition
   final case class SysiphosTask(
     id: String,
     `type`: String,

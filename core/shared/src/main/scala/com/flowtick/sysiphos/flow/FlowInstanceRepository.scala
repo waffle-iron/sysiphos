@@ -20,6 +20,6 @@ trait FlowInstanceRepository {
   def setEndTime(flowInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]]
   def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]]
   def createFlowInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue], initialStatus: FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails]
-  def counts(flowDefinitionId: Option[Seq[String]], status: Option[Seq[String]], createdGreaterThan: Option[Long]): Future[Seq[InstanceCount]]
+  def counts(flowDefinitionId: Option[Seq[String]], status: Option[Seq[FlowInstanceStatus.FlowInstanceStatus]], createdGreaterThan: Option[Long]): Future[Seq[InstanceCount]]
 }
 

@@ -58,6 +58,9 @@ trait SysiphosApiServer extends SysiphosApi
   }
 
   def bindServerToAddress: Try[ListeningServer] = Try {
+    val logo = scala.io.Source.fromInputStream(getClass.getClassLoader.getResourceAsStream("logo.txt")).getLines().mkString("\n")
+    log.info(s"starting ...\n$logo")
+
     val address = s"$bindAddress:$httpPort"
 
     val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
