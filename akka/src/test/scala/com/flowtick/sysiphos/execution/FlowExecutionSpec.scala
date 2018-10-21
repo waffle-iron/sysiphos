@@ -1,18 +1,21 @@
 package com.flowtick.sysiphos.execution
 
 import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
+import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ FlatSpec, Matchers }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with MockFactory
+class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with MockFactory
   with ScalaFutures with IntegrationPatience {
 
   override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
+  override val flowDefinitionRepository: FlowDefinitionRepository = mock[FlowDefinitionRepository]
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
@@ -58,6 +61,51 @@ class AkkaFlowExecutionSpec extends FlatSpec with FlowExecution with Matchers wi
     override def currentUser: String = "test-user"
   }
 
-  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] =
-    Future.successful(FlowInstanceExecution.Execute(None))
+  it should "respect the parallelism option" in {
+    val flowDefinition: SysiphosDefinition = SysiphosDefinition(
+      "ls-definition-id",
+      CommandLineTask("ls-task-id", None, "ls"),
+      parallelism = Some(1))
+
+    val instances = Seq(
+      FlowInstanceDetails(
+        status = FlowInstanceStatus.Scheduled,
+        id = "1",
+        flowDefinitionId = flowDefinition.id,
+        creationTime = 2L,
+        context = Seq.empty,
+        startTime = None,
+        endTime = None),
+      FlowInstanceDetails(
+        status = FlowInstanceStatus.Scheduled,
+        id = "2",
+        flowDefinitionId = flowDefinition.id,
+        creationTime = 2L,
+        context = Seq.empty,
+        startTime = None,
+        endTime = None))
+
+    (flowInstanceRepository.counts _).expects(
+      Option(Seq(flowDefinition.id)),
+      Option(Seq(FlowInstanceStatus.Running)),
+      None).returning(Future.successful(Seq.empty)).twice()
+
+    executeInstances(flowDefinition, instances).futureValue should have size 1
+    executeInstances(flowDefinition.copy(parallelism = Some(2)), instances).futureValue should have size 2
+
+    (flowInstanceRepository.counts _).expects(
+      Option(Seq(flowDefinition.id)),
+      Option(Seq(FlowInstanceStatus.Running)),
+      None).returning(Future.successful(Seq(InstanceCount(flowDefinition.id, FlowInstanceStatus.Running.toString, 1))))
+
+    executeInstances(flowDefinition.copy(parallelism = Some(2)), instances).futureValue should have size 1
+  }
+
+  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] =
+    Future.successful(instance)
+
+  override def executeRunning(
+    running: FlowInstanceDetails,
+    definition: FlowDefinition,
+    selectedTaskId: Option[String]): Future[Any] = Future.successful()
 }

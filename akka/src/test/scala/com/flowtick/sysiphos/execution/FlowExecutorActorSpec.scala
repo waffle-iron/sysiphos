@@ -14,8 +14,13 @@ import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, ExecutionContext, Future }
 
-class FlowExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with ImplicitSender
-  with FlatSpecLike with FlowExecution with MockFactory with Matchers with BeforeAndAfterAll {
+class FlowExecutorActorSpec extends TestKit(ActorSystem("MySpec"))
+  with ImplicitSender
+  with FlatSpecLike
+  with FlowExecution
+  with MockFactory
+  with Matchers
+  with BeforeAndAfterAll {
 
   val flowDefinition: FlowDefinition = SysiphosDefinition(
     "ls-definition-id",
@@ -46,14 +51,15 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with Implicit
   }
 
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
+  override val flowDefinitionRepository: FlowDefinitionRepository = mock[FlowDefinitionRepository]
   override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
   override val flowScheduler: FlowScheduler = mock[FlowScheduler]
   override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
   override implicit val repositoryContext: RepositoryContext = mock[RepositoryContext]
 
-  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstanceExecution.FlowInstanceMessage] = {
-    Future.successful(FlowInstanceExecution.Execute(None))
+  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] = {
+    Future.successful(instance)
   }
 
   override def afterAll {
@@ -61,4 +67,9 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with Implicit
   }
 
   override implicit val executionContext: ExecutionContext = ExecutionContext.global
+
+  override def executeRunning(
+    running: FlowInstanceDetails,
+    definition: FlowDefinition,
+    selectedTaskId: Option[String]): Future[Any] = Future.successful(running)
 }

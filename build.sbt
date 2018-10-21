@@ -1,7 +1,7 @@
 import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
-val scalaV = "2.12.6"
+val scalaV = "2.12.7"
 val finchV = "0.24.0"
 val circeV = "0.10.0"
 val slf4jV = "1.7.25"
@@ -140,20 +140,12 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent).setti
   ),
   javaAgents += "org.aspectj" % "aspectjweaver" % "1.8.13",
   javaOptions in Universal += "-Dorg.aspectj.tracing.factory=default",
-  resourceGenerators in Test += Def.task {
-    Seq((fastOptJS in Compile in (serverJS, Test)).value.data.getAbsoluteFile)
-  }.taskValue,
   resourceGenerators in Compile += Def.task {
     Seq((fullOptJS in Compile in serverJS).value.data.getAbsoluteFile)
   }.taskValue,
   (updateUi in Compile) := {
     val jsFile = (fastOptJS in Compile in serverJS).value.data.getAbsoluteFile
     val classDir = (classDirectory in Compile).value
-    IO.copyFile(jsFile, classDir / jsFile.getName)
-  },
-  (updateUi in Test) := {
-    val jsFile = (fastOptJS in Compile in serverJS).value.data.getAbsoluteFile
-    val classDir = (classDirectory in Test).value
     IO.copyFile(jsFile, classDir / jsFile.getName)
   }
 ).dependsOn(gitProject, akka, slick)
