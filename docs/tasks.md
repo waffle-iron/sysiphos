@@ -10,11 +10,14 @@ The following sections will give you an overview on the available task types.
     "id" : "task-id",
     "type" : "shell",
     "command" : "some command",
+    "shell": "bash",
     "children" : []
 }
 ```
 
-Will execute the command and be considered successfully on exit code `0`.
+Will execute the command and be considered successfully on exit code `0`. Be aware that the shell is optional,
+if not specified the JVM process builder will be used to execute the command. If shell specific features 
+like output piping etc. are needed, please set it accordingly.
 
 #### String Interpolation
 
