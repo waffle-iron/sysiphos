@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.execution
 
+import java.io.{ File, FileOutputStream }
 import java.time.LocalDateTime.ofEpochSecond
 import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
@@ -7,6 +8,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ Actor, ActorRef }
 import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
+import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
@@ -33,25 +35,45 @@ class FlowTaskExecutionActor(
     replaceContextInTemplate(command, flowInstance.context, additionalModel)
   }
 
-  def runCommand(command: String)(log: String => Try[Unit]): Try[Int] = Try {
+  def runCommand(command: String, shellOption: Option[String])(log: String => Try[Unit]): Try[Int] = Try {
     val taskLogHeader =
       s"""### running $command , retries left: ${taskInstance.retries}""".stripMargin
 
     log(taskLogHeader)
-    val exitCode = command.!(ProcessLogger(log(_), log(_)))
+
+    val commandLine = shellOption.map { shell =>
+      s"$shell ${createScriptFile(command, shell).getAbsolutePath}"
+    }.getOrElse(command)
+
+    commandLine.!(ProcessLogger(log(_), log(_)))
+  }.flatMap { exitCode =>
     log(s"\n### command finished with exit code $exitCode")
-    exitCode
-  }.filter(_ == 0)
+    if (exitCode != 0) {
+      Failure(new RuntimeException(s"got failure code during execution: $exitCode"))
+    } else Success(exitCode)
+  }
+
+  def createScriptFile(command: String, shell: String): File = {
+    val tempDir = sys.props.get("java.io.tempdir").getOrElse(Configuration.propOrEnv("backup.temp.dir", "/tmp"))
+    val scriptFile = new File(tempDir, s"script_${taskInstance.id}.sh")
+    val scriptOutput = new FileOutputStream(scriptFile)
+
+    scriptOutput.write(s"#!/bin/$shell\n".getBytes)
+    scriptOutput.write(command.getBytes("UTF-8"))
+    scriptOutput.flush()
+    scriptOutput.close()
+    scriptFile
+  }
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _), logId) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), logId) =>
       log.info(s"executing command with id $id")
 
       val taskLogger = writeToLog(logId) _
 
       val tryRun: Try[Int] = for {
         finalCommand <- replaceContext(command)
-        result <- runCommand(finalCommand)(taskLogger)
+        result <- runCommand(finalCommand, shell)(taskLogger)
       } yield result
 
       tryRun match {

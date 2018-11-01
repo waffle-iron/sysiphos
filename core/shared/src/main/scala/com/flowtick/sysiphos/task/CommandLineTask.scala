@@ -6,7 +6,8 @@ final case class CommandLineTask(
   id: String,
   children: Option[Seq[FlowTask]],
   command: String,
-  `type`: String = "shell") extends FlowTask
+  `type`: String = "shell",
+  shell: Option[String] = None) extends FlowTask
 
 final case class TriggerFlowTask(
   id: String,
