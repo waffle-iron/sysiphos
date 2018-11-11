@@ -2,15 +2,19 @@ package com.flowtick.sysiphos.logging
 
 import java.io.{ File, FileInputStream, FileOutputStream }
 
-import scala.util.{ Failure, Success, Try }
-import Logger._
+import cats.effect.IO
+import com.flowtick.sysiphos.logging.Logger._
+import fs2.Sink
 import org.slf4j
 import org.slf4j.LoggerFactory
 
-class FileLogger(logBaseDir: File) extends Logger {
+import scala.concurrent.ExecutionContext
+import scala.util.{ Failure, Success, Try }
+
+class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends Logger {
   val log: slf4j.Logger = LoggerFactory.getLogger(getClass)
 
-  override def createLog(logKey: String): Try[LogId] = Try {
+  override def logId(logKey: String): Try[LogId] = Try {
     val logFileDir = new File(logBaseDir, s"${logKey.replace('/', File.separatorChar)}")
     logFileDir.mkdirs()
 
@@ -25,12 +29,10 @@ class FileLogger(logBaseDir: File) extends Logger {
       Failure(new IllegalStateException(s"unable to create logfile for $logKey"))
   }
 
-  override def appendToLog(logId: LogId, lines: Seq[String]): Try[Unit] = Try {
-    val output = new FileOutputStream(new File(logId), true)
-    lines.foreach(line => output.write((line + "\n").getBytes("UTF-8")))
-    output.flush()
-    output.close()
-  }
+  override def getLog(logId: LogId): LogStream =
+    fs2.io.readInputStream[IO](IO(new FileInputStream(logId)), 4096, executionContext).through(fs2.text.utf8Decode)
 
-  override def getLog(logId: LogId): Try[LogStream] = Try(new FileInputStream(logId))
+  override protected def sink(logId: LogId): Sink[IO, Byte] = {
+    fs2.io.writeOutputStream[IO](IO(new FileOutputStream(new File(logId), true)), executionContext)
+  }
 }

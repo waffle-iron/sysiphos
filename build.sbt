@@ -6,6 +6,7 @@ val finchV = "0.24.0"
 val circeV = "0.10.0"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
+val blobStoreV = "0.2.2"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -113,7 +114,11 @@ lazy val logging = project.in(file("logging")).
   settings(common ++ crossCompile).
   settings(
     name := "sysiphos-logging",
-    libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
+    libraryDependencies ++= Seq(
+      "org.slf4j" % "slf4j-api" % slf4jV,
+      "com.lendup.fs2-blobstore" %% "core" % blobStoreV,
+      "com.lendup.fs2-blobstore" %% "s3" % blobStoreV
+    )
   ).dependsOn(coreJVM)
 
 lazy val server = crossProject.in(file("server")).

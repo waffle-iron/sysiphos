@@ -58,7 +58,7 @@ class FlowInstanceExecutorActor(
     runningInstance: Future[Option[FlowTaskInstanceDetails]]): Future[FlowTaskExecution.Execute] = {
     runningInstance.flatMap {
       case Some(taskInstance) =>
-        val log = createLogger.createLog(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
+        val log = createLogger.logId(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
 
         val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
           logId <- Future.fromTry(log)

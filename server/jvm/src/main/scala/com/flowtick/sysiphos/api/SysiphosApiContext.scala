@@ -89,7 +89,7 @@ class SysiphosApiContext(
       FlowInstanceStatus.Triggered)
   }
 
-  override def log(logId: String): Future[String] = Future.fromTry(
-    Logger.defaultLogger.getLog(logId).map(scala.io.Source.fromInputStream(_).getLines().mkString("\n")))
+  override def log(logId: String): Future[String] = Future(
+    Logger.defaultLogger.getLog(logId).compile.toList.unsafeRunSync().mkString("\n"))
 
 }
