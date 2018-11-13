@@ -9,15 +9,6 @@ final case class CommandLineTask(
   `type`: String = "shell",
   shell: Option[String] = None) extends FlowTask
 
-final case class CamelTask(
-  id: String,
-  `type`: String = "camel",
-  uri: String,
-  pattern: Option[String] = None,
-  bodyTemplate: Option[String] = None,
-  headers: Option[Map[String, String]] = None,
-  children: Option[Seq[FlowTask]]) extends FlowTask
-
 final case class TriggerFlowTask(
   id: String,
   `type`: String = "trigger",

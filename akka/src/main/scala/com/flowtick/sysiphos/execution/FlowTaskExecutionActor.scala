@@ -43,12 +43,15 @@ class FlowTaskExecutionActor(
 
     case FlowTaskExecution.Execute(camelTask: CamelTask, logId) =>
       executeExchange(camelTask, flowInstance, logId)(taskLogger)
+        .map(_.getOut.getBody)
         .unsafeToFuture()
         .map { result =>
           taskLogger.appendLine(logId, s"camel exchange executed with result: $result").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         }.recoverWith {
-          case error => Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
+          case error =>
+            taskLogger.appendLine(logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
+            Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
         }.pipeTo(sender())
 
     case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), logId) =>

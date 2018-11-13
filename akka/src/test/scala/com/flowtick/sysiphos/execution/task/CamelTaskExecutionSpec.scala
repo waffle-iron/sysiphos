@@ -7,8 +7,9 @@ import com.flowtick.sysiphos.execution.WireMockSupport
 import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
 import com.flowtick.sysiphos.logging.ConsoleLogger
 import com.flowtick.sysiphos.task.CamelTask
+import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
 import org.apache.camel.component.mock.MockEndpoint
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.{ FlatSpec, Matchers, Succeeded }
 
 class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Matchers {
   val flowInstance = FlowInstanceDetails(
@@ -22,24 +23,33 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
     endTime = None)
 
   "Camel execution" should "execute camel task" in {
-    val mockEndpoint = camelContext.getEndpoint("mock:test", classOf[MockEndpoint])
-    mockEndpoint.expectedBodiesReceived("hello bar")
-    mockEndpoint.expectedHeaderReceived("bar", "baz")
-
-    executeExchange(CamelTask(
+    val task = CamelTask(
       id = "camel-task",
       uri = "mock:test",
       bodyTemplate = Some("hello ${foo}"),
       headers = Some(Map("bar" -> "baz")),
-      children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+      children = None)
 
-    mockEndpoint.assertIsSatisfied()
+    val runExchange: IO[Unit] = for {
+      camelContext <- createCamelContext(task)
+      result <- createExchange(task, flowInstance, "test")(new ConsoleLogger)
+    } yield {
+      val mockEndpoint = camelContext.getEndpoint("mock:test", classOf[MockEndpoint])
+      mockEndpoint.expectedBodiesReceived("hello bar")
+      mockEndpoint.expectedHeaderReceived("bar", "baz")
+
+      result(camelContext)
+
+      mockEndpoint.assertIsSatisfied()
+    }
+
+    runExchange.unsafeRunSync()
   }
 
   it should "execute HTTP GET request" in new WireMockSupport {
     import com.github.tomakehurst.wiremock.client.WireMock._
 
-    val result: AnyRef = withWireMock(server => IO.delay {
+    val result: Any = withWireMock(server => IO.delay {
       server.stubFor(get(urlEqualTo("/get-test"))
         .willReturn(aResponse()
           .withStatus(200)
@@ -50,7 +60,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/get-test",
         bodyTemplate = None,
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger)
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_.getOut.getBody)
     }).unsafeRunSync()
 
     scala.io.Source.fromInputStream(result.asInstanceOf[InputStream]).getLines().mkString should
@@ -60,7 +70,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
   it should "execute HTTP POST request" in new WireMockSupport {
     import com.github.tomakehurst.wiremock.client.WireMock._
 
-    val result: AnyRef = withWireMock(server => IO.delay {
+    val result: Any = withWireMock(server => IO.delay {
       server.stubFor(post(urlEqualTo("/post-test"))
         .withRequestBody(equalTo("body bar"))
         .willReturn(aResponse()
@@ -72,11 +82,31 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/post-test",
         bodyTemplate = Some("body ${foo}"),
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger)
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_.getOut.getBody)
     }).unsafeRunSync()
 
     scala.io.Source.fromInputStream(result.asInstanceOf[InputStream]).getLines().mkString should
       be("Some post response")
+  }
+
+  it should "send a slack message" in new WireMockSupport {
+    val result: Any = withWireMock(server => IO.delay {
+      server.stubFor(post(urlEqualTo("/services/a/b/c"))
+        .withRequestBody(equalTo("{\"icon_url\":null,\"channel\":\"#a-channel\",\"text\":\"test bar\",\"icon_emoji\":null,\"username\":null}"))
+        .willReturn(aResponse()
+          .withStatus(200)
+          .withBody("slack approves this message")))
+    }.flatMap { _ =>
+      executeExchange(CamelTask(
+        id = "camel-task",
+        uri = s"slack:#a-channel?webhookUrl=http://localhost:${server.port()}/services/a/b/c",
+        bodyTemplate = Some("test ${foo}"),
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_ => {
+        server.findAllUnmatchedRequests.size() should be(0)
+      })
+    }).unsafeRunSync()
+
+    result should be(Succeeded)
   }
 
 }
