@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.flow
 
-import com.flowtick.sysiphos.task.{ CommandLineTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
 import io.circe.Decoder.Result
 import io.circe._
 import com.flowtick.sysiphos._
@@ -58,7 +58,7 @@ object FlowDefinition {
 
   implicit val taskDecoder: Decoder[FlowTask] = new Decoder[FlowTask] {
     override def apply(c: HCursor): Result[FlowTask] = for {
-      id <- c.downField("id").as[String]
+      _ <- c.downField("id").as[String]
       typeHint <- c.downField("type").as[String]
       task <- taskFromCursor(typeHint, c)
     } yield task
@@ -68,6 +68,7 @@ object FlowDefinition {
     override def apply(a: FlowTask): Json = a match {
       case task: CommandLineTask => task.asJson
       case task: TriggerFlowTask => task.asJson
+      case task: CamelTask => task.asJson
       case task: SysiphosTask => task.asJson
       case _ => Json.obj()
     }
@@ -77,6 +78,7 @@ object FlowDefinition {
     typeHint match {
       case "shell" => cursor.as[CommandLineTask]
       case "trigger" => cursor.as[TriggerFlowTask]
+      case "camel" => cursor.as[CamelTask]
       case _ => cursor.as[SysiphosTask]
     }
   }

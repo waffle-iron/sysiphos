@@ -34,6 +34,8 @@ class StreamLogger(
   override protected def sink(logId: LogId): Sink[IO, Byte] =
     store.bufferedPut(pathForId(logId), logExecutionContext)
 
+  override protected def source(logId: LogId): fs2.Stream[IO, String] = getLog(logId)
+
   override def pipe: Pipe[IO, String, String] = in => {
     // we chunk up log lines, which will produce bigger strings, to have fewer writes in the sink
     val foldedChunks: fs2.Stream[IO, LogId] =

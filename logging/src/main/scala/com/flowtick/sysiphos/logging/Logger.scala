@@ -24,6 +24,17 @@ trait Logger {
   protected def sink(logId: LogId): fs2.Sink[IO, Byte]
 
   /**
+   *
+   * @param logId the id to look up the source for
+   * @return the source of a log id. This will depend on the underlying implementation of the
+   *         sink, as cant know if it will append the data or not.
+   *         If not (like in blobstores), the source should provided the data the stream will append to.
+   *
+   *         Defaults to an empty stream, thus assuming that the sink will append the data.
+   */
+  protected def source(logId: LogId): fs2.Stream[IO, String] = fs2.Stream.empty
+
+  /**
    * @param key the key to create the ID for
    * @return return a LogId to be able to reference a specific log.
    *         only this ID and no out of band information should be used
@@ -54,7 +65,7 @@ trait Logger {
    * @return an IO representing the append
    */
   def appendStream(logId: Logger.LogId, lines: fs2.Stream[IO, String]): IO[Unit] = {
-    getLog(logId)
+    source(logId)
       .append(lines)
       .through(pipe)
       .through(fs2.text.utf8Encode)

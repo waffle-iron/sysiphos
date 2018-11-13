@@ -15,7 +15,7 @@ import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 
 import scala.concurrent.Future
 
-class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with ImplicitSender with MockFactory
+class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-executor-spec")) with ImplicitSender with MockFactory
   with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
@@ -45,6 +45,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     nextDueDate = None,
     logId = None)
 
+  val logger = new ConsoleLogger
+
   implicit val repositoryContext: RepositoryContext = new RepositoryContext {
     override def currentUser: String = "test-user"
 
@@ -56,7 +58,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
       flowDefinition,
       flowInstance,
       flowInstanceRepository,
-      flowTaskInstanceRepository)(repositoryContext))
+      flowTaskInstanceRepository,
+      new ConsoleLogger)(repositoryContext))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)
@@ -93,9 +96,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     val flowTaskExecutorProbe = TestProbe()
 
     val flowInstanceExecutorActor = TestActorRef(
-      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
+      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository, logger) {
         override def flowTaskExecutor(taskInstance: FlowTaskInstance) = flowTaskExecutorProbe.ref
-        override def createLogger: Logger = new ConsoleLogger
       })
 
     (flowTaskInstanceRepository.getFlowTaskInstances(_: Option[String], _: Option[Long], _: Option[Seq[FlowTaskInstanceStatus]])(_: RepositoryContext))
@@ -135,7 +137,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
       .returns(Future.successful(Some(flowTaskInstance)))
 
     val flowInstanceActorProps = Props(
-      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
+      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository, logger) {
         override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
@@ -153,7 +155,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     val flowTaskInstanceWithRetry = flowTaskInstance.copy(retries = 1)
 
     val flowInstanceActorProps = Props(
-      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
+      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository, logger) {
         override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })
@@ -187,7 +189,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("MySpec")) with 
     val flowTaskExecutorProbe = TestProbe()
 
     val flowInstanceActorProps = Props(
-      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository) {
+      new FlowInstanceExecutorActor(flowDefinition, flowInstance, flowInstanceRepository, flowTaskInstanceRepository, logger) {
         override def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef = flowTaskExecutorProbe.ref
         override def selfRef: ActorRef = flowInstanceExecutorProbe.ref
       })

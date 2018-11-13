@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.flow
 
 import com.flowtick.sysiphos.flow.FlowDefinition.{ SysiphosDefinition, SysiphosTask }
-import com.flowtick.sysiphos.task.{ CommandLineTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
 import org.scalatest.{ FlatSpec, Matchers }
 
 class FlowDefinitionSpec extends FlatSpec with Matchers {
@@ -27,6 +27,12 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |        "id": "trigger-task-id",
          |        "type": "trigger",
          |        "flowDefinitionId": "someFlowId"
+         |      },
+         |      {
+         |        "id" : "camel-task-id",
+         |        "type" : "camel",
+         |        "uri" : "http://example.org",
+         |        "bodyTemplate" : "Some Request Body"
          |      }
          |    ]
          |  }
@@ -40,7 +46,8 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
         id = "test-task",
         Some(Seq(
           SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
-          TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None))),
+          TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
+          CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None))),
         command = "ls"))
 
     tryParse should be(Right(expectedDefinition))

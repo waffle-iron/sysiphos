@@ -14,7 +14,7 @@ import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, ExecutionContext, Future }
 
-class FlowExecutorActorSpec extends TestKit(ActorSystem("MySpec"))
+class FlowExecutorActorSpec extends TestKit(ActorSystem("executor-actor-spec"))
   with ImplicitSender
   with FlatSpecLike
   with FlowExecution

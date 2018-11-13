@@ -16,10 +16,9 @@ class FlowInstanceExecutorActor(
   flowDefinition: FlowDefinition,
   flowInstance: FlowInstance,
   flowInstanceRepository: FlowInstanceRepository,
-  flowTaskInstanceRepository: FlowTaskInstanceRepository)(implicit repositoryContext: RepositoryContext)
+  flowTaskInstanceRepository: FlowTaskInstanceRepository,
+  logger: Logger)(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
-
-  def createLogger: Logger = Logger.defaultLogger
 
   def executeNext(selectTask: Option[FlowTask]): Future[Seq[FlowTaskExecution.Execute]] = flowTaskInstanceRepository
     .getFlowTaskInstances(Some(flowInstance.id), None, None)
@@ -58,7 +57,7 @@ class FlowInstanceExecutorActor(
     runningInstance: Future[Option[FlowTaskInstanceDetails]]): Future[FlowTaskExecution.Execute] = {
     runningInstance.flatMap {
       case Some(taskInstance) =>
-        val log = createLogger.logId(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
+        val log = logger.logId(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
 
         val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
           logId <- Future.fromTry(log)
@@ -72,7 +71,7 @@ class FlowInstanceExecutorActor(
   }
 
   def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef =
-    context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, flowInstance, context.parent)))
+    context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, flowInstance, context.parent, logger)))
 
   def selfRef: ActorRef = self
 

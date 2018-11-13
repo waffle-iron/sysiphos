@@ -7,6 +7,7 @@ import akka.pattern.pipe
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
+import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import scala.concurrent.duration.FiniteDuration
@@ -41,7 +42,8 @@ class FlowExecutorActor(
       flowDefinition,
       flowInstance,
       flowInstanceRepository,
-      flowTaskInstanceRepository)(repositoryContext))
+      flowTaskInstanceRepository,
+      Logger.defaultLogger)(repositoryContext))
 
   override def receive: PartialFunction[Any, Unit] = {
     case _: FlowExecutorActor.Init => init

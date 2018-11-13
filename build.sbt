@@ -7,6 +7,7 @@ val circeV = "0.10.0"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
 val blobStoreV = "0.2.2"
+val camelV = "2.22.1"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -89,7 +90,12 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.kamon" %% "kamon-statsd" % "1.0.0",
     libraryDependencies += "io.kamon" %% "kamon-akka-2.5" % "1.1.0",
     libraryDependencies += "io.kamon" %% "kamon-prometheus" % "1.0.0",
-    libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0"
+    libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0",
+    libraryDependencies += "org.apache.camel" % "camel-core" % camelV,
+    libraryDependencies += "org.apache.camel" % "camel-http4" % camelV,
+    libraryDependencies += "org.apache.camel" % "camel-slack" % camelV,
+    libraryDependencies += "org.apache.camel" % "camel-test" % camelV % Test,
+    libraryDependencies += "com.github.tomakehurst" % "wiremock-standalone" % "2.19.0" % Test
   ).dependsOn(coreJVM, logging)
 
 lazy val gitProject = project.in(file("git")).
