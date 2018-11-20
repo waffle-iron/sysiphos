@@ -17,9 +17,7 @@ sudo: required
 services: docker
 
 after_success:
-  - sbt docker:publishLocal
-  - docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWD}
-  - docker push flowtick/sysiphos:latest
+  - test $TRAVIS_BRANCH = "master" && test $TRAVIS_PULL_REQUEST = "false" && sbt docker:publishLocal && docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWD} && docker push flowtick/sysiphos:latest
 
 cache:
   directories:
