@@ -4,7 +4,7 @@ import java.io.{ File, FileInputStream, FileOutputStream }
 
 import cats.effect.IO
 import com.flowtick.sysiphos.logging.Logger._
-import fs2.Sink
+import fs2.{ Pipe, Sink }
 import org.slf4j
 import org.slf4j.LoggerFactory
 
@@ -30,9 +30,13 @@ class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends L
   }
 
   override def getLog(logId: LogId): LogStream =
-    fs2.io.readInputStream[IO](IO(new FileInputStream(logId)), 4096, executionContext).through(fs2.text.utf8Decode)
+    fs2.io
+      .readInputStream[IO](IO(new FileInputStream(logId)), 4096, executionContext)
+      .through(fs2.text.utf8Decode)
+      .through(fs2.text.lines)
 
-  override protected def sink(logId: LogId): Sink[IO, Byte] = {
+  override protected def sink(logId: LogId): Sink[IO, Byte] =
     fs2.io.writeOutputStream[IO](IO(new FileOutputStream(new File(logId), true)), executionContext)
-  }
+
+  override def pipe: Pipe[IO, String, String] = in => super.pipe(in.map(_ + "\n"))
 }

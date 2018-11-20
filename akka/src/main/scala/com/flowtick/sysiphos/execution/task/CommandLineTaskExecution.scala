@@ -68,11 +68,6 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
     import IO._
     implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(taskExecutionContext)
 
-    val taskLogHeader =
-      s"""### running $command , retries left: ${taskInstance.retries}""".stripMargin
-
-    taskLogger.appendLine(logId, taskLogHeader).unsafeRunSync()
-
     val commandLine = shellOption.map { shell =>
       s"$shell ${createScriptFile(taskInstance, command, shell).getAbsolutePath}"
     }.getOrElse(command)

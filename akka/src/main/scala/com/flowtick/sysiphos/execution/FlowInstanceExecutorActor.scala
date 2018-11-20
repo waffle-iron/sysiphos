@@ -59,8 +59,12 @@ class FlowInstanceExecutorActor(
       case Some(taskInstance) =>
         val log = logger.logId(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
 
+        val taskLogHeader =
+          s"""### running ${task.id} , retries left: ${taskInstance.retries}""".stripMargin
+
         val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
           logId <- Future.fromTry(log)
+          _ <- Future(logger.appendLine(logId, taskLogHeader).unsafeRunSync()).recoverWith({ case _ => Future.successful(logId) })
           _ <- flowTaskInstanceRepository.setLogId(taskInstance.id, logId)
         } yield FlowTaskExecution.Execute(task, logId)
 

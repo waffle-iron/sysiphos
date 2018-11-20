@@ -2,6 +2,8 @@ package com.flowtick.sysiphos.logging
 
 import java.io.File
 import java.nio.file.Paths
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
 import cats.effect.{ ContextShift, IO }
@@ -68,17 +70,22 @@ trait Logger {
     source(logId)
       .append(lines)
       .through(pipe)
+      .map(format)
       .through(fs2.text.utf8Encode)
       .to(sink(logId))
       .compile
       .drain
   }
 
+  def format(line: String): String = s"${DateTimeFormatter.ISO_DATE_TIME.format(now)} - $line"
+
   /**
    * @param logId id of the log to retrieve
    * @return a stream of log lines
    */
   def getLog(logId: Logger.LogId): Logger.LogStream
+
+  def now: LocalDateTime = LocalDateTime.now()
 }
 
 object Logger {
