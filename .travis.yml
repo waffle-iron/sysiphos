@@ -12,6 +12,15 @@ script:
   - sbt clean +test:compile
   - sbt +test
 
+sudo: required
+
+services: docker
+
+after_success:
+  - sbt docker:publishLocal
+  - docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWD}
+  - docker push flowtick/sysiphos:latest
+
 cache:
   directories:
   - $HOME/.m2
