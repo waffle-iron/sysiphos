@@ -24,7 +24,7 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("executor-actor-spec"))
 
   val flowDefinition: FlowDefinition = SysiphosDefinition(
     "ls-definition-id",
-    CommandLineTask("ls-task-id", None, "ls"),
+    Seq(CommandLineTask("ls-task-id", None, "ls")),
     latestOnly = true)
 
   val flowInstance = FlowInstanceDetails(

@@ -6,8 +6,9 @@ import cats.effect.IO
 import com.flowtick.sysiphos.execution.WireMockSupport
 import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.CamelTask
+import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
+import org.apache.camel.Exchange
 import org.apache.camel.component.mock.MockEndpoint
 import org.scalatest.{ FlatSpec, Matchers, Succeeded }
 
@@ -25,7 +26,8 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
   "Camel execution" should "execute camel task" in {
     val task = CamelTask(
       id = "camel-task",
-      uri = "mock:test",
+      uri = "direct:input",
+      to = Some(Seq("mock:test")),
       bodyTemplate = Some("hello ${foo}"),
       headers = Some(Map("bar" -> "baz")),
       children = None)
@@ -35,6 +37,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
       result <- createExchange(task, flowInstance, "test")(new ConsoleLogger)
     } yield {
       val mockEndpoint = camelContext.getEndpoint("mock:test", classOf[MockEndpoint])
+
       mockEndpoint.expectedBodiesReceived("hello bar")
       mockEndpoint.expectedHeaderReceived("bar", "baz")
 
@@ -107,6 +110,24 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
     }).unsafeRunSync()
 
     result should be(Succeeded)
+  }
+
+  it should "execute a sql query" in {
+    val exchange: Exchange = executeExchange(CamelTask(
+      id = "camel-task",
+      uri = s"sql:select 1+1 as result?dataSource=testDs",
+      exchangeType = Some("consumer"),
+      children = None,
+      registry = Some(
+        Map("testDs" -> RegistryEntry(
+          `type` = "bean",
+          fqn = classOf[org.h2.jdbcx.JdbcDataSource].getName,
+          properties = Map(
+            "url" -> "jdbc:h2:./target/test-h2",
+            "user" -> "sa",
+            "password" -> "sa"))))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+
+    exchange.getOut.getBody.asInstanceOf[java.util.Map[String, Any]].get("RESULT") should be(2)
   }
 
 }

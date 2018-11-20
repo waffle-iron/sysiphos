@@ -15,7 +15,7 @@ trait FlowInstanceExecution extends Logging {
 
     val instancesById = taskInstances.groupBy(_.taskId)
 
-    val childrenOfDoneParents = Iterator.iterate(Seq(flowDefinition.task))(
+    val childrenOfDoneParents = Iterator.iterate(flowDefinition.tasks)(
       _.flatMap { task =>
         if (isFinished(instancesById, task))
           task.children.getOrElse(Seq.empty)

@@ -7,47 +7,94 @@ import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CamelTask
 import org.apache.camel.impl.{ DefaultCamelContext, SimpleRegistry }
-import org.apache.camel.{ CamelContext, Exchange, ExchangePattern, Processor }
+import org.apache.camel._
+import org.apache.camel.builder.RouteBuilder
+import org.springframework.beans.{ BeanUtils, PropertyAccessorFactory }
 
 trait CamelTaskExecution extends FlowTaskExecution {
   protected def createCamelContext(camelTask: CamelTask): IO[CamelContext] = IO.delay {
+    import scala.collection.JavaConverters._
+
     val registry = new SimpleRegistry
     camelTask.registry.getOrElse(Map.empty).foreach {
       case (name, entry) => if (entry.`type`.equalsIgnoreCase("bean")) {
-        val newInstance: AnyRef = getClass.getClassLoader.loadClass(entry.fqn).newInstance().asInstanceOf[AnyRef]
-        registry.put(name, newInstance)
+        val clazz = classOf[CamelTaskExecution].getClassLoader.loadClass(entry.fqn)
+        val newInstance = BeanUtils.instantiateClass(clazz)
+        val wrapper = PropertyAccessorFactory.forBeanPropertyAccess(newInstance)
+        wrapper.setPropertyValues(entry.properties.asJava)
+
+        registry.put(name, wrapper.getWrappedInstance)
       }
     }
 
-    new DefaultCamelContext(registry)
+    val context = new DefaultCamelContext(registry)
+    context.disableJMX()
+    context
   }
 
   protected def createExchange(
     camelTask: CamelTask,
     flowInstance: FlowInstance,
     logId: LogId)(taskLogger: Logger): IO[CamelContext => Exchange] = IO.delay { camelContext =>
-    val pattern: ExchangePattern = camelTask.pattern.map(_.toLowerCase) match {
-      case Some("in-only") => ExchangePattern.InOnly
-      case Some("out-only") => ExchangePattern.OutOnly
-      case _ => ExchangePattern.InOut
-    }
 
-    val producer = camelContext.createProducerTemplate()
+    def exchange = camelTask.exchangeType.getOrElse("producer") match {
+      case "producer" =>
+        val producer = camelContext.createProducerTemplate()
 
-    val exchange = producer.send(camelTask.uri, pattern, new Processor {
-      override def process(exchange: Exchange): Unit = {
-        camelTask.headers.getOrElse(Map.empty).foreach {
-          case (key, value) => exchange.getIn.setHeader(key, value)
+        val pattern: ExchangePattern = camelTask.pattern.map(_.toLowerCase) match {
+          case Some("in-only") => ExchangePattern.InOnly
+          case Some("out-only") => ExchangePattern.OutOnly
+          case _ => ExchangePattern.InOut
         }
 
-        val body = camelTask.bodyTemplate.map(replaceContextInTemplate(_, flowInstance.context, Map.empty).get).orNull
+        val exchange = producer.send(camelTask.sendUri.getOrElse(camelTask.uri), pattern, new Processor {
+          override def process(exchange: Exchange): Unit = {
+            camelTask.headers.getOrElse(Map.empty).foreach {
+              case (key, value) => exchange.getIn.setHeader(key, value)
+            }
 
-        exchange.getIn.setBody(body)
-      }
-    })
+            val body = camelTask.bodyTemplate.map(replaceContextInTemplate(_, flowInstance.context, Map.empty).get).orNull
 
-    Option(exchange.getException).foreach(throw _)
-    exchange
+            exchange.getIn.setBody(body)
+          }
+        })
+
+        Option(exchange.getException).foreach(throw _)
+        exchange
+
+      case "consumer" =>
+        val consumer = camelContext.createConsumerTemplate()
+
+        val exchange = consumer.receive(camelTask.receiveUri.getOrElse(camelTask.uri))
+        exchange.setOut(exchange.getIn)
+
+        Option(exchange.getException).foreach(throw _)
+        exchange
+    }
+
+    camelTask.to.filter(_.nonEmpty) match {
+      case None => exchange
+
+      case Some(toEndpoints) =>
+        val routeBuilder = new RouteBuilder() {
+          override def configure(): Unit = {
+            val root = from(camelTask.uri)
+
+            toEndpoints.foreach { toUri =>
+              root.to(toUri)
+            }
+          }
+        }
+
+        camelContext.addRoutes(routeBuilder)
+
+        camelContext.start()
+        val receive = exchange
+        camelContext.stop()
+
+        receive
+    }
+
   }
 
   def executeExchange(

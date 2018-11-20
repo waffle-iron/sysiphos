@@ -16,7 +16,7 @@ class SlickFlowDefinitionRepositorySpec extends SlickSpec {
 
     val simpleDefinition = SysiphosDefinition(
       "foo",
-      CommandLineTask("foo", None, "ls -la"))
+      Seq(CommandLineTask("foo", None, "ls -la")))
 
     Try(slickDefinitionRepository.getFlowDefinitions(this).futureValue).failed.foreach(_.printStackTrace())
     slickDefinitionRepository.createOrUpdateFlowDefinition(simpleDefinition)(this).futureValue.source.map(FlowDefinition.fromJson) should be(Some(Right(simpleDefinition)))

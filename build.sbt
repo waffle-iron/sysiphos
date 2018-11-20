@@ -97,7 +97,8 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "org.apache.camel" % "camel-mail" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-sql" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-test" % camelV % Test,
-    libraryDependencies += "com.github.tomakehurst" % "wiremock-standalone" % "2.19.0" % Test
+    libraryDependencies += "com.github.tomakehurst" % "wiremock-standalone" % "2.19.0" % Test,
+    libraryDependencies += "com.h2database" % "h2" % "1.4.197" % Test
   ).dependsOn(coreJVM, logging)
 
 lazy val gitProject = project.in(file("git")).

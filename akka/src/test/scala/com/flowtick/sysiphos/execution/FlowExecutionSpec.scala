@@ -64,7 +64,7 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
   it should "respect the parallelism option" in {
     val flowDefinition: SysiphosDefinition = SysiphosDefinition(
       "ls-definition-id",
-      CommandLineTask("ls-task-id", None, "ls"),
+      Seq(CommandLineTask("ls-task-id", None, "ls")),
       parallelism = Some(1))
 
     val instances = Seq(

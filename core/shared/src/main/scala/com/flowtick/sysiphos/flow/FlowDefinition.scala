@@ -12,7 +12,7 @@ trait FlowTask {
 
 trait FlowDefinition {
   def id: String
-  def task: FlowTask
+  def tasks: Seq[FlowTask]
   def latestOnly: Boolean
 
   def findTask(id: String): Option[FlowTask] = {
@@ -26,7 +26,7 @@ trait FlowDefinition {
         .flatMap(result => result.find(_.id == id))
         .headOption
 
-    findInTask(task)
+    tasks.flatMap(findInTask).headOption
   }
 
   def parallelism: Option[Int]
@@ -46,10 +46,10 @@ object FlowDefinition {
   implicit val definitionDecoder: Decoder[FlowDefinition] = new Decoder[FlowDefinition] {
     override def apply(c: HCursor): Result[FlowDefinition] = for {
       id <- c.downField("id").as[String]
-      task <- c.downField("task").as[FlowTask]
+      tasks <- c.downField("tasks").as[Seq[FlowTask]]
       latestOnly <- c.downField("latestOnly").as[Option[Boolean]]
       parallelism <- c.downField("parallelism").as[Option[Int]]
-    } yield SysiphosDefinition(id, task, latestOnly = latestOnly.getOrElse(false), parallelism = parallelism)
+    } yield SysiphosDefinition(id, tasks, latestOnly = latestOnly.getOrElse(false), parallelism = parallelism)
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
@@ -83,7 +83,7 @@ object FlowDefinition {
     }
   }
 
-  final case class SysiphosDefinition(id: String, task: FlowTask, latestOnly: Boolean = false, parallelism: Option[Int] = None) extends FlowDefinition
+  final case class SysiphosDefinition(id: String, tasks: Seq[FlowTask], latestOnly: Boolean = false, parallelism: Option[Int] = None) extends FlowDefinition
   final case class SysiphosTask(
     id: String,
     `type`: String,

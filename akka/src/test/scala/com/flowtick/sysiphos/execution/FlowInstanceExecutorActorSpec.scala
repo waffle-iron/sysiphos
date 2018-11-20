@@ -21,7 +21,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
   val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
 
-  val flowDefinition: FlowDefinition = SysiphosDefinition("ls-definition-id", CommandLineTask("ls-task-id", None, "ls"))
+  val flowDefinition: FlowDefinition = SysiphosDefinition("ls-definition-id", Seq(CommandLineTask("ls-task-id", None, "ls")))
 
   val flowInstance = FlowInstanceDetails(
     status = FlowInstanceStatus.Scheduled,
@@ -35,7 +35,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
   lazy val flowTaskInstance = FlowTaskInstanceDetails(
     id = "task-id",
     flowInstanceId = flowInstance.id,
-    taskId = flowDefinition.task.id,
+    taskId = flowDefinition.tasks.head.id,
     creationTime = 1l,
     startTime = None,
     endTime = None,
@@ -87,7 +87,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
 
     flowInstanceExecutorActor ! FlowInstanceExecution.Execute(None)
     flowExecutorProbe.expectMsgPF() {
-      case WorkTriggered(tasks) if tasks.head.flowTask == flowDefinition.task => true
+      case WorkTriggered(tasks) if tasks.head.flowTask == flowDefinition.tasks.head => true
     }
   }
 

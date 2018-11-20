@@ -11,7 +11,7 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |
          |{
          |  "id": "test-flow",
-         |  "task": {
+         |  "tasks": [{
          |    "id": "test-task",
          |    "type": "shell",
          |    "command": "ls",
@@ -35,20 +35,20 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |        "bodyTemplate" : "Some Request Body"
          |      }
          |    ]
-         |  }
+         |  }]
          |}
          |
        """.stripMargin.trim)
 
     val expectedDefinition = SysiphosDefinition(
       id = "test-flow",
-      task = CommandLineTask(
+      tasks = Seq(CommandLineTask(
         id = "test-task",
         Some(Seq(
           SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
           TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
           CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None))),
-        command = "ls"))
+        command = "ls")))
 
     tryParse should be(Right(expectedDefinition))
   }
@@ -61,12 +61,12 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |  "id": "test-flow",
          |  "latestOnly" : true,
          |  "parallelism": 5,
-         |  "task": {
+         |  "tasks": [{
          |    "id": "test-task",
          |    "type": "shell",
          |    "command": "ls",
          |    "children": []
-         |  }
+         |  }]
          |}
          |
        """.stripMargin.trim)
@@ -83,29 +83,29 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
 
     val definition = SysiphosDefinition(
       id = "test-flow",
-      task = CommandLineTask(
+      tasks = Seq(CommandLineTask(
         id = "test-task",
         command = "ls",
         children = Some(Seq(
           SysiphosTask(id = "something", `type` = "noop", None, None),
-          triggerTask))))
+          triggerTask)))))
 
     definition.findTask("trigger-task-id") should be(Some(triggerTask))
     definition.findTask("something") should be(Some(SysiphosTask(id = "something", `type` = "noop", None, None)))
     definition.findTask("child-child") should be(Some(SysiphosTask(id = "child-child", `type` = "noop", None, None)))
-    definition.findTask("test-task") should be(Some(definition.task))
+    definition.findTask("test-task") should be(definition.tasks.headOption)
     definition.findTask("test") should be(None)
   }
 
   it should "encode definition" in {
     val json = FlowDefinition.toJson(SysiphosDefinition(
       id = "test-flow",
-      task = CommandLineTask(
+      tasks = Seq(CommandLineTask(
         id = "test-task",
         Some(Seq(
           SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
           TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None))),
-        command = "ls")))
+        command = "ls"))))
 
     json.contains("trigger-task-id") should be(true)
     json.contains("trigger") should be(true)

@@ -19,7 +19,7 @@ class FlowInstanceExecutionSpec extends FlatSpec with FlowInstanceExecution with
     val root = CommandLineTask("cmd1", Some(firstLevelChildren), "ls 1")
 
     val flowDefinition = SysiphosDefinition(
-      "test", root)
+      "test", Seq(root))
 
     val doneTaskInstance = FlowTaskInstanceDetails(
       id = "taskInstanceId",

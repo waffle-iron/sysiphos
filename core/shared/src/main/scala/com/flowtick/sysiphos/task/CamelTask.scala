@@ -6,10 +6,14 @@ final case class RegistryEntry(`type`: String, fqn: String, properties: Map[Stri
 
 final case class CamelTask(
   id: String,
-  `type`: String = "camel",
+  children: Option[Seq[FlowTask]],
   uri: String,
+  `type`: String = "camel",
+  exchangeType: Option[String] = None,
+  sendUri: Option[String] = None,
+  receiveUri: Option[String] = None,
   pattern: Option[String] = None,
   bodyTemplate: Option[String] = None,
   headers: Option[Map[String, String]] = None,
-  children: Option[Seq[FlowTask]],
+  to: Option[Seq[String]] = None,
   registry: Option[Map[String, RegistryEntry]] = None) extends FlowTask
