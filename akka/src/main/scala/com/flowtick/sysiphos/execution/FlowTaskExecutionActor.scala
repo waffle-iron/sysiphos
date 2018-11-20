@@ -10,6 +10,7 @@ import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTas
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
+import org.apache.camel.Message
 
 import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, Future }
 import scala.util.{ Failure, Success, Try }
@@ -43,10 +44,12 @@ class FlowTaskExecutionActor(
 
     case FlowTaskExecution.Execute(camelTask: CamelTask, logId) =>
       executeExchange(camelTask, flowInstance, logId)(taskLogger)
-        .map(_.getOut.getBody)
+        .map(_.getOut)
         .unsafeToFuture()
-        .map { result =>
-          taskLogger.appendLine(logId, s"camel exchange executed with result: $result").unsafeRunSync()
+        .map { result: Message =>
+          val resultString = Try(result.getBody(classOf[String])).getOrElse(result.toString)
+
+          taskLogger.appendLine(logId, s"camel exchange executed with result: $resultString").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         }.recoverWith {
           case error =>
