@@ -24,9 +24,12 @@ That being that, Sysiphos is heavily influenced by the usage of the above mentio
 tries to pick the best features of each. Its currently not a feature-rich as any of those solutions and 
 provides basic scheduling.
 
+See the @ref:[Introduction](intro.md) to read about the core concepts.
+
 @@@ index
 
 * [Introduction](intro.md)
+* [Execution Model](execution-model.md)
 * [Run](run.md)
 * [Tutorial](tutorial.md)
 * [Tasks](tasks.md)
