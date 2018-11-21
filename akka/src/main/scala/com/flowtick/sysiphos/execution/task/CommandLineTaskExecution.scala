@@ -12,7 +12,7 @@ import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 
 import scala.concurrent.{ ExecutionContextExecutor, Future }
-import scala.util.{ Failure, Success, Try }
+import scala.util.Try
 import scala.sys.process._
 
 trait CommandLineTaskExecution extends FlowTaskExecution {
@@ -64,7 +64,7 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
     taskInstance: FlowTaskInstance,
     command: String,
     shellOption: Option[String],
-    logId: LogId)(taskLogger: Logger): Try[Int] = Try {
+    logId: LogId)(taskLogger: Logger): IO[Int] = IO.unit.flatMap { _ =>
     import IO._
     implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(taskExecutionContext)
 
@@ -72,17 +72,18 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
       s"$shell ${createScriptFile(taskInstance, command, shell).getAbsolutePath}"
     }.getOrElse(command)
 
+    taskLogger.appendLine(logId, s"\n### running '$command' via '$commandLine'").unsafeRunSync()
+
     val queueSize = Configuration.propOrEnv("logger.stream.queueSize", "1000").toInt
 
     val finishedProcess: IO[Int] = fs2.concurrent.Queue
       .circularBuffer[IO, Option[String]](queueSize)
       .flatMap(commandIO(commandLine, logId, _)(taskLogger))
 
-    finishedProcess.unsafeRunSync()
+    finishedProcess
   }.flatMap { exitCode =>
-    taskLogger.appendLine(logId, s"\n### command finished with exit code $exitCode").unsafeRunSync()
     if (exitCode != 0) {
-      Failure(new RuntimeException(s"😞 got failure code during execution: $exitCode"))
-    } else Success(exitCode)
+      IO.raiseError(new RuntimeException(s"😞 got failure code during execution: $exitCode"))
+    } else IO.pure(exitCode)
   }
 }

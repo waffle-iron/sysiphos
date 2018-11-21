@@ -5,6 +5,7 @@ import java.util.concurrent.{ Executors, TimeUnit }
 import akka.actor.{ Actor, ActorRef }
 import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
+import cats.effect.IO
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTaskExecution }
 import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
@@ -30,17 +31,23 @@ class FlowTaskExecutionActor(
     case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), logId) =>
       log.info(s"executing command with id $id")
 
-      val tryRun: Try[Int] = for {
-        finalCommand <- replaceContext(taskInstance, flowInstance, command)
+      val run: IO[Int] = for {
+        finalCommand <- replaceContext(taskInstance, flowInstance, command) match {
+          case Success(value) => IO.pure(value)
+          case Failure(error) => IO.raiseError(error)
+        }
         result <- runCommand(taskInstance, finalCommand, shell, logId)(taskLogger)
       } yield result
 
-      tryRun match {
-        case Failure(e) =>
-          taskLogger.appendLine(logId, e.getMessage).unsafeRunSync()
-          sender() ! FlowInstanceExecution.WorkFailed(e, taskInstance)
-        case Success(_) => sender() ! FlowInstanceExecution.WorkDone(taskInstance)
-      }
+      run.unsafeToFuture().map { exitCode =>
+        taskLogger.appendLine(logId, s"\n### command finished successfully with exit code $exitCode").unsafeRunSync()
+
+        FlowInstanceExecution.WorkDone(taskInstance)
+      }.recoverWith {
+        case error =>
+          taskLogger.appendLine(logId, s"error in command execution: ${error.getMessage}").unsafeRunSync()
+          Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
+      }.pipeTo(sender())
 
     case FlowTaskExecution.Execute(camelTask: CamelTask, logId) =>
       executeExchange(camelTask, flowInstance, logId)(taskLogger)

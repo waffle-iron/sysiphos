@@ -19,7 +19,10 @@ class StreamLoggerSpec extends FlatSpec with Matchers {
 
   "Stream logger" should "append to files" in new TestFileStore {
 
-    val streamLogger = new StreamLogger("", fileStore)
+    val streamLogger: StreamLogger = new StreamLogger("", fileStore) {
+      override def format(line: String): String = line
+    }
+
     val logId = "test"
 
     streamLogger.appendStream(logId, thousandStrings).unsafeRunSync()
