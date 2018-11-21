@@ -1,0 +1,31 @@
+[uml,file="sysiphos-actors-flow-instance-exec.png"]
+----
+@startuml
+Title Actors communication in Sysiphos (Flow Instance Execution)
+
+participant FlowExecutionActor as FlowExecutionActor #deffe0
+participant FlowInstanceExecutionActor as FlowInstanceExecutionActor #eee1ff
+participant FlowTaskExecutionActor as FlowTaskExecutionActor #defbff
+
+== success ==
+    FlowTaskExecutionActor -> FlowInstanceExecutionActor: WorkDone
+    FlowInstanceExecutionActor -> FlowTaskExecutionActor: stop()
+    destroy FlowTaskExecutionActor
+    FlowInstanceExecutionActor -> FlowInstanceExecutionActor: Execute(None)
+    alt ALL tasks are DONE
+        FlowInstanceExecutionActor -> FlowExecutionActor: Finished
+        destroy FlowInstanceExecutionActor
+    end
+== failure ==
+    FlowTaskExecutionActor -> FlowInstanceExecutionActor: WorkFailed
+    FlowInstanceExecutionActor -> FlowTaskExecutionActor: stop()
+    destroy FlowTaskExecutionActor
+    alt retries > 0
+        FlowInstanceExecutionActor -> FlowExecutionActor: FlowScheduled
+    else retries == 0
+        FlowInstanceExecutionActor -> FlowExecutionActor: FlowFailed
+        FlowInstanceExecutionActor -> FlowInstanceExecutionActor: PoisonPill
+        destroy FlowInstanceExecutionActor
+    end
+@enduml
+----

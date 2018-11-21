@@ -1,0 +1,23 @@
+[uml,file="sysiphos-actors-init.png"]
+----
+@startuml
+Title Actors communication in Sysiphos (Tasks Creation)
+
+participant FlowExecutionActor as FlowExecutionActor #deffe0
+participant FlowInstanceExecutionActor as FlowInstanceExecutionActor #eee1ff
+participant FlowTaskExecutionActor as FlowTaskExecutionActor #defbff
+
+[-> FlowExecutionActor: init()
+FlowExecutionActor -> FlowExecutionActor: tick()
+
+Create FlowInstanceExecutionActor
+FlowExecutionActor -> FlowInstanceExecutionActor: Execute(None)
+
+Create FlowTaskExecutionActor
+alt new tasks > 0
+    loop task_parallelism
+            FlowInstanceExecutionActor -> FlowTaskExecutionActor: Execute(task, logID)
+    end
+end
+@enduml
+----

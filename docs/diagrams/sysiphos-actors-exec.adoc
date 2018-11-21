@@ -1,0 +1,24 @@
+[uml,file="sysiphos-actors-exec.png"]
+----
+@startuml
+Title Actors communication in Sysiphos (Tasks Execution)
+
+participant FlowExecutionActor as FlowExecutionActor #deffe0
+participant FlowTaskExecutionActor as FlowTaskExecutionActor #defbff
+
+alt task.type = Triggered
+    FlowTaskExecutionActor -> FlowExecutionActor: RequestInstance(flowDef, flowInstance)
+    FlowExecutionActor -> FlowTaskExecutionActor: NewInstance
+else task.type = CommandLine
+    FlowTaskExecutionActor -> ExecutionContext: execute(command) 
+    activate ExecutionContext
+    FlowTaskExecutionActor <--ExecutionContext: return
+    deactivate ExecutionContext
+else task.type = Camel
+    FlowTaskExecutionActor ->ExecutionContext: executeExchange(URI) 
+    activate ExecutionContext
+    FlowTaskExecutionActor <- ExecutionContext: response
+    deactivate ExecutionContext
+end
+@enduml
+----
