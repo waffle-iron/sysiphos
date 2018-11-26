@@ -71,11 +71,10 @@ class SlickFlowInstanceRepository(
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
       .filterOptional(query.status)(status => _.status.inSet(status.map(_.toString)))
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
-      .sortBy(_.created.desc)
 
     val instancesWithContext = (for {
       (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
-    } yield (instance, context)).result
+    } yield (instance, context)).sortBy(_._1.created.desc).result
 
     db.run(instancesWithContext).flatMap(instances => {
       val groupedByInstance = instances.groupBy { case (instance, _) => instance }

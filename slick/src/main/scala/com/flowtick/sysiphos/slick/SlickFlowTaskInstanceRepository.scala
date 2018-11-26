@@ -30,15 +30,15 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     def nextDueDate = column[Option[Long]]("_NEXT_DUE_DATE")
     def startTime = column[Option[Long]]("_START_TIME")
     def endTime = column[Option[Long]]("_END_TIME")
-    def logId = column[Option[String]]("_LOG_ID")
+    def logId = column[String]("_LOG_ID")
 
-    def fromTuple(tuple: (String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long], Option[String])): FlowTaskInstanceDetails = tuple match {
+    def fromTuple(tuple: (String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long], String)): FlowTaskInstanceDetails = tuple match {
       case (id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, status, retryDelay, nextDueDate, logId) =>
         FlowTaskInstanceDetails(
           id, flowInstanceId, taskId, created, updated, startTime, endTime, retries, FlowTaskInstanceStatus.withName(status), retryDelay, nextDueDate, logId)
     }
 
-    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long], Option[String])] = Some((
+    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Option[Long], Option[Long], String)] = Some((
       instance.id,
       instance.flowInstanceId,
       instance.taskId,
@@ -91,6 +91,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
   override def createFlowTaskInstance(
     instanceId: String,
     flowTaskId: String,
+    logId: String,
     retries: Int)(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails] = {
 
     val newInstance = FlowTaskInstanceDetails(
@@ -104,7 +105,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       endTime = None,
       retryDelay = Some(10L),
       nextDueDate = None,
-      logId = None)
+      logId = logId)
 
     db.run((taskInstancesTable += newInstance).transactionally).map(_ => newInstance)
   }
@@ -149,11 +150,4 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
   }
 
-  override def setLogId(taskInstanceId: String, logId: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
-    val updateLogId = taskInstancesTable.filter(_.id === taskInstanceId)
-      .map { task => task.logId }
-      .update(Some(logId))
-
-    db.run(updateLogId).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
-  }
 }

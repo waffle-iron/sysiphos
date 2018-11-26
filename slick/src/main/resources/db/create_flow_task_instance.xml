@@ -57,4 +57,15 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="2" author="sysiphos">
+        <preConditions>
+            <columnExists tableName="_FLOW_TASK_INSTANCE" columnName="_LOG_ID"/>
+        </preConditions>
+
+        <addNotNullConstraint
+                tableName="_FLOW_TASK_INSTANCE"
+                columnName="_LOG_ID"
+                columnDataType="varchar(2048)" />
+    </changeSet>
+
 </databaseChangeLog>

@@ -1,5 +1,8 @@
 package com.flowtick.sysiphos.ui.flow
 
+import com.flowtick.sysiphos.flow.FlowDefinition
+import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
+import com.flowtick.sysiphos.task.CommandLineTask
 import com.flowtick.sysiphos.ui.vendor.{ AceEditorSupport, SourceEditor }
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.Var
@@ -25,23 +28,13 @@ class CreateFlowComponent(circuit: FlowCircuit) extends HtmlComponent with Layou
 
   def fillTemplate(): Unit =
     flowSource.setValue(
-      s"""
-         |{
-         |  "id": "new-flow",
-         |  "task": {
-         |    "id": "new-task",
-         |    "type": "shell",
-         |    "command": "ls",
-         |    "children": [
-         |      {
-         |        "id" : "trigger-next",
-         |        "type" : "trigger",
-         |        "flowDefinitionId":  "existing-flow-id"
-         |      }
-         |    ]
-         |  }
-         |}
-       """.stripMargin.trim, 0)
+      FlowDefinition.toJson(SysiphosDefinition(
+        "new-flow", tasks = Seq(
+          CommandLineTask(
+            id = "shell-task",
+            children = None,
+            shell = Some("bash"),
+            command = "echo 'Hello World!'")))), 0)
 
   @dom
   override def element: Binding[Div] =

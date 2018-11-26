@@ -2,8 +2,7 @@ package com.flowtick.sysiphos.execution
 
 import java.io.StringWriter
 
-import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowTask }
-import com.flowtick.sysiphos.logging.Logger.LogId
+import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowTask, FlowTaskInstance }
 import freemarker.template.{ Configuration, Template }
 
 import scala.util.Try
@@ -36,6 +35,6 @@ object FlowTaskExecution {
     cfg
   }
 
-  case class Execute(flowTask: FlowTask, logId: LogId)
+  final case class Execute(flowTask: FlowTask, taskInstance: FlowTaskInstance)
 }
 

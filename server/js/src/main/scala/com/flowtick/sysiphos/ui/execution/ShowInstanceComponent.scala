@@ -36,7 +36,7 @@ class ShowInstanceComponent(
       <td>{ taskInstanceDetails.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
       <td>{ taskStatusLabel(taskInstanceDetails.status).bind }</td>
       <td><span>{ taskInstanceDetails.retries.toString }</span></td>
-      <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId.getOrElse(""))}" } class="btn btn-primary">Log</a></td>
+      <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId)}" } class="btn btn-primary">Log</a></td>
     </tr>
 
   @dom

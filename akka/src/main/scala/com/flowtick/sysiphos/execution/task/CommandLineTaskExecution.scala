@@ -18,7 +18,7 @@ import scala.sys.process._
 trait CommandLineTaskExecution extends FlowTaskExecution {
   implicit val taskExecutionContext: ExecutionContextExecutor
 
-  def createScriptFile(taskInstance: FlowTaskInstance, command: String, shell: String): File = {
+  def createScriptFile(taskInstance: FlowTaskInstance, command: String): File = {
     val tempDir = sys.props.get("java.io.tempdir").getOrElse(Configuration.propOrEnv("backup.temp.dir", "/tmp"))
     val scriptFile = new File(tempDir, s"script_${taskInstance.id}.sh")
     val scriptOutput = new FileOutputStream(scriptFile)
@@ -68,8 +68,10 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
     import IO._
     implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(taskExecutionContext)
 
+    val scriptFile = createScriptFile(taskInstance, command)
+
     val commandLine = shellOption.map { shell =>
-      s"$shell ${createScriptFile(taskInstance, command, shell).getAbsolutePath}"
+      s"$shell ${scriptFile.getAbsolutePath}"
     }.getOrElse(command)
 
     taskLogger.appendLine(logId, s"\n### running '$command' via '$commandLine'").unsafeRunSync()
@@ -80,7 +82,7 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
       .circularBuffer[IO, Option[String]](queueSize)
       .flatMap(commandIO(commandLine, logId, _)(taskLogger))
 
-    finishedProcess
+    finishedProcess.guarantee(IO.delay(scriptFile.delete()))
   }.flatMap { exitCode =>
     if (exitCode != 0) {
       IO.raiseError(new RuntimeException(s"😞 got failure code during execution: $exitCode"))

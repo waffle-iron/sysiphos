@@ -1,78 +1,25 @@
 package com.flowtick.sysiphos.execution
 
+import java.util.concurrent.Executors
+
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.pattern.pipe
-import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
-import Logging._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class FlowInstanceExecutorActor(
   flowDefinition: FlowDefinition,
   flowInstance: FlowInstance,
-  flowInstanceRepository: FlowInstanceRepository,
-  flowTaskInstanceRepository: FlowTaskInstanceRepository,
+  val flowInstanceRepository: FlowInstanceRepository,
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository,
   logger: Logger)(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
 
-  def executeNext(selectTask: Option[FlowTask]): Future[Seq[FlowTaskExecution.Execute]] = flowTaskInstanceRepository
-    .getFlowTaskInstances(Some(flowInstance.id), None, None)
-    .flatMap { currentInstances =>
-      val nextTasks: Seq[FlowTask] = selectTask.map(Seq(_)).getOrElse(nextFlowTasks(flowDefinition, currentInstances))
-      Future.sequence(nextTasks.map { task =>
-
-        val taskInstanceFuture = currentInstances
-          .find(_.taskId == task.id)
-          .map(Future.successful)
-          .getOrElse(flowTaskInstanceRepository.createFlowTaskInstance(flowInstance.id, task.id, taskRetriesDefault(task)))
-          .logFailed("unable to find or create task instance")
-
-        val taskInstance: Future[Option[FlowTaskInstanceDetails]] = for {
-          taskInstance <- taskInstanceFuture
-          _ <- flowTaskInstanceRepository.setStartTime(taskInstance.id, repositoryContext.epochSeconds)
-          running <- {
-            log.info(s"setting task ${taskInstance.id} to running")
-            flowTaskInstanceRepository.setStatus(taskInstance.id, FlowTaskInstanceStatus.Running)
-          }
-        } yield running
-
-        executeRunning(task, taskInstance)
-      })
-    }
-
-  private def taskRetriesDefault(task: FlowTask) = task match {
-    case _ => Configuration.propOrEnv("task.retries.default").map(_.toInt).getOrElse(3)
-  }
-
-  private def retryDelayDefault: Long =
-    Configuration.propOrEnv("task.retry.delay.default").map(_.toLong).getOrElse(5 * 60 * 60) // 5 mins in seconds
-
-  private def executeRunning(
-    task: FlowTask,
-    runningInstance: Future[Option[FlowTaskInstanceDetails]]): Future[FlowTaskExecution.Execute] = {
-    runningInstance.flatMap {
-      case Some(taskInstance) =>
-        val log = logger.logId(s"${flowInstance.flowDefinitionId}/${taskInstance.taskId}-${taskInstance.id}")
-
-        val taskLogHeader =
-          s"""### running ${task.id} , retries left: ${taskInstance.retries}""".stripMargin
-
-        val executeWithLogId: Future[FlowTaskExecution.Execute] = for {
-          logId <- Future.fromTry(log)
-          _ <- Future(logger.appendLine(logId, taskLogHeader).unsafeRunSync()).recoverWith({ case _ => Future.successful(logId) })
-          _ <- flowTaskInstanceRepository.setLogId(taskInstance.id, logId)
-        } yield FlowTaskExecution.Execute(task, logId)
-
-        executeWithLogId.pipeTo(flowTaskExecutor(taskInstance))
-
-      case None => Future.failed(new IllegalStateException("unable to set instance to running"))
-    }
-  }
+  implicit val executionContext = scala.concurrent.ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
 
   def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef =
     context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, flowInstance, context.parent, logger)))
@@ -82,10 +29,26 @@ class FlowInstanceExecutorActor(
   override def receive: PartialFunction[Any, Unit] = {
     case FlowInstanceExecution.Execute(optionalTask) =>
       log.info(s"executing $flowDefinition, $flowInstance ...")
-      executeNext(selectTask = optionalTask.flatMap(flowDefinition.findTask)).flatMap {
-        case Nil => instanceStatus
-        case newExecutions => Future.successful(WorkTriggered(newExecutions))
-      }.pipeTo(context.parent)
+      val executed: Future[FlowInstanceExecution.FlowInstanceMessage] = for {
+        currentInstances <- flowTaskInstanceRepository.getFlowTaskInstances(Some(flowInstance.id), None, None)
+
+        next: Seq[FlowTaskExecution.Execute] <- executeNext(
+          flowDefinition,
+          flowInstance,
+          selectTask = optionalTask.flatMap(flowDefinition.findTask),
+          currentInstances = currentInstances,
+          logger)
+
+        executionMessage <- next match {
+          case Nil => instanceStatus
+          case nextTasks: Seq[FlowTaskExecution.Execute] =>
+            val result: Future[WorkTriggered] = Future.sequence(
+              nextTasks.map(execute => Future.successful(execute).pipeTo(flowTaskExecutor(execute.taskInstance)))).map(WorkTriggered)
+            result
+        }
+      } yield executionMessage
+
+      executed.pipeTo(context.parent)
 
     case FlowInstanceExecution.WorkFailed(error, flowTaskInstance) =>
       log.warn(s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}")
@@ -138,6 +101,5 @@ class FlowInstanceExecutorActor(
         _ <- flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))
       } yield RetryScheduled(flowTaskInstance)
     }
-
 }
 

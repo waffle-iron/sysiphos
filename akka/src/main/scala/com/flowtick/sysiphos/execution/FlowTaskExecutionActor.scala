@@ -28,7 +28,7 @@ class FlowTaskExecutionActor(
   implicit val taskExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), logId) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), _) =>
       log.info(s"executing command with id $id")
 
       val run: IO[Int] = for {
@@ -36,43 +36,43 @@ class FlowTaskExecutionActor(
           case Success(value) => IO.pure(value)
           case Failure(error) => IO.raiseError(error)
         }
-        result <- runCommand(taskInstance, finalCommand, shell, logId)(taskLogger)
+        result <- runCommand(taskInstance, finalCommand, shell, taskInstance.logId)(taskLogger)
       } yield result
 
       run.unsafeToFuture().map { exitCode =>
-        taskLogger.appendLine(logId, s"\n### command finished successfully with exit code $exitCode").unsafeRunSync()
+        taskLogger.appendLine(taskInstance.logId, s"\n### command finished successfully with exit code $exitCode").unsafeRunSync()
 
         FlowInstanceExecution.WorkDone(taskInstance)
       }.recoverWith {
         case error =>
-          taskLogger.appendLine(logId, s"error in command execution: ${error.getMessage}").unsafeRunSync()
+          taskLogger.appendLine(taskInstance.logId, s"error in command execution: ${error.getMessage}").unsafeRunSync()
           Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
       }.pipeTo(sender())
 
-    case FlowTaskExecution.Execute(camelTask: CamelTask, logId) =>
-      executeExchange(camelTask, flowInstance, logId)(taskLogger)
+    case FlowTaskExecution.Execute(camelTask: CamelTask, _) =>
+      executeExchange(camelTask, flowInstance, taskInstance.logId)(taskLogger)
         .map(_.getOut)
         .unsafeToFuture()
         .map { result: Message =>
           val resultString = Try(result.getBody(classOf[String])).getOrElse(result.toString)
 
-          taskLogger.appendLine(logId, s"camel exchange executed with result: $resultString").unsafeRunSync()
+          taskLogger.appendLine(taskInstance.logId, s"camel exchange executed with result: $resultString").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         }.recoverWith {
           case error =>
-            taskLogger.appendLine(logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
+            taskLogger.appendLine(taskInstance.logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
             Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
         }.pipeTo(sender())
 
-    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), logId) =>
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), _) =>
       log.info(s"executing task with id $id")
 
       ask(flowExecutorActor, RequestInstance(flowDefinitionId, flowInstance.context))(Timeout(30, TimeUnit.SECONDS)).map {
         case NewInstance(Right(instance)) =>
-          taskLogger.appendLine(logId, s"created ${instance.flowDefinitionId} instance ${instance.id}").unsafeRunSync()
+          taskLogger.appendLine(taskInstance.logId, s"created ${instance.flowDefinitionId} instance ${instance.id}").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         case NewInstance(Left(error)) =>
-          taskLogger.appendLine(logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()
+          taskLogger.appendLine(taskInstance.logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()
           FlowInstanceExecution.WorkFailed(error, taskInstance)
       }.pipeTo(sender())
 

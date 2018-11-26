@@ -34,7 +34,7 @@ trait FlowTaskInstance {
   def status: FlowTaskInstanceStatus.FlowTaskInstanceStatus
   def retryDelay: Option[Long]
   def nextDueDate: Option[Long]
-  def logId: Option[String]
+  def logId: String
 }
 
 final case class FlowTaskInstanceDetails(
@@ -49,4 +49,4 @@ final case class FlowTaskInstanceDetails(
   status: FlowTaskInstanceStatus.FlowTaskInstanceStatus,
   retryDelay: Option[Long],
   nextDueDate: Option[Long],
-  logId: Option[String]) extends FlowTaskInstance
+  logId: String) extends FlowTaskInstance
