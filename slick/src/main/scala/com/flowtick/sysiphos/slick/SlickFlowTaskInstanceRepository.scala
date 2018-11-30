@@ -67,23 +67,29 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   private[slick] def getFlowTaskInstances: Future[Seq[FlowTaskInstanceDetails]] = db.run(taskInstancesTable.result)
 
-  override def getFlowTaskInstances(
-    flowInstanceId: Option[String],
-    dueBefore: Option[Long],
-    status: Option[Seq[FlowTaskInstanceStatus.FlowTaskInstanceStatus]])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
-    val queryBuilder = taskInstancesTable
-      .filterOptional(flowInstanceId)(flowInstanceId => _.flowInstanceId === flowInstanceId)
-      .filterOptional(dueBefore)(dueBefore => _.nextDueDate < dueBefore)
-      .filterOptional(status)(status => _.status.inSet(status.map(_.toString)))
-      .result
-
-    db.run(queryBuilder)
+  private[slick] def createQuery(taskInstanceQuery: FlowTaskInstanceQuery) = {
+    taskInstancesTable
+      .filterOptional(taskInstanceQuery.id)(id => _.id === id)
+      .filterOptional(taskInstanceQuery.flowInstanceId)(flowInstanceId => _.flowInstanceId === flowInstanceId)
+      .filterOptional(taskInstanceQuery.taskId)(taskId => _.taskId === taskId)
+      .filterOptional(taskInstanceQuery.dueBefore)(dueBefore => _.nextDueDate < dueBefore)
+      .filterOptional(taskInstanceQuery.status)(status => _.status.inSet(status.map(_.toString)))
   }
 
-  override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
-    val queryBuilder = taskInstancesTable.filter(_.id === id).result.headOption
+  override def find(taskInstanceQuery: FlowTaskInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
+    db.run(createQuery(taskInstanceQuery).result)
+  }
+
+  override def findOne(taskInstanceQuery: FlowTaskInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
+    val queryBuilder = createQuery(taskInstanceQuery).result
 
     db.run(queryBuilder)
+      .filter(_.length <= 1)
+      .map(_.headOption)
+      .recoverWith {
+        case error =>
+          Future.failed(new IllegalStateException(s"unable to find single result for $taskInstanceQuery", error))
+      }
   }
 
   protected def newId: String = UUID.randomUUID().toString
@@ -115,7 +121,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .map { task => task.status }
       .update(status.toString)
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
   }
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
@@ -123,7 +129,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .map { task => task.startTime }
       .update(Some(startTime))
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
   }
 
   override def setEndTime(taskInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
@@ -131,7 +137,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .map { task => task.endTime }
       .update(Some(endTime))
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(taskInstanceId) }
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
   }
 
   override def setRetries(taskInstanceId: String, retries: Int)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
@@ -139,7 +145,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .map { task => task.retries }
       .update(retries)
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))))
   }
 
   override def setNextDueDate(taskInstanceId: String, nextDueDate: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
@@ -147,7 +153,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .map { task => task.nextDueDate }
       .update(nextDueDate)
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findById(taskInstanceId))
+    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))))
   }
 
 }

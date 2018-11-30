@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.slick
 
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.DefaultRepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.task.CommandLineTask
@@ -11,9 +11,7 @@ import scala.util.Try
 class SlickFlowDefinitionRepositorySpec extends SlickSpec {
   lazy val slickDefinitionRepository = new SlickFlowDefinitionRepository(dataSource)(H2Profile, scala.concurrent.ExecutionContext.Implicits.global)
 
-  "Slick Definition Repository" should "create definition" in new RepositoryContext {
-    override def currentUser: String = "test-user"
-
+  "Slick Definition Repository" should "create definition" in new DefaultRepositoryContext("test-user") {
     val simpleDefinition = SysiphosDefinition(
       "foo",
       Seq(CommandLineTask("foo", None, "ls -la")))

@@ -79,7 +79,12 @@ class SysiphosApiContext(
     flowInstanceId: Option[String],
     dueBefore: Option[Long],
     status: Option[Seq[String]]): Future[Seq[FlowTaskInstanceDetails]] = {
-    flowTaskInstanceRepository.getFlowTaskInstances(flowInstanceId, dueBefore, status.map(_.map(FlowTaskInstanceStatus.withName)))
+    val query = FlowTaskInstanceQuery(
+      flowInstanceId = flowInstanceId,
+      dueBefore = dueBefore,
+      status = status.map(_.map(FlowTaskInstanceStatus.withName)))
+
+    flowTaskInstanceRepository.find(query)
   }
 
   override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {

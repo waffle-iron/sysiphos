@@ -8,6 +8,7 @@ val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
 val blobStoreV = "0.2.2"
 val camelV = "2.22.1"
+val akkaV = "2.5.18"
 
 scalacOptions += "-P:scalajs:sjsDefinedByDefault"
 
@@ -79,8 +80,9 @@ lazy val akka = project.in(file("akka")).
   settings(common ++ crossCompile).
   settings(
     name := "sysiphos-akka",
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.6",
-    libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.5.6" % Test,
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % akkaV,
+    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaV,
+    libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % akkaV % Test,
     libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.freemarker" % "freemarker" % "2.3.28",

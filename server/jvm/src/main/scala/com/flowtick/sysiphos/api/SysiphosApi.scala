@@ -4,7 +4,7 @@ import java.io.{ PrintWriter, StringWriter }
 
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
@@ -151,9 +151,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
       val variables: Json = queryObj("variables").filter(!_.isNull).getOrElse(Json.obj())
 
       query.map(parseQuery).map {
-        case Success(document) => executeQuery(document, operationName, variables, apiContext(new RepositoryContext {
-          override def currentUser: String = "user"
-        }))
+        case Success(document) => executeQuery(document, operationName, variables, apiContext(new DefaultRepositoryContext("api")))
         case Failure(parseError) => Future.failed(parseError)
       }
     }.getOrElse(Future.failed(new IllegalArgumentException("invalid json body")))

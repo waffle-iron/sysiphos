@@ -2,7 +2,6 @@ package com.flowtick.sysiphos.logging
 
 import java.io.File
 import java.nio.file.Paths
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
@@ -10,6 +9,7 @@ import cats.effect.{ ContextShift, IO }
 import com.amazonaws.auth.{ AWSCredentialsProviderChain, AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain }
 import com.amazonaws.services.s3.{ AmazonS3, AmazonS3ClientBuilder }
 import com.flowtick.sysiphos.config.Configuration.propOrEnv
+import com.flowtick.sysiphos.core.Clock
 import com.flowtick.sysiphos.logging.Logger.LogId
 import org.slf4j
 import org.slf4j.LoggerFactory
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-trait Logger {
+trait Logger extends Clock {
   /**
    *
    * @param logId the id to create the sink for
@@ -84,8 +84,6 @@ trait Logger {
    * @return a stream of log lines
    */
   def getLog(logId: Logger.LogId): Logger.LogStream
-
-  def now: LocalDateTime = LocalDateTime.now()
 }
 
 object Logger {

@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, Cancellable, PoisonPill, Props }
 import akka.pattern.pipe
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
 import com.flowtick.sysiphos.logging.Logger
@@ -33,9 +33,7 @@ class FlowExecutorActor(
   val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
   val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
 
-  override implicit val repositoryContext: RepositoryContext = new RepositoryContext {
-    override def currentUser: String = "undefined"
-  }
+  override implicit val repositoryContext: RepositoryContext = new DefaultRepositoryContext("test-user")
 
   def flowInstanceActorProps(flowDefinition: FlowDefinition, flowInstance: FlowInstance) = Props(
     new FlowInstanceExecutorActor(
@@ -62,24 +60,30 @@ class FlowExecutorActor(
       }.pipeTo(sender())
 
     case FlowInstanceExecution.Finished(flowInstance) =>
+      sender() ! PoisonPill
       log.info(s"finished $flowInstance")
       for {
         _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
         _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
       } yield ()
 
-    case FlowInstanceExecution.WorkTriggered(tasks) =>
-      log.info(s"new work started: $tasks")
-
     case FlowInstanceExecution.ExecutionFailed(flowInstance) =>
-      context.sender() ! PoisonPill
+      sender() ! PoisonPill
       for {
         _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Failed)
         _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
       } yield ()
 
+    case FlowInstanceExecution.TaskCompleted(taskInstance) =>
+      log.info(s"task completed: ${taskInstance.id}")
+      sender() ! FlowInstanceExecution.Execute(PendingTasks)
+
+    case FlowInstanceExecution.WorkPending(instance) =>
+      log.info(s"work pending: $instance")
+
     case FlowInstanceExecution.RetryScheduled(instance) =>
       log.info(s"retry scheduled: $instance")
+      sender() ! FlowInstanceExecution.Execute(PendingTasks)
   }
 
   def init: Cancellable = {
@@ -95,10 +99,8 @@ class FlowExecutorActor(
     val instanceActor = context.child(running.id).getOrElse(
       context.actorOf(flowInstanceActorProps(definition, running), running.id))
 
-    val executeMessage = FlowInstanceExecution.Execute(selectedTaskId)
-
     Future
-      .successful(executeMessage)
+      .successful(FlowInstanceExecution.Execute(selectedTaskId.map(TaskId).getOrElse(PendingTasks)))
       .pipeTo(instanceActor)(sender())
   }
 }

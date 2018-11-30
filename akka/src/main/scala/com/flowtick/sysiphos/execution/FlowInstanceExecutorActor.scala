@@ -2,14 +2,24 @@ package com.flowtick.sysiphos.execution
 
 import java.util.concurrent.Executors
 
+import akka.NotUsed
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.pattern.pipe
+import akka.routing.BalancingPool
+import akka.stream.QueueOfferResult.Enqueued
+import akka.stream.scaladsl.{ Keep, Sink, Source }
+import akka.stream.{ ActorMaterializer, KillSwitches }
+import cats.data.OptionT
+import cats.instances.future._
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
+import com.flowtick.sysiphos.execution.FlowTaskExecution.Execute
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
 
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{ ExecutionContextExecutor, Future }
+import scala.util.Try
 
 class FlowInstanceExecutorActor(
   flowDefinition: FlowDefinition,
@@ -18,51 +28,99 @@ class FlowInstanceExecutorActor(
   val flowTaskInstanceRepository: FlowTaskInstanceRepository,
   logger: Logger)(implicit repositoryContext: RepositoryContext)
   extends Actor with FlowInstanceExecution {
+  import Logging._
 
-  implicit val executionContext = scala.concurrent.ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
+  implicit val executionContext: ExecutionContextExecutor = scala.concurrent.ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
+  implicit val actorMaterializer: ActorMaterializer = ActorMaterializer()
 
-  def flowTaskExecutor(taskInstance: FlowTaskInstance): ActorRef =
-    context.actorOf(Props(new FlowTaskExecutionActor(taskInstance, flowInstance, context.parent, logger)))
+  val taskExecutorProps = Props(new FlowTaskExecutionActor(flowInstance, self, context.parent, logger))
 
-  def selfRef: ActorRef = self
+  val taskParallelism: Int = flowDefinition.taskParallelism.getOrElse(1)
+
+  protected lazy val taskActorPool: ActorRef = {
+    context.actorOf(BalancingPool(taskParallelism).props(taskExecutorProps))
+  }
+
+  def taskActorSink(targetActor: ActorRef): Sink[Any, NotUsed] =
+    Sink.actorRefWithAck(
+      targetActor,
+      onInitMessage = FlowTaskExecution.TaskStreamInitialized,
+      ackMessage = FlowTaskExecution.TaskAck,
+      onCompleteMessage = FlowTaskExecution.TaskStreamCompleted,
+      onFailureMessage = (ex: Throwable) => FlowTaskExecution.TaskStreamFailure(ex))
+
+  protected lazy val ((queue, killSwitch), done) =
+    Source
+      .queue[FlowTask](taskParallelism, akka.stream.OverflowStrategy.backpressure)
+      .throttle(flowDefinition.taskRatePerSecond.getOrElse(1), 1.second)
+      .viaMat(KillSwitches.single)(Keep.both)
+      .mapAsync(parallelism = taskParallelism)(flowTask => {
+        getOrCreateTaskInstance(flowInstance, flowTask, logger)
+          .map(taskInstance => Execute(flowTask, taskInstance))
+          .logFailed("unable to get or create task instance")
+      })
+      .filter(execute => isRunnable(execute.taskInstance))
+      .filter(execute => execute.taskInstance.nextDueDate.forall(fromEpochSeconds(_).isBefore(now.toLocalDateTime)))
+      .mapAsync(parallelism = taskParallelism)(setRunning(_, logger).logFailed("unable to set running"))
+      .wireTap(execute => log.debug(s"passing from stream to actor $execute"))
+      .toMat(taskActorSink(taskActorPool))(Keep.both)
+      .run
+
+  override def postStop(): Unit = {
+    log.debug("shutting down task stream")
+    Try(killSwitch.shutdown()).failed.foreach(error => log.warn(s"unable to shutdown task stream, ${error.getMessage}"))
+  }
+
+  def enqueueNextTasks(
+    taskSelection: FlowTaskSelection,
+    currentInstances: Seq[FlowTaskInstanceDetails]): Future[Seq[Either[Throwable, FlowTask]]] =
+    for {
+      next <- Future.successful(nextFlowTasks(
+        taskSelection,
+        flowDefinition,
+        currentInstances))
+
+      enqueued <- Future.sequence(next.map { flowTask =>
+        queue.offer(flowTask).flatMap[Either[Throwable, FlowTask]] {
+          case Enqueued => Future.successful(Right(flowTask))
+          case other => Future.successful(Left(new RuntimeException(s"unable to qneue $flowTask, $other")))
+        }.recoverWith {
+          case error => Future.successful(Left(error))
+        }
+      })
+    } yield enqueued
 
   override def receive: PartialFunction[Any, Unit] = {
-    case FlowInstanceExecution.Execute(optionalTask) =>
-      log.info(s"executing $flowDefinition, $flowInstance ...")
-      val executed: Future[FlowInstanceExecution.FlowInstanceMessage] = for {
-        currentInstances <- flowTaskInstanceRepository.getFlowTaskInstances(Some(flowInstance.id), None, None)
+    case FlowInstanceExecution.Execute(taskSelection) =>
+      log.info(s"executing ${flowDefinition.id} instance ${flowInstance.id} ...")
+      (for {
+        currentInstances <- flowTaskInstanceRepository.find(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)))
 
-        next: Seq[FlowTaskExecution.Execute] <- executeNext(
-          flowDefinition,
-          flowInstance,
-          selectTask = optionalTask.flatMap(flowDefinition.findTask),
-          currentInstances = currentInstances,
-          logger)
+        enqueueResult <- enqueueNextTasks(taskSelection, currentInstances).logSuccess(result => s"new in queue: $result")
 
-        executionMessage <- next match {
-          case Nil => instanceStatus
-          case nextTasks: Seq[FlowTaskExecution.Execute] =>
-            val result: Future[WorkTriggered] = Future.sequence(
-              nextTasks.map(execute => Future.successful(execute).pipeTo(flowTaskExecutor(execute.taskInstance)))).map(WorkTriggered)
-            result
+        executionResult <- if (enqueueResult.exists(_.isRight) || currentInstances.exists(isPending)) {
+          Future.successful(WorkPending(flowInstance))
+        } else if (currentInstances.forall(_.status == FlowTaskInstanceStatus.Done)) {
+          Future.successful(Finished(flowInstance))
+        } else {
+          Future.successful(ExecutionFailed(flowInstance))
         }
-      } yield executionMessage
 
-      executed.pipeTo(context.parent)
+      } yield executionResult)
+        .logSuccess(executionResult => s"execution result $executionResult")
+        .logFailed(s"unable to execute $flowInstance").pipeTo(context.parent)
 
     case FlowInstanceExecution.WorkFailed(error, flowTaskInstance) =>
       log.warn(s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}")
-      context.stop(sender())
 
       val handledFailure = for {
         _ <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
         handled <- handleFailedTask(flowTaskInstance, error)
       } yield handled
 
-      handledFailure.pipeTo(context.parent)
+      handledFailure.logFailed(s"unable to handle failure in ${flowTaskInstance.id}").pipeTo(context.parent)
 
     case FlowInstanceExecution.WorkDone(flowTaskInstance) =>
-      context.stop(sender())
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
       val doneTaskInstance = for {
@@ -70,20 +128,14 @@ class FlowInstanceExecutorActor(
         ended <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
       } yield ended
 
-      doneTaskInstance.map(_ => {
-        FlowInstanceExecution.Execute(None)
-      }).pipeTo(selfRef)
-  }
+      OptionT(doneTaskInstance)
+        .getOrElseF(Future.failed(new IllegalStateException("flow definition not updated")))
+        .map(TaskCompleted)
+        .pipeTo(context.parent)
+        .logFailed(s"unable to complete task ${flowTaskInstance.id}")
 
-  private def instanceStatus: Future[FlowInstanceExecution.FlowInstanceMessage] =
-    for {
-      taskInstances <- flowTaskInstanceRepository.getFlowTaskInstances(Some(flowInstance.id), None, None)
-    } yield {
-      if (taskInstances.forall(_.status == FlowTaskInstanceStatus.Done))
-        Finished(flowInstance)
-      else
-        ExecutionFailed(flowInstance)
-    }
+    case other => log.warn(s"unhandled message: $other")
+  }
 
   private def handleFailedTask(flowTaskInstance: FlowTaskInstance, error: Throwable): Future[FlowInstanceMessage] =
     if (flowTaskInstance.retries == 0) {

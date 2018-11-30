@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.slick
 
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import org.scalatest.Inside
 import slick.jdbc.H2Profile
@@ -8,9 +8,7 @@ import slick.jdbc.H2Profile
 class SlickFlowScheduleRepositorySpec extends SlickSpec with Inside {
   val slickScheduleRepository = new SlickFlowScheduleRepository(dataSource)(H2Profile, scala.concurrent.ExecutionContext.Implicits.global)
 
-  "Slick Schedule Repository" should "create schedule" in new RepositoryContext {
-    override def currentUser: String = "test-user"
-
+  "Slick Schedule Repository" should "create schedule" in new DefaultRepositoryContext("test-user") {
     val newSchedule = slickScheduleRepository
       .createFlowSchedule(Some("id"), Some("expression"), "definition_id", None, None, None)(this)
       .futureValue

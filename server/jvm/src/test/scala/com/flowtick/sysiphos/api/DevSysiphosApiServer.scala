@@ -3,7 +3,7 @@ package com.flowtick.sysiphos.api
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.slick._
 import com.flowtick.sysiphos.task.CommandLineTask
@@ -33,16 +33,14 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
     flowScheduleRepository,
     flowTaskInstanceRepository)(apiExecutor, repositoryContext)
 
-  implicit val repositoryContext = new RepositoryContext {
-    override def currentUser: String = "dev-test"
-  }
+  implicit val repositoryContext = new DefaultRepositoryContext("dev-test")
 
   startApiServer()
 
   Try {
     val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
       "foo",
-      Seq(CommandLineTask("foo", None, "ls -la", shell = Some("bash"))))).futureValue
+      Seq.tabulate(10)(index => CommandLineTask(s"foo-$index", None, "ls -la", shell = Some("bash"))))).futureValue
 
     flowScheduleRepository.createFlowSchedule(
       Some("test-schedule-2"),
@@ -51,5 +49,5 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
       None,
       Some(true),
       None).futureValue
-  }.failed.foreach(println)
+  }.failed.foreach(log.warn("unable to create dev schedule", _))
 }

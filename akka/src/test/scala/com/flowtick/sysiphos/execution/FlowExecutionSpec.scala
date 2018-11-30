@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.execution
 
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
@@ -21,13 +21,11 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
   override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
   override val flowScheduleStateStore: FlowScheduleStateStore = mock[FlowScheduleStateStore]
 
-  override implicit val repositoryContext: RepositoryContext = new RepositoryContext {
-    override def currentUser: String = "test-user"
-  }
+  override implicit val repositoryContext: RepositoryContext = new DefaultRepositoryContext("test-user")
 
   override implicit val executionContext: ExecutionContext = ExecutionContext.Implicits.global
 
-  "Akka flow executor" should "create child actors for due schedules" in new RepositoryContext {
+  "Akka flow executor" should "create child actors for due schedules" in new DefaultRepositoryContext("test-user") {
     val testInstance = FlowInstanceDetails(
       id = "test-instance",
       flowDefinitionId = "flow-id",
@@ -57,8 +55,6 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *).returning(Future.successful(()))
 
     dueScheduledFlowInstances(now = 0).futureValue
-
-    override def currentUser: String = "test-user"
   }
 
   it should "respect the parallelism option" in {

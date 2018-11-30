@@ -30,6 +30,9 @@ trait FlowDefinition {
   }
 
   def parallelism: Option[Int]
+
+  def taskParallelism: Option[Int]
+  def taskRatePerSecond: Option[Int]
 }
 
 object FlowDefinition {
@@ -83,7 +86,13 @@ object FlowDefinition {
     }
   }
 
-  final case class SysiphosDefinition(id: String, tasks: Seq[FlowTask], latestOnly: Boolean = false, parallelism: Option[Int] = None) extends FlowDefinition
+  final case class SysiphosDefinition(
+    id: String,
+    tasks: Seq[FlowTask],
+    latestOnly: Boolean = false,
+    parallelism: Option[Int] = None,
+    taskParallelism: Option[Int] = None,
+    taskRatePerSecond: Option[Int] = None) extends FlowDefinition
   final case class SysiphosTask(
     id: String,
     `type`: String,

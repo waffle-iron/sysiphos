@@ -7,8 +7,9 @@ import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
+import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamCompleted, TaskStreamFailure, TaskStreamInitialized }
 import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTaskExecution }
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
+import com.flowtick.sysiphos.flow.FlowInstance
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
 import org.apache.camel.Message
@@ -17,8 +18,8 @@ import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, Future }
 import scala.util.{ Failure, Success, Try }
 
 class FlowTaskExecutionActor(
-  taskInstance: FlowTaskInstance,
   flowInstance: FlowInstance,
+  flowInstanceActor: ActorRef,
   flowExecutorActor: ActorRef,
   taskLogger: Logger) extends Actor
   with CommandLineTaskExecution
@@ -28,7 +29,7 @@ class FlowTaskExecutionActor(
   implicit val taskExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), _) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), taskInstance) =>
       log.info(s"executing command with id $id")
 
       val run: IO[Int] = for {
@@ -47,9 +48,11 @@ class FlowTaskExecutionActor(
         case error =>
           taskLogger.appendLine(taskInstance.logId, s"error in command execution: ${error.getMessage}").unsafeRunSync()
           Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
-      }.pipeTo(sender())
+      }.pipeTo(flowInstanceActor)
 
-    case FlowTaskExecution.Execute(camelTask: CamelTask, _) =>
+      sender() ! TaskAck
+
+    case FlowTaskExecution.Execute(camelTask: CamelTask, taskInstance) =>
       executeExchange(camelTask, flowInstance, taskInstance.logId)(taskLogger)
         .map(_.getOut)
         .unsafeToFuture()
@@ -62,9 +65,11 @@ class FlowTaskExecutionActor(
           case error =>
             taskLogger.appendLine(taskInstance.logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
             Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
-        }.pipeTo(sender())
+        }.pipeTo(flowInstanceActor)
 
-    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), _) =>
+      sender() ! TaskAck
+
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), taskInstance) =>
       log.info(s"executing task with id $id")
 
       ask(flowExecutorActor, RequestInstance(flowDefinitionId, flowInstance.context))(Timeout(30, TimeUnit.SECONDS)).map {
@@ -74,9 +79,24 @@ class FlowTaskExecutionActor(
         case NewInstance(Left(error)) =>
           taskLogger.appendLine(taskInstance.logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()
           FlowInstanceExecution.WorkFailed(error, taskInstance)
-      }.pipeTo(sender())
+      }.pipeTo(flowInstanceActor)
 
-    case other: Any => sender() ! FlowInstanceExecution.WorkFailed(new IllegalStateException(s"unable to handle $other"), taskInstance)
+      sender() ! TaskAck
+
+    case TaskStreamInitialized =>
+      log.info("stream initialized")
+      sender() ! TaskAck
+
+    case TaskStreamCompleted =>
+      log.info("stream completed")
+
+    case TaskStreamFailure(error) =>
+      log.error("stream error", error)
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(flowInstance)
+
+    case other: Any =>
+      log.error(s"unable to handle $other, this is not recoverable, failing execution")
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(flowInstance)
   }
 
 }

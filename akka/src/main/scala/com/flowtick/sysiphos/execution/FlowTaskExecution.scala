@@ -25,7 +25,7 @@ trait FlowTaskExecution {
 }
 
 object FlowTaskExecution {
-  private[execution] val freemarkerCfg: Configuration = {
+  private[execution] lazy val freemarkerCfg: Configuration = {
     val cfg = new Configuration(Configuration.VERSION_2_3_28)
     cfg.setDefaultEncoding("UTF-8")
     // Don't log exceptions inside FreeMarker that it will thrown at you anyway:// Don't log exceptions inside FreeMarker that it will thrown at you anyway:
@@ -36,5 +36,10 @@ object FlowTaskExecution {
   }
 
   final case class Execute(flowTask: FlowTask, taskInstance: FlowTaskInstance)
+
+  case object TaskAck
+  case object TaskStreamInitialized
+  case object TaskStreamCompleted
+  final case class TaskStreamFailure(ex: Throwable)
 }
 
