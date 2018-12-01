@@ -4,7 +4,7 @@
 # Sysiphos
 
 A graph-based task scheduler. It allows to execute JSON-defined workflows in with `cron`-like schedules,
-while providing an API and UI for an easy operations.
+while providing an API and UI for easy operations.
 
 ### Example
 
@@ -13,7 +13,7 @@ while providing an API and UI for an easy operations.
 ```json
 {
   "id" : "new-flow",
-  "task" : {
+  "tasks" : [{
     "id" : "new-task",
     "type" : "shell",
     "command" : "curl https://api.chucknorris.io/jokes/random?category=${category!\"dev\"}",
@@ -24,7 +24,7 @@ while providing an API and UI for an easy operations.
         "command" : "echo I am child task, I get triggered when my parent is done. "
       }
     ]
-  }
+  }]
 }
 ``` 
 
