@@ -10,7 +10,7 @@ while providing an API and UI for easy operations.
 
 #### Workflow
 
-```json
+```javascript
 {
   "id" : "new-flow",
   "tasks" : [{
