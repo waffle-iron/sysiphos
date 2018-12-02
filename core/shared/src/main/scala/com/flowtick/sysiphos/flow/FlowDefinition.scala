@@ -6,15 +6,53 @@ import io.circe._
 import com.flowtick.sysiphos._
 
 trait FlowTask {
+  /**
+   * @return unique identifier of this flow task
+   */
   def id: String
+
+  /**
+   * @return the children of this task, this will recursively define a tree of tasks
+   */
   def children: Option[Seq[FlowTask]]
+
+  /**
+   *
+   * @return number of seconds to delay the first execution of this task
+   */
+  def startDelay: Option[Long]
+
+  /**
+   * @return number of seconds to delay before attempting another retry
+   */
+  def retryDelay: Option[Long]
+
+  /**
+   * @return the number of times the task should be retried in case of a failure
+   */
+  def retries: Option[Int]
 }
 
 trait FlowDefinition {
+  /**
+   * @return unique identifier of this flow definition
+   */
   def id: String
+
+  /**
+   * @return the root tasks for this flow, this is a list to allow task parallelism on the root level
+   */
   def tasks: Seq[FlowTask]
+
+  /**
+   * @return true if only the last instance in a list of scheduled instances should be executed
+   */
   def latestOnly: Boolean
 
+  /**
+   * @param id a task id
+   * @return first task in the tasks and there children that matches the id param
+   */
   def findTask(id: String): Option[FlowTask] = {
     def findInTask(task: FlowTask): Option[FlowTask] =
       if (task.id == id) {
@@ -29,9 +67,19 @@ trait FlowDefinition {
     tasks.flatMap(findInTask).headOption
   }
 
+  /**
+   * @return the instance level parallelism, meaning how many instance should be allowed to run in parallel
+   */
   def parallelism: Option[Int]
 
+  /**
+   * @return the task level parallelism, meaning how many task instance should run in parallel per running instance
+   */
   def taskParallelism: Option[Int]
+
+  /**
+   * @return how many tasks per seconds should be executed, this should be seen as maximum capping
+   */
   def taskRatePerSecond: Option[Int]
 }
 
@@ -93,11 +141,15 @@ object FlowDefinition {
     parallelism: Option[Int] = None,
     taskParallelism: Option[Int] = None,
     taskRatePerSecond: Option[Int] = None) extends FlowDefinition
+
   final case class SysiphosTask(
     id: String,
     `type`: String,
     children: Option[Seq[FlowTask]],
-    properties: Option[Map[String, String]]) extends FlowTask
+    properties: Option[Map[String, String]],
+    startDelay: Option[Long] = None,
+    retryDelay: Option[Long] = None,
+    retries: Option[Int] = None) extends FlowTask
 
   def fromJson(json: String): Either[Exception, FlowDefinition] = decode[FlowDefinition](json)
 

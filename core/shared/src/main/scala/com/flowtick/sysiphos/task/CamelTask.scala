@@ -19,4 +19,7 @@ final case class CamelTask(
   to: Option[Seq[String]] = None,
   extract: Option[Seq[ExtractSpec]] = None,
   convertStreamToString: Option[Boolean] = None,
-  registry: Option[Map[String, RegistryEntry]] = None) extends FlowTask
+  registry: Option[Map[String, RegistryEntry]] = None,
+  startDelay: Option[Long] = None,
+  retryDelay: Option[Long] = None,
+  retries: Option[Int] = None) extends FlowTask

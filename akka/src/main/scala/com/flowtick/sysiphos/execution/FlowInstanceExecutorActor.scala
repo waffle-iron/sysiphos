@@ -145,7 +145,7 @@ class FlowInstanceExecutorActor(
         .setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed)
         .map(_ => FlowInstanceExecution.ExecutionFailed(flowInstance))
     } else {
-      val dueDate = repositoryContext.epochSeconds + flowTaskInstance.retryDelay.getOrElse(retryDelayDefault)
+      val dueDate = repositoryContext.epochSeconds + flowTaskInstance.retryDelay
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
 
       for {

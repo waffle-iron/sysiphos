@@ -28,7 +28,7 @@ class FlowTaskExecutionActor(
   implicit val taskExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell), taskInstance) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell, _, _, _), taskInstance) =>
       log.info(s"executing command with id $id")
 
       val run: IO[Int] = for {
@@ -68,7 +68,7 @@ class FlowTaskExecutionActor(
 
       sender() ! TaskAck
 
-    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _), taskInstance) =>
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _), taskInstance) =>
       log.info(s"executing task with id $id")
 
       ask(flowExecutorActor, RequestInstance(flowDefinitionId, flowInstance.context))(Timeout(30, TimeUnit.SECONDS)).map {

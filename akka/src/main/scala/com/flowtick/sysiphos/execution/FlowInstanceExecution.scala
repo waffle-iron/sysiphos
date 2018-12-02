@@ -64,7 +64,18 @@ trait FlowInstanceExecution extends Logging with Clock {
     def createInstance: Future[FlowTaskInstanceDetails] =
       Future
         .fromTry(logger.logId(s"${flowInstance.flowDefinitionId}/${flowInstance.id}/${task.id}-${repositoryContext.epochSeconds}"))
-        .flatMap(flowTaskInstanceRepository.createFlowTaskInstance(flowInstance.id, task.id, _, taskRetriesDefault(task)))
+        .flatMap(logId => {
+          val (initialStatus: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus], dueDate: Option[Long]) = task.startDelay.map { delay =>
+            (Some(FlowTaskInstanceStatus.Retry), Some(repositoryContext.epochSeconds + delay))
+          }.getOrElse((None, None))
+
+          flowTaskInstanceRepository.createFlowTaskInstance(
+            flowInstanceId = flowInstance.id, flowTaskId = task.id, logId = logId,
+            retries = task.retries.getOrElse(taskRetriesDefault(task)),
+            retryDelay = task.retryDelay.getOrElse(retryDelayDefault),
+            dueDate = dueDate,
+            initialStatus = initialStatus)
+        })
 
     for {
       foundInstance <- flowTaskInstanceRepository.findOne(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(task.id)))

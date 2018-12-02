@@ -48,7 +48,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       endTime = None,
       retries = 0,
       status = FlowTaskInstanceStatus.New,
-      retryDelay = None,
+      retryDelay = 10,
       nextDueDate = None,
       logId = "log-id")
 
@@ -91,8 +91,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(flowDefinition.tasks.head.id)), *)
       .returning(Future.successful(None))
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int)(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
 
     (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
@@ -182,7 +182,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
     (flowTaskInstanceRepository.setNextDueDate(_: String, _: Option[Long])(_: RepositoryContext))
-      .expects(flowTaskInstanceWithRetry.id, Some(18000L + testEpoch), *)
+      .expects(flowTaskInstanceWithRetry.id, Some(flowTaskInstance.retryDelay + testEpoch), *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstanceWithRetry)
@@ -266,7 +266,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       tasks = manyCommands,
       taskParallelism = Some(50))
 
-    val manyCommands = Seq.tabulate(100)(index => CommandLineTask(s"ls-task-id-$index", None, "ls"))
+    val manyCommands: Seq[CommandLineTask] = Seq.tabulate(100)(index => CommandLineTask(s"ls-task-id-$index", None, "ls"))
 
     (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext))
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)), *)
@@ -278,8 +278,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returning(Future.successful(None))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int)(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
       .atLeastOnce()
 

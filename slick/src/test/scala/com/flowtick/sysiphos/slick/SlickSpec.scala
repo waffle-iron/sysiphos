@@ -27,7 +27,7 @@ trait SlickSpec extends FlatSpec
       user = "sa",
       password = "")
 
-    updateDatabase(h2DataSource)
+    updateDatabase(h2DataSource).get
 
     h2DataSource
   }

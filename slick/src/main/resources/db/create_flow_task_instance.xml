@@ -153,4 +153,15 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="10" author="sysiphos">
+        <preConditions>
+            <columnExists tableName="_FLOW_TASK_INSTANCE" columnName="_RETRY_DELAY"/>
+        </preConditions>
+
+        <addNotNullConstraint tableName="_FLOW_TASK_INSTANCE"
+                              columnName="_RETRY_DELAY"
+                              defaultNullValue="10"
+                              columnDataType="bigint" />
+    </changeSet>
+
 </databaseChangeLog>
