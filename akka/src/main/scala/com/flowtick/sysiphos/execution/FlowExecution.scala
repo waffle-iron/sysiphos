@@ -34,7 +34,7 @@ trait FlowExecution extends Logging {
       Future.sequence(tasks.map { task =>
         flowInstanceRepository.findById(task.flowInstanceId).map(instance => (instance, task.taskId))
       })
-    }.logSuccess(dueTasks => s"found due retries: $dueTasks")
+    }.logFailed(s"unable to check for retries")
 
   def manuallyTriggeredInstances: Future[Seq[FlowInstance]] =
     flowInstanceRepository.getFlowInstances(FlowInstanceQuery(
