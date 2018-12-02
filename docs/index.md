@@ -30,6 +30,7 @@ See the @ref:[Introduction](intro.md) to read about the core concepts.
 
 * [Introduction](intro.md)
 * [Execution Model](execution-model.md)
+* [Concurrency](concurrency.md)
 * [Run](run.md)
 * [Tutorial](tutorial.md)
 * [Tasks](tasks.md)
