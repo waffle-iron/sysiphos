@@ -30,4 +30,31 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="2" author="sysiphos">
+        <preConditions>
+            <not>
+                <foreignKeyConstraintExists foreignKeyTableName="_FLOW_INSTANCE_CONTEXT"
+                                            foreignKeyName="FK_FLOW_INSTANCE_CONTEXT"/>
+            </not>
+        </preConditions>
+
+        <addForeignKeyConstraint baseTableName="_FLOW_INSTANCE_CONTEXT"
+                                 baseColumnNames="_FLOW_INSTANCE_ID"
+                                 constraintName="FK_FLOW_INSTANCE_CONTEXT"
+                                 referencedTableName="_FLOW_INSTANCE"
+                                 referencedColumnNames="_ID"/>
+    </changeSet>
+
+    <changeSet id="3" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_INSTANCE_CONTEXT" indexName="IDX_FLOW_INSTANCE_CONTEXT"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_INSTANCE_CONTEXT" indexName="IDX_FLOW_INSTANCE_CONTEXT">
+            <column name="_FLOW_INSTANCE_ID" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

@@ -120,16 +120,17 @@ class FlowInstanceExecutorActor(
 
       handledFailure.logFailed(s"unable to handle failure in ${flowTaskInstance.id}").pipeTo(context.parent)
 
-    case FlowInstanceExecution.WorkDone(flowTaskInstance) =>
+    case FlowInstanceExecution.WorkDone(flowTaskInstance, addToContext) =>
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
       val doneTaskInstance = for {
         _ <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done)
         ended <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
+        _ <- flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
       } yield ended
 
       OptionT(doneTaskInstance)
-        .getOrElseF(Future.failed(new IllegalStateException("flow definition not updated")))
+        .getOrElseF(Future.failed(new IllegalStateException("flow task instance not updated")))
         .map(TaskCompleted)
         .pipeTo(context.parent)
         .logFailed(s"unable to complete task ${flowTaskInstance.id}")

@@ -112,7 +112,7 @@ object FlowInstanceExecution {
 
   case class Execute(taskSelection: FlowTaskSelection) extends FlowInstanceMessage
 
-  case class WorkDone(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
+  case class WorkDone(flowTaskInstance: FlowTaskInstance, addToContext: Seq[FlowInstanceContextValue] = Seq.empty) extends FlowInstanceMessage
   case class TaskCompleted(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
   case class WorkFailed(e: Throwable, flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
   case class RetryScheduled(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage

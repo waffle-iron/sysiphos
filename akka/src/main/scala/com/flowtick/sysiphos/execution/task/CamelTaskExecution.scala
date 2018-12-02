@@ -1,17 +1,26 @@
 package com.flowtick.sysiphos.execution.task
 
+import java.io.InputStream
+
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.FlowTaskExecution
+import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowInstance
+import com.flowtick.sysiphos.flow.FlowInstanceContextValue
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CamelTask
+import com.flowtick.sysiphos.task.ExtractSpec
 import org.apache.camel.impl.{ DefaultCamelContext, SimpleRegistry }
 import org.apache.camel._
 import org.apache.camel.builder.RouteBuilder
+import org.apache.camel.jsonpath.JsonPathExpression
+import org.apache.camel.language.simple.SimpleLanguage
 import org.springframework.beans.{ BeanUtils, PropertyAccessorFactory }
 
-trait CamelTaskExecution extends FlowTaskExecution {
+import scala.util.{ Failure, Try }
+
+trait CamelTaskExecution extends FlowTaskExecution with Logging {
   protected def createCamelContext(camelTask: CamelTask): IO[CamelContext] = IO.delay {
     import scala.collection.JavaConverters._
 
@@ -37,7 +46,7 @@ trait CamelTaskExecution extends FlowTaskExecution {
     flowInstance: FlowInstance,
     logId: LogId)(taskLogger: Logger): IO[CamelContext => Exchange] = IO.delay { camelContext =>
 
-    def exchange = camelTask.exchangeType.getOrElse("producer") match {
+    def exchange: Exchange = camelTask.exchangeType.getOrElse("producer") match {
       case "producer" =>
         val producer = camelContext.createProducerTemplate()
 
@@ -89,10 +98,10 @@ trait CamelTaskExecution extends FlowTaskExecution {
         camelContext.addRoutes(routeBuilder)
 
         camelContext.start()
-        val receive = exchange
+        val result = exchange
         camelContext.stop()
 
-        receive
+        result
     }
 
   }
@@ -100,9 +109,43 @@ trait CamelTaskExecution extends FlowTaskExecution {
   def executeExchange(
     camelTask: CamelTask,
     flowInstance: FlowInstance,
-    logId: LogId)(taskLogger: Logger): IO[Exchange] =
+    logId: LogId)(taskLogger: Logger): IO[(Exchange, Seq[FlowInstanceContextValue])] =
     for {
       camelContext <- createCamelContext(camelTask)
       result <- createExchange(camelTask, flowInstance, logId)(taskLogger)
-    } yield result(camelContext)
+    } yield {
+      val exchange = result(camelContext)
+
+      if (camelTask.convertStreamToString.getOrElse(true) && exchange.getOut.getBody.isInstanceOf[InputStream]) {
+        exchange.getOut.setBody(exchange.getOut.getBody(classOf[String]))
+      }
+
+      val contextValues: Seq[FlowInstanceContextValue] = camelTask.extract.getOrElse(Seq.empty).flatMap {
+        case ExtractSpec("jsonpath", name, expression) =>
+          Try {
+            val jsonPathExpression = new JsonPathExpression(expression)
+            jsonPathExpression.init()
+
+            // json path expression works only on in message
+
+            val expressionExchange = exchange.copy(true)
+            expressionExchange.getIn.setBody(exchange.getOut.getBody)
+
+            jsonPathExpression.evaluate(expressionExchange, classOf[String])
+          }.map(FlowInstanceContextValue(name, _)).recoverWith {
+            case error =>
+              log.error("error during value extraction", error)
+              taskLogger.appendLine(logId, s"unable to extract '$name': ${error.getMessage}").unsafeRunSync()
+              Failure(error)
+          }.toOption
+
+        case ExtractSpec("simple", name, expression) =>
+          Try(SimpleLanguage.simple(expression).evaluate(exchange, classOf[String])).map(FlowInstanceContextValue(name, _)).toOption
+
+        case _ =>
+          None
+      }
+
+      (exchange, contextValues)
+    }
 }

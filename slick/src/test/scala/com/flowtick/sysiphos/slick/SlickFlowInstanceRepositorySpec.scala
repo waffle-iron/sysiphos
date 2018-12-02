@@ -62,4 +62,25 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
       Some(newInstance.copy(startTime = Some(42), endTime = Some(43), status = FlowInstanceStatus.Done)))
 
   }
+
+  it should "add context values" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+
+    override def epochSeconds: Long = 0
+
+    val instanceRepository = createTestRepository
+
+    val newInstance: FlowInstanceDetails =
+      instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
+
+    val updatedInstance = instanceRepository.insertOrUpdateContextValues(newInstance.id, Seq(
+      FlowInstanceContextValue("foo", "newFooValue"),
+      FlowInstanceContextValue("bar", "barValue")))(this).futureValue
+
+    val allContextValues = instanceRepository.contextValues.futureValue
+
+    updatedInstance.get.context should be(Seq(
+      FlowInstanceContextValue("foo", "newFooValue"),
+      FlowInstanceContextValue("bar", "barValue")))
+  }
 }

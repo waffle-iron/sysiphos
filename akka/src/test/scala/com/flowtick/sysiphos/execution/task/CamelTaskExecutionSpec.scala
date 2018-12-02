@@ -6,9 +6,8 @@ import cats.effect.IO
 import com.flowtick.sysiphos.execution.WireMockSupport
 import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
+import com.flowtick.sysiphos.task.{ CamelTask, ExtractSpec, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
-import org.apache.camel.Exchange
 import org.apache.camel.component.mock.MockEndpoint
 import org.scalatest.{ FlatSpec, Matchers, Succeeded }
 
@@ -54,6 +53,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
 
     val result: Any = withWireMock(server => IO.delay {
       server.stubFor(get(urlEqualTo("/get-test"))
+        .withHeader("bar", equalTo("baz"))
         .willReturn(aResponse()
           .withStatus(200)
           .withBody("Some get content")))
@@ -63,7 +63,27 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/get-test",
         bodyTemplate = None,
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_.getOut.getBody)
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
+    }).unsafeRunSync()
+
+    result should be("Some get content")
+  }
+
+  it should "execute HTTP GET request without conversion" in new WireMockSupport {
+    import com.github.tomakehurst.wiremock.client.WireMock._
+
+    val result: Any = withWireMock(server => IO.delay {
+      server.stubFor(get(urlEqualTo("/get-test"))
+        .willReturn(aResponse()
+          .withStatus(200)
+          .withBody("Some get content")))
+    }.flatMap { _ =>
+      executeExchange(CamelTask(
+        id = "camel-task",
+        uri = s"http4://localhost:${server.port}/get-test",
+        bodyTemplate = None,
+        convertStreamToString = Some(false),
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
     }).unsafeRunSync()
 
     scala.io.Source.fromInputStream(result.asInstanceOf[InputStream]).getLines().mkString should
@@ -85,11 +105,31 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/post-test",
         bodyTemplate = Some("body ${foo}"),
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_.getOut.getBody)
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
     }).unsafeRunSync()
 
-    scala.io.Source.fromInputStream(result.asInstanceOf[InputStream]).getLines().mkString should
-      be("Some post response")
+    result should be("Some post response")
+  }
+
+  it should "extract a value from a HTTP response with JsonPath" in new WireMockSupport {
+    import com.github.tomakehurst.wiremock.client.WireMock._
+
+    val (exchange, contextValues) = withWireMock(server => IO.delay {
+      server.stubFor(get(urlEqualTo("/extract-test"))
+        .willReturn(aResponse()
+          .withStatus(200)
+          .withBody(s"""{ "key" : "foo" }""")))
+    }.flatMap { _ =>
+      executeExchange(CamelTask(
+        id = "camel-task",
+        uri = s"http4://localhost:${server.port}/extract-test",
+        bodyTemplate = None,
+        extract = Some(Seq(ExtractSpec("jsonpath", "extracted", "$.key"), ExtractSpec("jsonpath", "extracted2", "$.key"))),
+        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger)
+    }).unsafeRunSync()
+
+    contextValues should contain allOf (FlowInstanceContextValue("extracted", "foo"), FlowInstanceContextValue("extracted2", "foo"))
+    exchange.getOut.getBody should be(s"""{ "key" : "foo" }""")
   }
 
   it should "send a slack message" in new WireMockSupport {
@@ -113,10 +153,11 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
   }
 
   it should "execute a sql query" in {
-    val exchange: Exchange = executeExchange(CamelTask(
+    val (exchange, contextValues) = executeExchange(CamelTask(
       id = "camel-task",
       uri = s"sql:select 1+1 as result?dataSource=testDs",
       exchangeType = Some("consumer"),
+      extract = Some(Seq(ExtractSpec("simple", "extracted", "${body.get(\"RESULT\")}"))),
       children = None,
       registry = Some(
         Map("testDs" -> RegistryEntry(
@@ -128,6 +169,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
             "password" -> "sa"))))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
 
     exchange.getOut.getBody.asInstanceOf[java.util.Map[String, Any]].get("RESULT") should be(2)
+    contextValues should contain only FlowInstanceContextValue("extracted", "2")
   }
 
 }

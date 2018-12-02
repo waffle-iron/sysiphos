@@ -68,4 +68,89 @@
                 columnDataType="varchar(2048)" />
     </changeSet>
 
+
+    <changeSet id="3" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_INSTANCE_ID"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_INSTANCE_ID">
+            <column name="_FLOW_INSTANCE_ID" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="4" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_CREATED"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_CREATED">
+            <column name="_CREATED" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="5" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_STATUS"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_STATUS">
+            <column name="_STATUS" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="6" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_START_TIME"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_START_TIME">
+            <column name="_START_TIME" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="7" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_END_TIME"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_END_TIME">
+            <column name="_END_TIME" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="8" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_NEXT_DUE_DATE"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_NEXT_DUE_DATE">
+            <column name="_NEXT_DUE_DATE" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="9" author="sysiphos">
+        <preConditions>
+            <not>
+                <indexExists tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_TASK_ID"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="_FLOW_TASK_INSTANCE" indexName="IDX_FLOW_TASK_INSTANCE_TASK_ID">
+            <column name="_TASK_ID" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

@@ -95,6 +95,7 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0",
     libraryDependencies += "org.apache.camel" % "camel-core" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-http4" % camelV,
+    libraryDependencies += "org.apache.camel" % "camel-jsonpath" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-slack" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-mail" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-sql" % camelV,

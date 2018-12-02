@@ -111,6 +111,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
+    (flowInstanceRepository.insertOrUpdateContextValues(_: String, _: Seq[FlowInstanceContextValue])(_: RepositoryContext))
+      .expects(flowTaskInstance.flowInstanceId, *, *)
+      .returns(Future.successful(Some(flowInstance)))
+
     flowInstanceExecutorActor ! FlowInstanceExecution.Execute(PendingTasks)
 
     flowExecutorProbe.fishForMessage(max = 10.seconds) {
@@ -222,6 +226,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returns(Future.successful(Some(taskInstanceInRetry)))
       .noMoreThanTwice()
 
+    (flowInstanceRepository.insertOrUpdateContextValues(_: String, _: Seq[FlowInstanceContextValue])(_: RepositoryContext))
+      .expects(flowTaskInstance.flowInstanceId, *, *)
+      .returns(Future.successful(Some(flowInstance)))
+
     // pending tasks execution, should not execute retry
     flowInstanceExecutorActor ! Execute(PendingTasks)
 
@@ -283,6 +291,11 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
     (flowTaskInstanceRepository.setEndTime(_: String, _: Long)(_: RepositoryContext))
       .expects(flowTaskInstance.id, testEpoch, *)
       .returning(Future.successful(Some(flowTaskInstance)))
+      .atLeastOnce()
+
+    (flowInstanceRepository.insertOrUpdateContextValues(_: String, _: Seq[FlowInstanceContextValue])(_: RepositoryContext))
+      .expects(flowTaskInstance.flowInstanceId, *, *)
+      .returns(Future.successful(Some(flowInstance)))
       .atLeastOnce()
 
     (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus)(_: RepositoryContext))

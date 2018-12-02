@@ -118,7 +118,7 @@ class SlickFlowInstanceRepository(
       contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, newInstance.id, contextValue.key, contextValue.value)
     }
 
-    db.run(DBIO.seq(contextActions: _*) >> (instanceTable += newInstance).transactionally).map(_ => FlowInstanceDetails(
+    db.run(((instanceTable += newInstance) >> DBIO.seq(contextActions: _*)).transactionally).map(_ => FlowInstanceDetails(
       newInstance.id,
       newInstance.flowDefinitionId,
       newInstance.created,
@@ -168,10 +168,11 @@ class SlickFlowInstanceRepository(
   }
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
-    val instancesWithContext = (instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)).result.headOption
-    db.run(instancesWithContext).map { x =>
-      x.map {
-        case (instance, context) =>
+    val instancesWithContext = (instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)).result
+
+    db.run(instancesWithContext).map { result =>
+      result.groupBy(_._1).headOption.map {
+        case (instance, contextValues) =>
           FlowInstanceDetails(
             instance.id,
             instance.flowDefinitionId,
@@ -179,9 +180,27 @@ class SlickFlowInstanceRepository(
             instance.startTime,
             instance.endTime,
             FlowInstanceStatus.withName(instance.status),
-            context.map { c => Seq(FlowInstanceContextValue(c.key, c.value)) }.getOrElse(Seq.empty))
+            contextValues.flatMap { case (_, contextValue) => contextValue }
+              .map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
       }
     }
 
   }
+
+  override def insertOrUpdateContextValues(
+    flowInstanceId: String,
+    contextValues: Seq[FlowInstanceContextValue])(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
+    val insertOrUpdate = contextValues.map { contextValue =>
+      DBIO.seq(
+        contextTable
+          .filter(_.flowInstanceId === flowInstanceId)
+          .filter(_.key === contextValue.key)
+          .delete,
+        contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, flowInstanceId, contextValue.key, contextValue.value))
+    }
+
+    db.run(DBIO.seq(insertOrUpdate: _*).transactionally).flatMap(_ => findById(flowInstanceId))
+  }
+
+  def contextValues: Future[Seq[SysiphosFlowInstanceContext]] = db.run(contextTable.result)
 }
