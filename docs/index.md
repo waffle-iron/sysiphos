@@ -32,6 +32,7 @@ See the @ref:[Introduction](intro.md) to read about the core concepts.
 * [Execution Model](execution-model.md)
 * [Concurrency](concurrency.md)
 * [Run](run.md)
+* [Monitoring](monitoring.md)
 * [Tutorial](tutorial.md)
 * [Tasks](tasks.md)
 * [Configuration](configuration.md)
@@ -39,6 +40,5 @@ See the @ref:[Introduction](intro.md) to read about the core concepts.
 * [Screenshots](screenshots.md)
 * [Acknowledgments](acknowledgments.md)
 * [License](license.md)
-
 
 @@@

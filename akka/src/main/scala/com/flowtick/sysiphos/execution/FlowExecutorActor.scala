@@ -9,6 +9,7 @@ import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestI
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
+import kamon.Kamon
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
@@ -60,14 +61,19 @@ class FlowExecutorActor(
       }.pipeTo(sender())
 
     case FlowInstanceExecution.Finished(flowInstance) =>
-      sender() ! PoisonPill
       log.info(s"finished $flowInstance")
+      Kamon.counter("instance-finished").refine("definition", flowInstance.flowDefinitionId).increment()
+
+      sender() ! PoisonPill
+
       for {
         _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
         _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
       } yield ()
 
     case FlowInstanceExecution.ExecutionFailed(flowInstance) =>
+      Kamon.counter("instance-failed").refine("definition", flowInstance.flowDefinitionId).increment()
+
       sender() ! PoisonPill
       for {
         _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Failed)
@@ -83,6 +89,8 @@ class FlowExecutorActor(
 
     case FlowInstanceExecution.RetryScheduled(instance) =>
       log.info(s"retry scheduled: $instance")
+      Kamon.counter("retry-scheduled").refine("task", instance.taskId).increment()
+
       sender() ! FlowInstanceExecution.Execute(PendingTasks)
   }
 

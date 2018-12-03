@@ -18,13 +18,27 @@ services:
 
   sysiphos:
     image: flowtick/sysiphos:latest
+    depends_on:
+      - db
     links:
       - db
+      - grafana
     ports:
       - 9090:8080
+      - 10095:9095
     environment:
       DATABASE_PROFILE: mysql
       DATABASE_URL: jdbc:mysql://db:3306/sysiphos
       DATABASE_USER: root
       DATABASE_PASSWORD: example
+      STATS_ENABLED: "true"
+      STATS_HOST: grafana
 
+  grafana:
+    image: kamon/grafana_graphite
+    ports:
+      - 3000:80
+      - 3001:81
+      - 8125:8125/udp
+      - 8126:8126
+      - 2003:2003

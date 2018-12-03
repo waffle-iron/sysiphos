@@ -16,6 +16,7 @@ import com.flowtick.sysiphos.execution.FlowInstanceExecution._
 import com.flowtick.sysiphos.execution.FlowTaskExecution.Execute
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
+import kamon.Kamon
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContextExecutor, Future }
@@ -111,6 +112,10 @@ class FlowInstanceExecutorActor(
         .logFailed(s"unable to execute $flowInstance").pipeTo(context.parent)
 
     case FlowInstanceExecution.WorkFailed(error, flowTaskInstance) =>
+      Kamon.counter("work-failed").refine(
+        ("definition", flowDefinition.id),
+        ("task", flowTaskInstance.taskId)).increment()
+
       log.warn(s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}")
 
       val handledFailure = for {
@@ -123,6 +128,10 @@ class FlowInstanceExecutorActor(
     case FlowInstanceExecution.WorkDone(flowTaskInstance, addToContext) =>
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
+      Kamon.counter("work-done").refine(
+        ("definition", flowDefinition.id),
+        ("task", flowTaskInstance.taskId)).increment()
+
       val doneTaskInstance = for {
         _ <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done)
         ended <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
@@ -134,6 +143,9 @@ class FlowInstanceExecutorActor(
         .map(TaskCompleted)
         .pipeTo(context.parent)
         .logFailed(s"unable to complete task ${flowTaskInstance.id}")
+        .foreach(_ => Kamon.counter("task-completed").refine(
+          ("definition", flowDefinition.id),
+          ("task", flowTaskInstance.taskId)).increment())
 
     case other => log.warn(s"unhandled message: $other")
   }

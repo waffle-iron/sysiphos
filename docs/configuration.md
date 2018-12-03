@@ -25,6 +25,9 @@ environment variable and then fallback to default if possible.
 | logger.s3.bucket | changeme | The bucket to use for S3 logging, this can be seen as the root folder for logging |
 | http.bind.address | 0.0.0.0 | Address to use to bind the http server |
 | http.port | 8080 | Port to use to bind the http server |
+| stats.enabled | false | flag to enable to export operational statistics |
+| stats.host | none | Host of the stats server to use for StatsD |
+| stats.port | 8125 | Port of the stats server to use for StatsD |
 | instance.threads | 10 | number of threads to use for database access during instance execution |
 | api.threads | 10 | number of threads to use for api request handling |
 | task.retries.default | 3 | default number of retries for a task, if not specified otherwise |

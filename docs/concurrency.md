@@ -1,7 +1,7 @@
 # Concurrency
 
 Sysiphos allows to specify concurrency on both the flow instance and the task instance level 
-(see ref:[Execution Model](execution-model.md) for reference).
+(see @ref:[Execution Model](execution-model.md) for reference).
 
 ## Instance Level
 
