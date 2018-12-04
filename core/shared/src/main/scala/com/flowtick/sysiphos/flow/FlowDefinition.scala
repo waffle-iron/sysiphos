@@ -100,7 +100,15 @@ object FlowDefinition {
       tasks <- c.downField("tasks").as[Seq[FlowTask]]
       latestOnly <- c.downField("latestOnly").as[Option[Boolean]]
       parallelism <- c.downField("parallelism").as[Option[Int]]
-    } yield SysiphosDefinition(id, tasks, latestOnly = latestOnly.getOrElse(false), parallelism = parallelism)
+      taskParallelism <- c.downField("taskParallelism").as[Option[Int]]
+      taskRatePerSecond <- c.downField("taskRatePerSecond").as[Option[Int]]
+    } yield SysiphosDefinition(
+      id = id,
+      tasks = tasks,
+      latestOnly = latestOnly.getOrElse(false),
+      parallelism = parallelism,
+      taskParallelism = taskParallelism,
+      taskRatePerSecond = taskRatePerSecond)
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {

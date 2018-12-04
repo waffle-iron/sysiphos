@@ -11,6 +11,10 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |
          |{
          |  "id": "test-flow",
+         |  "taskRatePerSecond": 3,
+         |  "taskParallelism": 5,
+         |  "parallelism": 2,
+         |  "latestOnly": true,
          |  "tasks": [{
          |    "id": "test-task",
          |    "type": "shell",
@@ -42,6 +46,10 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
 
     val expectedDefinition = SysiphosDefinition(
       id = "test-flow",
+      taskRatePerSecond = Some(3),
+      taskParallelism = Some(5),
+      parallelism = Some(2),
+      latestOnly = true,
       tasks = Seq(CommandLineTask(
         id = "test-task",
         Some(Seq(
