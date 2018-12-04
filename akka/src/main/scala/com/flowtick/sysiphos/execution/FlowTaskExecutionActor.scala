@@ -89,9 +89,8 @@ class FlowTaskExecutionActor(
     case TaskStreamCompleted =>
       log.info("stream completed")
 
-    case TaskStreamFailure(error) =>
-      log.error("stream error", error)
-      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(flowInstance)
+    case streamError: TaskStreamFailure =>
+      flowInstanceActor ! streamError
 
     case other: Any =>
       log.error(s"unable to handle $other, this is not recoverable, failing execution")

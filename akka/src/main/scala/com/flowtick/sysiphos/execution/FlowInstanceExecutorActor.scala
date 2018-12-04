@@ -13,7 +13,7 @@ import cats.data.OptionT
 import cats.instances.future._
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
-import com.flowtick.sysiphos.execution.FlowTaskExecution.Execute
+import com.flowtick.sysiphos.execution.FlowTaskExecution.{ Execute, TaskStreamFailure }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
 import kamon.Kamon
@@ -146,6 +146,10 @@ class FlowInstanceExecutorActor(
         .foreach(_ => Kamon.counter("task-completed").refine(
           ("definition", flowDefinition.id),
           ("task", flowTaskInstance.taskId)).increment())
+
+    case TaskStreamFailure(error) =>
+      log.error("error in task stream", error)
+      self ! FlowInstanceExecution.Execute(PendingTasks)
 
     case other => log.warn(s"unhandled message: $other")
   }
