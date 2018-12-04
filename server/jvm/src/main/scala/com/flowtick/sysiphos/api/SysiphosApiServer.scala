@@ -3,28 +3,26 @@ package com.flowtick.sysiphos.api
 import java.util.concurrent.Executors
 
 import akka.actor.{ ActorSystem, Props }
+import cats.effect._
+import cats.syntax.all._
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
+import com.flowtick.sysiphos.execution.Monitoring.DataDogStatsDReporter
 import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick._
-import com.twitter.finagle.core.util.InetAddressUtil
 import com.twitter.finagle.{ Http, ListeningServer }
-import com.typesafe.config.{ Config, ConfigFactory, ConfigValueFactory }
 import io.finch.Application
 import io.finch.circe._
 import kamon.Kamon
-import kamon.metric.PeriodSnapshot
 import kamon.prometheus.PrometheusReporter
-import kamon.statsd.StatsDReporter
 import monix.execution.Scheduler
 import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.ExecutionContext
-import scala.util.{ Failure, Success, Try }
 
 trait SysiphosApiServer extends SysiphosApi
   with SysiphosApiServerConfig
@@ -64,7 +62,7 @@ trait SysiphosApiServer extends SysiphosApi
     executorActor ! Init()
   }
 
-  def bindServerToAddress: Try[ListeningServer] = Try {
+  def bindServerToAddress: IO[ListeningServer] = IO {
     val logo = scala.io.Source.fromInputStream(getClass.getClassLoader.getResourceAsStream("logo.txt")).getLines().mkString("\n")
     log.info(s"starting ...\n$logo")
 
@@ -78,62 +76,37 @@ trait SysiphosApiServer extends SysiphosApi
     server
   }
 
-  def updateDatabase(): Try[Unit] = Try {
-    log.info(s"using database profile $dbProfileName for migrations: $dbUrl")
-
-    DefaultSlickRepositoryMigrations.updateDatabase(dataSource(dbProfile))
-  }.flatten
+  def updateDatabase(): IO[Unit] =
+    IO(log.info(s"using database profile $dbProfileName for migrations: $dbUrl"))
+      .flatMap(_ => DefaultSlickRepositoryMigrations.updateDatabase(dataSource(dbProfile)))
 
   def addStatsReporter(): Unit = {
     if (Configuration.propOrEnv("stats.enabled", "false").toBoolean) {
       log.info("adding stats reporters...")
-      val statsDReporter = new StatsDReporter() {
-        override def reportPeriodSnapshot(snapshot: PeriodSnapshot): Unit = {
-          log.info(s"writing snapshot $snapshot")
-          super.reportPeriodSnapshot(snapshot)
-        }
-      }
 
-      val baseConfig = ConfigFactory.load()
-
-      val config: Option[Config] = for {
-        statsHost <- Configuration.propOrEnv("stats.host")
-        statsPort <- Configuration.propOrEnv("stats.port").map(_.toInt).orElse(Some(8125))
-      } yield {
-        val resolvedStatsHost = InetAddressUtil.getByName(statsHost)
-
-        log.info(s"using stats host: $statsHost (${resolvedStatsHost.getHostAddress})")
-        log.info(s"using stats port: $statsPort")
-
-        baseConfig
-          .withValue("kamon.statsd.hostname", ConfigValueFactory.fromAnyRef(resolvedStatsHost.getHostAddress))
-          .withValue("kamon.statsd.port", ConfigValueFactory.fromAnyRef(statsPort))
-      }
-
-      statsDReporter.reconfigure(config.getOrElse(baseConfig))
-      Kamon.addReporter(statsDReporter)
+      Kamon.addReporter(new DataDogStatsDReporter)
       Kamon.addReporter(new PrometheusReporter)
     }
   }
 
-  def startApiServer(): Unit = {
+  def startApiServer(): IO[Unit] = {
     addStatsReporter()
 
-    val listeningServer = for {
+    val startedServer = for {
       _ <- updateDatabase()
-      listening <- bindServerToAddress
-    } yield listening
+      _ <- bindServerToAddress
+    } yield startExecutorSystem(
+      flowScheduleRepository,
+      flowInstanceRepository,
+      flowScheduleRepository,
+      flowDefinitionRepository,
+      flowTaskInstanceRepository)
 
-    listeningServer.recoverWith {
-      case error => Failure(new RuntimeException(s"unable to start server", error))
-    } match {
-      case Success(_) =>
-        startExecutorSystem(flowScheduleRepository, flowInstanceRepository, flowScheduleRepository, flowDefinitionRepository, flowTaskInstanceRepository)
-      case Failure(error) =>
-        log.error("unable to start server", error)
-        executorSystem.terminate()
+    startedServer.handleErrorWith { error =>
+      IO(log.error("unable to start server", error)) *>
+        IO(executorSystem.terminate()) *>
+        IO.raiseError(new RuntimeException(s"unable to start server", error))
     }
-
   }
 
 }
@@ -159,5 +132,5 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
     flowScheduleRepository,
     flowTaskInstanceRepository)(apiExecutionContext, repositoryContext)
 
-  startApiServer()
+  startApiServer().unsafeRunSync()
 }

@@ -66,6 +66,8 @@ lazy val core = crossProject.in(file("core")).
   settings(
     name := "sysiphos-core",
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
+    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0",
+    libraryDependencies += "org.typelevel" %% "cats-effect" % "1.0.0",
     libraryDependencies ++= Seq(
       "io.circe" %%% "circe-core",
       "io.circe" %%% "circe-generic",
@@ -87,12 +89,12 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.monix" %% "monix" % "2.3.0",
     libraryDependencies += "org.freemarker" % "freemarker" % "2.3.28",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
-    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0",
     libraryDependencies += "io.kamon" %% "kamon-core" % "1.1.3",
     libraryDependencies += "io.kamon" %% "kamon-statsd" % "1.0.0",
     libraryDependencies += "io.kamon" %% "kamon-akka-2.5" % "1.1.0",
     libraryDependencies += "io.kamon" %% "kamon-prometheus" % "1.0.0",
     libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0",
+    libraryDependencies += "com.datadoghq" % "java-dogstatsd-client" % "2.6.1",
     libraryDependencies += "org.apache.camel" % "camel-core" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-http4" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-jsonpath" % camelV,

@@ -35,7 +35,7 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
 
   implicit val repositoryContext = new DefaultRepositoryContext("dev-test")
 
-  startApiServer()
+  startApiServer().unsafeRunSync()
 
   Try {
     val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(
