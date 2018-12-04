@@ -114,7 +114,7 @@ trait FlowInstanceExecution extends Logging with Clock {
   }
 
   protected def retryDelayDefault: Long =
-    Configuration.propOrEnv("task.retry.delay.default").map(_.toLong).getOrElse(5 * 60 * 60) // 5 mins in seconds
+    Configuration.propOrEnv("task.retry.delay.default").map(_.toLong).getOrElse(5 * 60) // 5 mins in seconds
 
 }
 
