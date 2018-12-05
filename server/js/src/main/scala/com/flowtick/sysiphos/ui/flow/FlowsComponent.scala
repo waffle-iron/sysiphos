@@ -1,7 +1,6 @@
 package com.flowtick.sysiphos.ui.flow
 
 import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, FlowInstanceStatus, InstanceCount }
-import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
@@ -13,7 +12,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunFlo
   val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
   def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {
-    sysiphosApi.getFlowDefinitions.notifyError.foreach { response =>
+    sysiphosApi.getFlowDefinitions.foreach { response =>
       flows.value.clear()
       flows.value.append(response.definitions: _*)
     }

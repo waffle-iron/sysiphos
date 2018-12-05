@@ -15,7 +15,10 @@ object ToastrSupport {
         case Success(value) =>
           successMessage.map(_(value)).foreach(message => Toastr.success(message))
         case Failure(error) =>
-          errorMessage.map(_(error)).foreach(message => Toastr.error(message.take(1024)))
+          errorMessage.map(_(error)).foreach(message => Toastr.error(message.take(1024) + "...", error.getClass.getName, js.Dictionary(
+            // dont hide, wait for manual close via click, this allows to copy the message
+            "timeOut" -> 0,
+            "extendedTimeOut" -> 0)))
       }
 
     def errorMessage(message: Throwable => String): Future[T] = withMessages(None, Some(message))
@@ -26,6 +29,26 @@ object ToastrSupport {
 @JSGlobal("toastr")
 @js.native
 object Toastr extends js.Any {
+  /**
+   * toastr.options = {
+   * "closeButton": false,
+   * "debug": false,
+   * "newestOnTop": false,
+   * "progressBar": false,
+   * "positionClass": "toast-top-right",
+   * "preventDuplicates": false,
+   * "onclick": null,
+   * "showDuration": "300",
+   * "hideDuration": "1000",
+   * "timeOut": "0",
+   * "extendedTimeOut": "1000",
+   * "showEasing": "swing",
+   * "hideEasing": "linear",
+   * "showMethod": "fadeIn",
+   * "hideMethod": "fadeOut"
+   * }
+   */
+
   def info(message: String, title: String = null, options: js.Dictionary[_] = null): js.Any = js.native
   def warning(message: String, title: String = null, options: js.Dictionary[_] = null): js.Any = js.native
   def error(message: String, title: String = null, options: js.Dictionary[_] = null): js.Any = js.native

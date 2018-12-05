@@ -47,7 +47,6 @@ class FlowCircuit(api: SysiphosApi) extends Circuit[FlowModel] {
   def createOrUpdate(source: String): Future[Unit] =
     api
       .createOrUpdateFlowDefinition(source)
-      .notifyError
       .successMessage(_ => "Flow updated.")
       .map {
         case Some(details) =>

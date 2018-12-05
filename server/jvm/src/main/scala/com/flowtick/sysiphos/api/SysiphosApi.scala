@@ -14,7 +14,7 @@ import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.twitter.finagle.http.Status
 import io.circe.Json
 import sangria.ast.Document
-import sangria.execution.{ Executor, ValidationError }
+import sangria.execution._
 import sangria.macros.derive.GraphQLField
 import sangria.marshalling._
 import sangria.marshalling.circe._
@@ -136,16 +136,19 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
 
-  def errorResponse(status: Status, error: Exception): Output[Json] = {
+  def stackTrace(throwable: Throwable): String = {
     val sw = new StringWriter()
-    error.printStackTrace(new PrintWriter(sw))
-    val stackTrace = sw.toString
+    throwable.printStackTrace(new PrintWriter(sw))
+    sw.toString
+  }
 
-    Output.payload(Json.obj("error" -> Json.fromString(s"${error.getMessage}, $stackTrace")), status)
+  def errorResponse(status: Status, error: Exception): Output[Json] = {
+    val errorJson = Json.obj("message" -> Json.fromString(s"${error.getMessage}, ${stackTrace(error)}"))
+    Output.payload(Json.obj("errors" -> Json.fromValues(Seq(errorJson))), status) // graphql like error format
   }
 
   val apiEndpoint: Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
-    val result: Future[Json] = json.asObject.flatMap { queryObj =>
+    val result: Future[Output[Json]] = json.asObject.flatMap { queryObj =>
       val query: Option[String] = queryObj("query").flatMap(_.asString)
       val operationName: Option[String] = queryObj("operationName").flatMap(_.asString)
       val variables: Json = queryObj("variables").filter(!_.isNull).getOrElse(Json.obj())
@@ -156,7 +159,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
       }
     }.getOrElse(Future.failed(new IllegalArgumentException("invalid json body")))
 
-    result.map(Ok).asTwitter
+    result.asTwitter
   }.handle {
     case invalidQuery: ValidationError => errorResponse(Status.BadRequest, invalidQuery)
     case error: Exception =>
@@ -166,8 +169,27 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
 
   def parseQuery(query: String): Try[Document] = QueryParser.parse(query)
 
-  def executeQuery(query: Document, operation: Option[String], vars: Json, apiContext: ApiContext): Future[Json] =
-    Executor.execute(SysiphosApi.schema, query, apiContext, variables = vars, operationName = operation)
+  def executeQuery(query: Document, operation: Option[String], vars: Json, apiContext: ApiContext): Future[Output[Json]] = {
+    val executedQuery = Executor.execute(
+      SysiphosApi.schema,
+      query,
+      apiContext,
+      variables = vars,
+      operationName = operation,
+      exceptionHandler = ExceptionHandler(onException = {
+        case (_, error) => SingleHandledException(stackTrace(error))
+      }))
+
+    executedQuery.map { json =>
+      json.hcursor.downField("data").focus match {
+        case None | Some(io.circe.Json.Null) => Output.payload(json, Status.InternalServerError)
+        case _ => Output.payload(json, Status.Ok)
+      }
+    }.recover {
+      case error: QueryAnalysisError => Output.payload(error.resolveError, Status.BadRequest)
+      case error: ErrorWithResolver => Output.payload(error.resolveError, Status.InternalServerError)
+    }
+  }
 
   val api = statusEndpoint :+: apiEndpoint
 }

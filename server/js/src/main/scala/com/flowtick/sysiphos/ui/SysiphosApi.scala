@@ -28,6 +28,9 @@ case class LogResult(log: String)
 
 case class GraphQLResponse[T](data: T)
 
+case class ErrorMessage(message: String)
+case class ErrorResponse(errors: Seq[ErrorMessage])
+
 trait SysiphosApi {
   def getFlowDefinitions: Future[FlowDefinitionList]
 
@@ -59,6 +62,8 @@ trait SysiphosApi {
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
+  import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
+
   def quotedOrNull(optional: Option[String]): String = optional.map("\"" + _ + "\"").getOrElse("null")
 
   def query[T](query: String, variables: Map[String, Json] = Map.empty)(implicit ev: Decoder[T]): Future[GraphQLResponse[T]] = {
@@ -73,14 +78,23 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
         println(s"error while process api query: ${error.getMessage}, ${response.responseText}, ${response.status}, ${response.statusText}")
         error.printStackTrace()
         Future.failed(error)
-    }).transform(identity[GraphQLResponse[T]], error => error match {
-      case ajax: AjaxException =>
-        val errorResponse: Json = decode[Json](ajax.xhr.responseText).toOption.flatMap(_.asObject).get("error").getOrElse(Json.fromString(error.getMessage))
-        println(errorResponse)
-        new RuntimeException(errorResponse.asString.getOrElse(""))
-      case error: Throwable => new RuntimeException(error.getMessage)
+    }).transform(identity[GraphQLResponse[T]], error => {
+      val transformedError = error match {
+        case ajax: AjaxException =>
+          val errorMessage: String = decode[ErrorResponse](ajax.xhr.responseText)
+            .map(_.errors.map(_.message).mkString(", "))
+            .getOrElse(ajax.xhr.responseText)
+
+          new RuntimeException(errorMessage)
+        case error: Throwable =>
+          new RuntimeException(error.getMessage)
+      }
+
+      println(transformedError.getMessage)
+
+      transformedError
     })
-  }
+  }.notifyError
 
   override def getSchedules(flowId: Option[String]): Future[FlowScheduleList] =
     query[FlowScheduleList](

@@ -25,7 +25,7 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
     case (model: SchedulesModel, action) =>
       action match {
         case LoadSchedules(flowId) =>
-          val loadFuture = api.getSchedules(flowId).notifyError.map(result => FoundSchedules(result))
+          val loadFuture = api.getSchedules(flowId).map(result => FoundSchedules(result))
           Some(ModelUpdateEffect(model.copy(flowId = flowId), Effect(loadFuture)))
 
         case FoundSchedules(list) =>
@@ -52,25 +52,21 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
   def toggleEnable(id: String, enabled: Boolean): Future[Boolean] =
     api
       .setFlowScheduleEnabled(id, enabled)
-      .notifyError
       .successMessage(_ => s"$id is now ${if (enabled) "enabled" else "disabled"}")
 
   def toggleBackFill(id: String, backFill: Boolean): Future[Boolean] =
     api
       .setFlowScheduleBackFill(id, backFill)
-      .notifyError
       .successMessage(_ => s"$id back fill is now ${if (backFill) "enabled" else "disabled"}")
 
   def setExpression(id: String, expression: String): Future[String] =
     api
       .setFlowScheduleExpression(id, expression)
-      .notifyError
       .successMessage(_ => s"$id expression updated: $expression")
 
   def createSchedule(flowId: String, expression: String): Future[FlowScheduleDetails] =
     api
       .createFlowSchedule(flowId, expression)
-      .notifyError
       .successMessage(schedule => s"schedule created: ${schedule.id}")
 
 }
