@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui
 
-import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowDefinitionSummary, FlowInstanceDetails, FlowTaskInstanceDetails }
+import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import io.circe.{ Decoder, Json }
 import io.circe.generic.auto._
@@ -13,12 +13,14 @@ case class FlowDefinitionDetailsResult(definition: Option[FlowDefinitionDetails]
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
 case class FlowScheduleList(schedules: Seq[FlowScheduleDetails])
 case class FlowInstanceList(instances: Seq[FlowInstanceDetails])
+case class IdResult(id: String)
 
 case class OverviewQueryResult(instances: Seq[FlowInstanceDetails], taskInstances: Seq[FlowTaskInstanceDetails])
 case class FlowInstanceOverview(instance: FlowInstanceDetails, tasks: Seq[FlowTaskInstanceDetails])
 
 case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class CreateFlowScheduleResult[T](createFlowSchedule: T)
+case class CreateInstanceResult[T](createInstance: T)
 
 case class EnableResult(enabled: Boolean)
 case class BackFillResult(backFill: Boolean)
@@ -59,6 +61,8 @@ trait SysiphosApi {
   def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]]
 
   def getLog(logId: String): Future[String]
+
+  def createInstance(flowDefinitionId: String, contextValues: Seq[FlowInstanceContextValue]): Future[String]
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
@@ -201,5 +205,17 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
 
   override def getLog(logId: String): Future[String] = {
     query[LogResult](s"""{ log (logId: "$logId") }""").map(_.data.log)
+  }
+
+  override def createInstance(flowDefinitionId: String, contextValues: Seq[FlowInstanceContextValue]): Future[String] = {
+    val createInstanceQuery =
+      s"""
+         |mutation {
+         |	createInstance(flowDefinitionId: "$flowDefinitionId", context: [
+         |    ${contextValues.map(value => s""" {key: "${value.key}", value : "${value.value}"} """).mkString(",")}
+         |  ]) {id}
+         |}
+       """.stripMargin
+    query[CreateInstanceResult[IdResult]](createInstanceQuery).map(_.data.createInstance.id)
   }
 }

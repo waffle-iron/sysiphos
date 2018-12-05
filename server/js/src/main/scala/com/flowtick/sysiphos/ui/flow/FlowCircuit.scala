@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui.flow
 
-import com.flowtick.sysiphos.flow.FlowDefinitionDetails
+import com.flowtick.sysiphos.flow.{ FlowDefinitionDetails, FlowInstanceContextValue }
 import com.flowtick.sysiphos.ui.SysiphosApi
 import com.flowtick.sysiphos.ui.vendor.Toastr
 import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
@@ -18,6 +18,8 @@ case class LoadDefinition(id: String) extends Action
 case class FoundDefinition(definition: Option[FlowDefinitionDetails]) extends Action
 case class CreateOrUpdate(source: String) extends Action
 case class SetSource(sourceValue: String) extends Action
+case class RunInstance(contextValues: Seq[FlowInstanceContextValue]) extends Action
+case class CreatedInstance(instanceId: String) extends Action
 
 class FlowCircuit(api: SysiphosApi) extends Circuit[FlowModel] {
   override protected def initialModel: FlowModel = FlowModel(None, None)
@@ -41,6 +43,16 @@ class FlowCircuit(api: SysiphosApi) extends Circuit[FlowModel] {
 
         case FoundDefinition(someDefinition) =>
           Some(ModelUpdate(model.copy(definition = someDefinition, source = someDefinition.flatMap(_.source))))
+
+        case RunInstance(contextValues) =>
+          val createInstance = model
+            .definition
+            .map(flow => api.createInstance(flow.id, contextValues))
+            .getOrElse(Future.failed(new IllegalStateException("no definition loaded yet")))
+            .successMessage(id => s"created instance $id")
+
+          val instanceEffect = Effect(createInstance.map(CreatedInstance))
+          Some(EffectOnly(instanceEffect))
       }
   }
 

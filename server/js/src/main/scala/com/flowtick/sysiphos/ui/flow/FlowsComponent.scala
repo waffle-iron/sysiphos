@@ -8,7 +8,7 @@ import org.scalajs.dom.html._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunFlowComponent with Layout {
+class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLinkComponent with Layout {
   val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
   def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {

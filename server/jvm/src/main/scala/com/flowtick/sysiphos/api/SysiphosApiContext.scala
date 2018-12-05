@@ -88,10 +88,15 @@ class SysiphosApiContext(
   }
 
   override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {
-    flowInstanceRepository.createFlowInstance(
-      flowDefinitionId,
-      context,
-      FlowInstanceStatus.Triggered)
+    flowDefinitionRepository
+      .findById(flowDefinitionId)
+      .flatMap {
+        case Some(_) => flowInstanceRepository.createFlowInstance(
+          flowDefinitionId,
+          context,
+          FlowInstanceStatus.Triggered)
+        case None => Future.failed(new IllegalArgumentException(s"flow definition with id $flowDefinitionId does not exist"))
+      }
   }
 
   override def log(logId: String): Future[String] = Future(

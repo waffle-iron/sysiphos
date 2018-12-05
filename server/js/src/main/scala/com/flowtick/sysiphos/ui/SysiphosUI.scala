@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.ui
 
 import com.flowtick.sysiphos.ui.execution._
-import com.flowtick.sysiphos.ui.flow.{ CreateFlowComponent, FlowCircuit, FlowsComponent, ShowFlowComponent }
+import com.flowtick.sysiphos.ui.flow._
 import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
 import com.thoughtworks.binding.Binding.Var
 import com.thoughtworks.binding.{ Binding, dom }
@@ -42,6 +42,7 @@ object SysiphosUI extends App with Layout {
   def instancesComponent(flowId: Option[String], status: Option[String]) = new FlowInstancesComponent(flowId, status, new FlowInstancesCircuit(api))
   def instanceComponent(instanceId: String) = new ShowInstanceComponent(instanceId, new ShowInstanceCircuit(api))
   def flowComponent(id: String) = new ShowFlowComponent(id)(new FlowCircuit(api), schedulesComponent(Some(id)))
+  def runComponent(id: String) = new RunFlowComponent(id)(new FlowCircuit(api))
   def createFlowComponent = new CreateFlowComponent(new FlowCircuit(api))
   def logComponent(logId: String) = new LogComponent(logId, new LogCircuit(api))
   def notFound = new NotFound
@@ -49,6 +50,7 @@ object SysiphosUI extends App with Layout {
   val routes: Routing[Binding[Div]] =
     page[Binding[Div]]("/flows", _ => flowsComponent)
       .page("/flow/new", _ => createFlowComponent)
+      .page("/flow/run/:id", ctx => ctx.pathParams.get("id").map(id => runComponent(id)).getOrElse(notFound))
       .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(notFound))
       .page("/schedules", _ => schedulesComponent(None))
       .page("/schedules/show/:flowId", ctx => ctx.pathParams.get("flowId").map(id => schedulesComponent(Some(id))).getOrElse(notFound))
