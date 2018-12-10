@@ -1,0 +1,20 @@
+{
+  "id": "bean-flow",
+  "tasks": [
+    {
+      "id" : "call-java",
+      "type" : "camel",
+      "uri" : "direct:start",
+      "to": [
+        "bean:myBean?method=doStuff"
+      ],
+      "children" : [],
+      "registry" : {
+        "myBean" : {
+          "type": "bean",
+          "fqn": "com.flowtick.sysiphos.example.MyClass"
+        }
+      }
+    }
+  ]
+}

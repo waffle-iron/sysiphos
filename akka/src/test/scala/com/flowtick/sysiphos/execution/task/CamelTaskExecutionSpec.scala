@@ -163,13 +163,38 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         Map("testDs" -> RegistryEntry(
           `type` = "bean",
           fqn = classOf[org.h2.jdbcx.JdbcDataSource].getName,
-          properties = Map(
+          properties = Some(Map(
             "url" -> "jdbc:h2:./target/test-h2",
             "user" -> "sa",
-            "password" -> "sa"))))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+            "password" -> "sa")))))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
 
     exchange.getOut.getBody.asInstanceOf[java.util.Map[String, Any]].get("RESULT") should be(2)
     contextValues should contain only FlowInstanceContextValue("extracted", "2")
   }
 
+  it should "invoke a bean method" in {
+    val (exchange, _) = executeExchange(CamelTask(
+      id = "bean-task",
+      uri = "direct:bean",
+      to = Some(Seq(
+        "bean:myBean?method=doStuff")),
+      children = None,
+      registry = Some(
+        Map("myBean" -> RegistryEntry(
+          `type` = "bean",
+          fqn = classOf[MyBean].getName,
+          properties = None)))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+
+    exchange.getContext.getRegistry.lookupByNameAndType("myBean", classOf[MyBean]).called should be(1)
+  }
+
 }
+
+class MyBean() {
+  var called = 0
+
+  def doStuff(): Unit = {
+    called = 1
+  }
+}
+

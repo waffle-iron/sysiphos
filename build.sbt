@@ -184,9 +184,15 @@ lazy val serverJS = server.js.settings(
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 ).dependsOn(coreJS)
 
+lazy val examples = project.in(file("docs") / "examples").
+  settings(common).
+  settings(Seq(
+    name := "sysiphos-examples"
+  )).dependsOn(coreJVM)
+
 lazy val root = project.in(file(".")).
   settings(common).
-  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, gitProject, slick).
+  aggregate(coreJS, coreJVM, serverJVM, serverJS, akka, gitProject, slick, examples).
   settings(
     name := "sysiphos-root",
     publish := {},

@@ -1,0 +1,29 @@
+{
+  "id": "slack-flow",
+  "tasks": [
+    {
+      "id" : "query-sql",
+      "type" : "camel",
+      "uri" : "sql:select 1+1 as result?dataSource=ds",
+      "children" : [],
+      "extract": [
+        {
+          "type": "simple",
+          "name": "result",
+          "expression": "${body.get(\"RESULT\")}"
+        }
+      ],
+      "registry" : {
+        "ds" : {
+          "type": "bean",
+          "fqn": "org.h2.jdbcx.JdbcDataSource",
+          "properties" : {
+            "url" : "jdbc:h2:somedb",
+            "user": "someuser",
+            "password": "somepassword"
+          }
+        }
+      }
+    }
+  ]
+}

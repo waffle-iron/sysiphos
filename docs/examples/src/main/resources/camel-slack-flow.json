@@ -1,0 +1,12 @@
+{
+  "id": "slack-flow",
+  "tasks": [
+    {
+      "id" : "send-slack-message",
+      "type" : "camel",
+      "uri" : "slack:#a-channel?webhookUrl=http://slack.com/services/a/b/c",
+      "bodyTemplate": "Hello ${subject}!",
+      "children" : []
+    }
+  ]
+}

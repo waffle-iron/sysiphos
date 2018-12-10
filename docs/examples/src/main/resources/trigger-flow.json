@@ -1,0 +1,11 @@
+{
+  "id": "trigger-flow",
+  "tasks": [
+    {
+      "id" : "task-id",
+      "type" : "trigger",
+      "flowDefinitionId" : "some-flow-id",
+      "tasks" : []
+    }
+  ]
+}

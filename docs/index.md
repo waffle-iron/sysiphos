@@ -35,6 +35,7 @@ See the @ref:[Introduction](intro.md) to read about the core concepts.
 * [Monitoring](monitoring.md)
 * [Tutorial](tutorial.md)
 * [Tasks](tasks.md)
+* [Camel](camel.md)
 * [Configuration](configuration.md)
 * [Build](build.md)
 * [Screenshots](screenshots.md)

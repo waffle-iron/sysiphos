@@ -2,7 +2,7 @@ package com.flowtick.sysiphos.task
 
 import com.flowtick.sysiphos.flow.FlowTask
 
-final case class RegistryEntry(`type`: String, fqn: String, properties: Map[String, String])
+final case class RegistryEntry(`type`: String, fqn: String, properties: Option[Map[String, String]])
 final case class ExtractSpec(`type`: String, name: String, expression: String)
 
 final case class CamelTask(

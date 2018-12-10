@@ -30,7 +30,7 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
         val clazz = classOf[CamelTaskExecution].getClassLoader.loadClass(entry.fqn)
         val newInstance = BeanUtils.instantiateClass(clazz)
         val wrapper = PropertyAccessorFactory.forBeanPropertyAccess(newInstance)
-        wrapper.setPropertyValues(entry.properties.asJava)
+        wrapper.setPropertyValues(entry.properties.getOrElse(Map.empty).asJava)
 
         registry.put(name, wrapper.getWrappedInstance)
       }
@@ -56,7 +56,7 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
           case _ => ExchangePattern.InOut
         }
 
-        val exchange = producer.send(camelTask.sendUri.getOrElse(camelTask.uri), pattern, new Processor {
+        val exchange = producer.send(camelContext.getEndpoint(camelTask.sendUri.getOrElse(camelTask.uri)), pattern, new Processor {
           override def process(exchange: Exchange): Unit = {
             camelTask.headers.getOrElse(Map.empty).foreach {
               case (key, value) => exchange.getIn.setHeader(key, value)

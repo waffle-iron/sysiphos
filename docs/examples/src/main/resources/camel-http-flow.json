@@ -1,0 +1,31 @@
+{
+  "id": "trigger-flow",
+  "tasks": [
+    {
+      "id" : "camel-get",
+      "type" : "camel",
+      "uri" : "http4://localhost:80/path?param=foo",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "children" : []
+    },
+    {
+      "id" : "camel-post",
+      "type" : "camel",
+      "uri" : "http4://localhost:80/path",
+      "bodyTemplate": "{ \"param\" : \"${someContextKey}\" }",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "extract": [
+        {
+          "type": "jsonpath",
+          "name": "result",
+          "expression": "$.data.value"
+        }
+      ],
+      "children" : []
+    }
+  ]
+}

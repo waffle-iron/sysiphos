@@ -1,0 +1,12 @@
+{
+  "id": "shell-flow",
+  "tasks": [
+    {
+      "id" : "task-id",
+      "type" : "shell",
+      "command" : "some command",
+      "shell": "bash",
+      "children" : []
+    }
+  ]
+}
