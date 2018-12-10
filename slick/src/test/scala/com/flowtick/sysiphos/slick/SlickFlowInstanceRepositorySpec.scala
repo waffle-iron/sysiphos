@@ -83,4 +83,19 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
       FlowInstanceContextValue("foo", "newFooValue"),
       FlowInstanceContextValue("bar", "barValue")))
   }
+
+  it should "delete flow instances from repository" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+    override def epochSeconds: Long = 0
+
+    val instanceRepository = createTestRepository
+
+    val newInstance: FlowInstance = instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
+    val instancesWithContext: Seq[FlowInstance] = instanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
+    instancesWithContext.head.context should be(Seq(FlowInstanceContextValue("foo", "bar")))
+
+    instanceRepository.deleteFlowInstance(newInstance.id)(this).futureValue should be(newInstance.id)
+    val afterDelete = instanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
+    afterDelete should be(Seq.empty)
+  }
 }

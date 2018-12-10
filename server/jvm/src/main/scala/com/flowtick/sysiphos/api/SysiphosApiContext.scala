@@ -102,4 +102,7 @@ class SysiphosApiContext(
   override def log(logId: String): Future[String] = Future(
     Logger.defaultLogger.getLog(logId).compile.toList.unsafeRunSync().mkString("\n"))
 
+  override def deleteInstance(flowInstanceId: String): Future[String] = {
+    flowInstanceRepository.deleteFlowInstance(flowInstanceId)
+  }
 }

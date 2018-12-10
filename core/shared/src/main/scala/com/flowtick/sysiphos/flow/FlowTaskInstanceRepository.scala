@@ -29,4 +29,5 @@ trait FlowTaskInstanceRepository {
   def setEndTime(taskInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
   def setRetries(flowTaskInstanceId: String, retries: Int)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
   def setNextDueDate(flowTaskInstanceId: String, nextDueDate: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
+  def deleteFlowTaskInstance(flowTaskInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[String]
 }

@@ -35,4 +35,16 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
     updatedInstance.head.endTime should be(Some(43))
   }
 
+  it should "delete flow task instance" in new DefaultRepositoryContext("test-user") {
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
+
+    slickFlowTaskInstanceRepository.findOne(FlowTaskInstanceQuery(Some(newInstance.id)))(this).futureValue should be(Some(newInstance))
+
+    val deletedId = slickFlowTaskInstanceRepository.deleteFlowTaskInstance(newInstance.id)(this).futureValue
+
+    deletedId should be(newInstance.id)
+
+    slickFlowTaskInstanceRepository.findOne(FlowTaskInstanceQuery(Some(newInstance.id)))(this).futureValue should be(None)
+  }
+
 }

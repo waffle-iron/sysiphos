@@ -21,6 +21,8 @@ case class FlowInstanceOverview(instance: FlowInstanceDetails, tasks: Seq[FlowTa
 case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class CreateFlowScheduleResult[T](createFlowSchedule: T)
 case class CreateInstanceResult[T](createInstance: T)
+case class DeleteInstanceResult[T](deleteInstance: T)
+case class DeleteTaskInstanceResult[T](deleteFlowTaskInstance: T)
 
 case class EnableResult(enabled: Boolean)
 case class BackFillResult(backFill: Boolean)
@@ -63,6 +65,9 @@ trait SysiphosApi {
   def getLog(logId: String): Future[String]
 
   def createInstance(flowDefinitionId: String, contextValues: Seq[FlowInstanceContextValue]): Future[String]
+
+  def deleteInstance(flowInstanceId: String): Future[String]
+
 }
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
@@ -218,4 +223,15 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
        """.stripMargin
     query[CreateInstanceResult[IdResult]](createInstanceQuery).map(_.data.createInstance.id)
   }
+
+  override def deleteInstance(flowInstanceId: String): Future[String] = {
+    val deleteInstanceQuery =
+      s"""
+         |mutation {
+         |	deleteInstance(flowInstanceId: "$flowInstanceId")
+         |}
+     """.stripMargin
+    query[DeleteInstanceResult[String]](deleteInstanceQuery).map(_.data.deleteInstance)
+  }
+
 }

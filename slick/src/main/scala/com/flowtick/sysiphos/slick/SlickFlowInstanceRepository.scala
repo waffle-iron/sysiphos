@@ -203,4 +203,11 @@ class SlickFlowInstanceRepository(
   }
 
   def contextValues: Future[Seq[SysiphosFlowInstanceContext]] = db.run(contextTable.result)
+
+  override def deleteFlowInstance(flowInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[String] = {
+    val delete = DBIO.seq(
+      contextTable.filter(_.flowInstanceId === flowInstanceId).delete,
+      instanceTable.filter(_.id === flowInstanceId).delete).transactionally
+    db.run(delete).flatMap(_ => Future(flowInstanceId))
+  }
 }

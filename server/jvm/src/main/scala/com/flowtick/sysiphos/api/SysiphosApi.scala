@@ -80,6 +80,9 @@ object SysiphosApi {
     def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails]
 
     @GraphQLField
+    def deleteInstance(flowInstanceId: String): Future[String]
+
+    @GraphQLField
     def setDueDate(flowScheduleId: String, dueDate: Long): Future[Boolean]
   }
 

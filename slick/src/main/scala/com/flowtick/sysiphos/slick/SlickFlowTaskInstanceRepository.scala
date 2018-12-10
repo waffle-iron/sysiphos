@@ -159,4 +159,8 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))))
   }
 
+  override def deleteFlowTaskInstance(flowTaskInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[String] = {
+    val delete = taskInstancesTable.filter(_.id === flowTaskInstanceId).delete
+    db.run(delete).flatMap(_ => Future.successful(flowTaskInstanceId))
+  }
 }

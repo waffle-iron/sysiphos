@@ -1,12 +1,13 @@
 package com.flowtick.sysiphos.ui.execution
 
-import com.flowtick.sysiphos.flow.FlowInstance
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceStatus }
 import com.flowtick.sysiphos.ui.util.DateSupport
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ Var, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.{ Div, Table, TableRow }
 import org.scalajs.dom.raw.{ Event, HTMLInputElement }
+import org.scalajs.dom.window
 
 import scala.util.Try
 
@@ -31,14 +32,25 @@ class FlowInstancesComponent(
 
   def loadInstances(): Unit = circuit.dispatch(LoadInstances(flowId, status, hoursBack.value))
 
+  def deleteInstance(flowInstanceId: String): Unit = {
+    if (window.confirm(s"Do you really want to delete instance $flowInstanceId")) {
+      circuit.dispatch(DeleteInstances(flowInstanceId))
+    }
+  }
+
   @dom
   def instanceRow(flowInstance: FlowInstance): Binding[TableRow] =
     <tr>
       <td><a href={ "#/flow/show/" + flowInstance.flowDefinitionId }> { flowInstance.flowDefinitionId }</a></td>
       <td><a href={ "#/instances/show/" + flowInstance.id }> { flowInstance.id }</a></td>
       <td>{ formatDate(flowInstance.creationTime) }</td>
-      <td>{ instanceStatusLabel(flowInstance.status).bind }</td>
-      <td></td>
+      <td style="vertical-align: middle;">{ instanceStatusLabel(flowInstance.status).bind }</td>
+      {
+        if (flowInstance.status != FlowInstanceStatus.Running)
+          <td><a class="btn btn-danger btn-sm" onclick={ (_: Event) => deleteInstance(flowInstance.id) } data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
+        else
+          <td><a class="btn btn-danger btn-sm" data:disabled="" data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
+      }
     </tr>
 
   @dom
