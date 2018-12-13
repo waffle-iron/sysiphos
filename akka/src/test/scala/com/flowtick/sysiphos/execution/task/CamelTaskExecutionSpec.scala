@@ -9,10 +9,11 @@ import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetail
 import com.flowtick.sysiphos.logging.ConsoleLogger
 import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
+import org.apache.camel.Exchange
 import org.apache.camel.component.mock.MockEndpoint
-import org.scalatest.{ FlatSpec, Matchers, Succeeded }
+import org.scalatest.{ FlatSpec, Matchers, Succeeded, TryValues }
 
-class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Matchers {
+class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Matchers with TryValues {
   val flowInstance = FlowInstanceDetails(
     status = FlowInstanceStatus.Scheduled,
     id = "camel-instance",
@@ -131,6 +132,26 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
 
     contextValues should contain allOf (FlowInstanceContextValue("extracted", "foo"), FlowInstanceContextValue("extracted2", "foo"))
     exchange.getOut.getBody should be(s"""{ "key" : "foo" }""")
+  }
+
+  it should "throw an error if the value to extract from JsonPath is not there" in new WireMockSupport {
+    import com.github.tomakehurst.wiremock.client.WireMock._
+
+    val attemptResult: Either[Throwable, (Exchange, Seq[FlowInstanceContextValue])] = withWireMock(server => IO.delay {
+      server.stubFor(get(urlEqualTo("/extract-test"))
+        .willReturn(aResponse()
+          .withStatus(200)
+          .withBody(s"""{ "key2" : "foo2" }""")))
+    }.flatMap { _ =>
+      executeExchange(CamelTask(
+        id = "camel-task",
+        uri = s"http4://localhost:${server.port}/extract-test",
+        bodyTemplate = None,
+        extract = Some(Seq(ExtractSpec("jsonpath", "extracted", "$.key"))),
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).attempt
+    }).unsafeRunSync()
+
+    attemptResult.isLeft should be(true)
   }
 
   it should "send a slack message" in new WireMockSupport {

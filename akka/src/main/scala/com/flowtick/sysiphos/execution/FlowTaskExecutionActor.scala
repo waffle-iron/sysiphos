@@ -53,9 +53,14 @@ class FlowTaskExecutionActor(
 
     case FlowTaskExecution.Execute(camelTask: CamelTask, taskInstance) =>
       executeExchange(camelTask, flowInstance.context, taskInstance.logId)(taskLogger)
+        .attempt
         .unsafeToFuture()
         .map {
-          case (exchange, contextValues) =>
+          case Left(error) =>
+            taskLogger.appendLine(taskInstance.logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
+            Future.successful(FlowInstanceExecution.WorkFailed(error, taskInstance))
+
+          case Right((exchange, contextValues)) =>
             val resultString = Try(exchange.getOut.getBody(classOf[String])).getOrElse(exchange.getOut.toString)
 
             taskLogger.appendLine(taskInstance.logId, s"camel exchange executed with result: $resultString").unsafeRunSync()

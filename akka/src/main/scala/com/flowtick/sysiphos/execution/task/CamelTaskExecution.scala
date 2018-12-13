@@ -2,6 +2,10 @@ package com.flowtick.sysiphos.execution.task
 
 import java.io.InputStream
 
+import cats._
+import cats.instances.list._
+import cats.instances.try_._
+
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.{ FlowTaskExecution, Logging }
 import com.flowtick.sysiphos.flow.FlowDefinition.ExtractExpression
@@ -134,22 +138,21 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
     for {
       camelContext <- createCamelContext(camelTask)
       result <- createExchange(camelTask, context, logId)(taskLogger)
-    } yield {
-      val exchange = result(camelContext)
-
-      if (camelTask.convertStreamToString.getOrElse(true) && exchange.getOut.getBody.isInstanceOf[InputStream]) {
-        exchange.getOut.setBody(exchange.getOut.getBody(classOf[String]))
-      }
-
-      val contextValues: Seq[FlowInstanceContextValue] = camelTask
-        .extract
-        .getOrElse(Seq.empty)
-        .flatMap { extract =>
-          evaluateExpression[String](extract, exchange)
-            .toOption
-            .map(FlowInstanceContextValue(extract.name, _))
+      exchange <- IO(result(camelContext)).map { exchange =>
+        if (camelTask.convertStreamToString.getOrElse(true) && exchange.getOut.getBody.isInstanceOf[InputStream]) {
+          exchange.getOut.setBody(exchange.getOut.getBody(classOf[String]))
         }
+        exchange
+      }
+      contextValues <- IO.fromEither {
+        val expressionsValues: List[Try[FlowInstanceContextValue]] = camelTask
+          .extract
+          .getOrElse(Seq.empty)
+          .map { extract =>
+            evaluateExpression[String](extract, exchange).map(FlowInstanceContextValue(extract.name, _))
+          }.toList
 
-      (exchange, contextValues)
-    }
+        Traverse[List].sequence(expressionsValues).toEither
+      }
+    } yield (exchange, contextValues)
 }
