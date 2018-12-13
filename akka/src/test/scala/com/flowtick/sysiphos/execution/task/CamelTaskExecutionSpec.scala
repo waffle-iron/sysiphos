@@ -4,9 +4,10 @@ import java.io.InputStream
 
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.WireMockSupport
+import com.flowtick.sysiphos.flow.FlowDefinition.ExtractSpec
 import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.{ CamelTask, ExtractSpec, RegistryEntry }
+import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
 import org.apache.camel.component.mock.MockEndpoint
 import org.scalatest.{ FlatSpec, Matchers, Succeeded }
@@ -33,7 +34,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
 
     val runExchange: IO[Unit] = for {
       camelContext <- createCamelContext(task)
-      result <- createExchange(task, flowInstance, "test")(new ConsoleLogger)
+      result <- createExchange(task, flowInstance.context, "test")(new ConsoleLogger)
     } yield {
       val mockEndpoint = camelContext.getEndpoint("mock:test", classOf[MockEndpoint])
 
@@ -63,7 +64,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/get-test",
         bodyTemplate = None,
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
     }).unsafeRunSync()
 
     result should be("Some get content")
@@ -83,7 +84,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/get-test",
         bodyTemplate = None,
         convertStreamToString = Some(false),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
     }).unsafeRunSync()
 
     scala.io.Source.fromInputStream(result.asInstanceOf[InputStream]).getLines().mkString should
@@ -105,7 +106,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/post-test",
         bodyTemplate = Some("body ${foo}"),
         headers = Some(Map("bar" -> "baz")),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
     }).unsafeRunSync()
 
     result should be("Some post response")
@@ -125,7 +126,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         uri = s"http4://localhost:${server.port}/extract-test",
         bodyTemplate = None,
         extract = Some(Seq(ExtractSpec("jsonpath", "extracted", "$.key"), ExtractSpec("jsonpath", "extracted2", "$.key"))),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger)
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger)
     }).unsafeRunSync()
 
     contextValues should contain allOf (FlowInstanceContextValue("extracted", "foo"), FlowInstanceContextValue("extracted2", "foo"))
@@ -144,7 +145,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         id = "camel-task",
         uri = s"slack:#a-channel?webhookUrl=http://localhost:${server.port()}/services/a/b/c",
         bodyTemplate = Some("test ${foo}"),
-        children = None), flowInstance, "test")(taskLogger = new ConsoleLogger).map(_ => {
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).map(_ => {
         server.findAllUnmatchedRequests.size() should be(0)
       })
     }).unsafeRunSync()
@@ -166,7 +167,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
           properties = Some(Map(
             "url" -> "jdbc:h2:./target/test-h2",
             "user" -> "sa",
-            "password" -> "sa")))))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+            "password" -> "sa")))))), flowInstance.context, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
 
     exchange.getOut.getBody.asInstanceOf[java.util.Map[String, Any]].get("RESULT") should be(2)
     contextValues should contain only FlowInstanceContextValue("extracted", "2")
@@ -183,7 +184,7 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
         Map("myBean" -> RegistryEntry(
           `type` = "bean",
           fqn = classOf[MyBean].getName,
-          properties = None)))), flowInstance, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
+          properties = None)))), flowInstance.context, "test")(taskLogger = new ConsoleLogger).unsafeRunSync()
 
     exchange.getContext.getRegistry.lookupByNameAndType("myBean", classOf[MyBean]).called should be(1)
   }

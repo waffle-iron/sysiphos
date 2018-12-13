@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.flow
 
-import com.flowtick.sysiphos.flow.FlowDefinition.{ SysiphosDefinition, SysiphosTask }
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
+import com.flowtick.sysiphos.flow.FlowDefinition.{ ItemSpec, SysiphosDefinition, SysiphosTask }
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, DynamicTask, TriggerFlowTask }
 import org.scalatest.{ FlatSpec, Matchers }
 
 class FlowDefinitionSpec extends FlatSpec with Matchers {
@@ -37,12 +37,27 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |        "type" : "camel",
          |        "uri" : "http://example.org",
          |        "bodyTemplate" : "Some Request Body"
+         |      },
+         |      {
+         |        "id" : "dynamic-task-id",
+         |        "type" : "dynamic",
+         |        "contextSourceUri" : "http://example.org/path",
+         |        "items": {
+         |          "type": "jsonpath",
+         |          "expression": "$$.data.items"
+         |        }
          |      }
          |    ]
          |  }]
          |}
          |
        """.stripMargin.trim)
+
+    val children = Seq(
+      SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
+      TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
+      CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None),
+      DynamicTask(id = "dynamic-task-id", contextSourceUri = "http://example.org/path", children = None, items = ItemSpec(`type` = "jsonpath", expression = "$.data.items")))
 
     val expectedDefinition = SysiphosDefinition(
       id = "test-flow",
@@ -52,10 +67,7 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
       latestOnly = true,
       tasks = Seq(CommandLineTask(
         id = "test-task",
-        Some(Seq(
-          SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
-          TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
-          CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None))),
+        children = Some(children),
         command = "ls")))
 
     tryParse should be(Right(expectedDefinition))

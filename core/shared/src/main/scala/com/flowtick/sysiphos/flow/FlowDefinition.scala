@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.flow
 
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, DynamicTask, TriggerFlowTask }
 import io.circe.Decoder.Result
 import io.circe._
 import com.flowtick.sysiphos._
@@ -138,9 +138,19 @@ object FlowDefinition {
       case "shell" => cursor.as[CommandLineTask]
       case "trigger" => cursor.as[TriggerFlowTask]
       case "camel" => cursor.as[CamelTask]
+      case "dynamic" => cursor.as[DynamicTask]
       case _ => cursor.as[SysiphosTask]
     }
   }
+
+  sealed trait ExtractExpression {
+    def `type`: String
+    def expression: String
+    def extractSingle: Option[Boolean] // to extract value from singleton list
+  }
+
+  final case class ExtractSpec(`type`: String, name: String, expression: String, extractSingle: Option[Boolean] = None) extends ExtractExpression
+  final case class ItemSpec(`type`: String, expression: String, extractSingle: Option[Boolean] = None) extends ExtractExpression
 
   final case class SysiphosDefinition(
     id: String,

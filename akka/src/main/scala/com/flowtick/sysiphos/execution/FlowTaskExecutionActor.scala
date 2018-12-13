@@ -52,7 +52,7 @@ class FlowTaskExecutionActor(
       sender() ! TaskAck
 
     case FlowTaskExecution.Execute(camelTask: CamelTask, taskInstance) =>
-      executeExchange(camelTask, flowInstance, taskInstance.logId)(taskLogger)
+      executeExchange(camelTask, flowInstance.context, taskInstance.logId)(taskLogger)
         .unsafeToFuture()
         .map {
           case (exchange, contextValues) =>
