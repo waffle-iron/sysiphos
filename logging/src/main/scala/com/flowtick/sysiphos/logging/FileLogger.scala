@@ -9,12 +9,11 @@ import org.slf4j
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
-import scala.util.{ Failure, Success, Try }
 
 class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends Logger {
   val log: slf4j.Logger = LoggerFactory.getLogger(getClass)
 
-  override def logId(logKey: String): Try[LogId] = Try {
+  override def logId(logKey: String): IO[LogId] = IO {
     val logFile = new File(logBaseDir, s"${logKey.replace('/', File.separatorChar)}.log")
     logFile.getParentFile.mkdirs()
 
@@ -23,9 +22,9 @@ class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends L
   }.flatMap { logFile =>
     if (logFile.canWrite) {
       log.debug(s"created log $logFile")
-      Success(logFile.getAbsolutePath)
+      IO(logFile.getAbsolutePath)
     } else
-      Failure(new IllegalStateException(s"unable to create logfile for $logKey"))
+      IO.raiseError(new IllegalStateException(s"unable to create logfile for $logKey"))
   }
 
   override def getLog(logId: LogId): LogStream =

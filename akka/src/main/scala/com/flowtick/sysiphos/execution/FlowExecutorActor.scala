@@ -38,8 +38,8 @@ class FlowExecutorActor(
 
   def flowInstanceActorProps(flowDefinition: FlowDefinition, flowInstance: FlowInstance) = Props(
     new FlowInstanceExecutorActor(
+      flowInstance.id,
       flowDefinition,
-      flowInstance,
       flowInstanceRepository,
       flowTaskInstanceRepository,
       Logger.defaultLogger)(repositoryContext))
@@ -60,32 +60,32 @@ class FlowExecutorActor(
           Future.successful(FlowExecutorActor.NewInstance(Left(new IllegalArgumentException(s"unable to find flow id $flowDefinitionId"))))
       }.pipeTo(sender())
 
-    case FlowInstanceExecution.Finished(flowInstance) =>
-      log.info(s"finished $flowInstance")
-      Kamon.counter("instance-finished").refine("definition", flowInstance.flowDefinitionId).increment()
+    case FlowInstanceExecution.Finished(flowInstanceId, flowDefinitionId) =>
+      log.info(s"finished $flowInstanceId")
+      Kamon.counter("instance-finished").refine("definition", flowDefinitionId).increment()
 
       sender() ! PoisonPill
 
       for {
-        _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Done)
-        _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
+        _ <- flowInstanceRepository.setStatus(flowInstanceId, FlowInstanceStatus.Done)
+        _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
 
-    case FlowInstanceExecution.ExecutionFailed(flowInstance) =>
-      Kamon.counter("instance-failed").refine("definition", flowInstance.flowDefinitionId).increment()
+    case FlowInstanceExecution.ExecutionFailed(flowInstanceId, flowDefinitionId) =>
+      Kamon.counter("instance-failed").refine("definition", flowDefinitionId).increment()
 
       sender() ! PoisonPill
       for {
-        _ <- flowInstanceRepository.setStatus(flowInstance.id, FlowInstanceStatus.Failed)
-        _ <- flowInstanceRepository.setEndTime(flowInstance.id, repositoryContext.epochSeconds)
+        _ <- flowInstanceRepository.setStatus(flowInstanceId, FlowInstanceStatus.Failed)
+        _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
 
     case FlowInstanceExecution.TaskCompleted(taskInstance) =>
       log.info(s"task completed: ${taskInstance.id}")
       sender() ! FlowInstanceExecution.Execute(PendingTasks)
 
-    case FlowInstanceExecution.WorkPending(instance) =>
-      log.info(s"work pending: $instance")
+    case FlowInstanceExecution.WorkPending(instanceId) =>
+      log.info(s"work pending: $instanceId")
 
     case FlowInstanceExecution.RetryScheduled(instance) =>
       log.info(s"retry scheduled: $instance")

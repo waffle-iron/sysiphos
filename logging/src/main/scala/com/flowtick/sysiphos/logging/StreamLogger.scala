@@ -7,8 +7,6 @@ import cats.effect.IO
 import com.amazonaws.services.s3.model.AmazonS3Exception
 import fs2.{ Chunk, Pipe, Sink }
 
-import scala.util.{ Success, Try }
-
 class StreamLogger(
   pathRoot: String,
   store: Store[IO],
@@ -17,8 +15,8 @@ class StreamLogger(
   private def pathForId(logId: LogId) =
     Path(pathRoot, logId, size = None, isDir = false, None)
 
-  override def logId(logKey: String): Try[LogId] =
-    Success(logKey)
+  override def logId(logKey: String): IO[LogId] =
+    IO.pure(logKey)
 
   override def getLog(logId: LogId): LogStream =
     store

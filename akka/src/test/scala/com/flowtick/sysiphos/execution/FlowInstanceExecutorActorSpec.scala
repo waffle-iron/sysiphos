@@ -6,11 +6,11 @@ import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
-import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
+import com.flowtick.sysiphos.flow.FlowDefinition.{ ExtractSpec, SysiphosDefinition }
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.CommandLineTask
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask }
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 
@@ -64,12 +64,12 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
 
     def flowInstanceActorProps = Props(
       new FlowInstanceExecutorActor(
+        flowInstance.id,
         flowDefinition,
-        flowInstance,
         flowInstanceRepository,
         flowTaskInstanceRepository,
         logger)(repositoryContext) {
-        override def now: ZonedDateTime = LocalDateTime.ofEpochSecond(testEpoch, testEpoch, ZoneOffset.UTC).atZone(timeZone)
+        override def currentTime: ZonedDateTime = LocalDateTime.ofEpochSecond(testEpoch, testEpoch, ZoneOffset.UTC).atZone(timeZone)
       })
 
     lazy val flowExecutorProbe = TestProbe()
@@ -82,6 +82,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
 
   "FlowInstanceExecutorActor" should "start the root task on initial execute" in new InstanceExecutorSetup {
     val flowTaskExecutorProbe = TestProbe()
+
+    (flowInstanceRepository.findById(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(Some(flowInstance)))
 
     (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext))
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)), *)
@@ -141,6 +145,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       status = FlowTaskInstanceStatus.Retry,
       nextDueDate = Some(1000))
 
+    (flowInstanceRepository.findById(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(Some(flowInstance)))
+
     (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext))
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)), *)
       .returning(Future.successful(Seq(taskInstanceInRetry)))
@@ -185,7 +193,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstanceWithRetry.id, Some(flowTaskInstance.retryDelay + testEpoch), *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
-    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), flowTaskInstanceWithRetry)
+    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(flowTaskInstanceWithRetry))
 
     flowExecutorProbe.expectMsg(RetryScheduled(flowTaskInstanceWithRetry))
   }
@@ -195,6 +203,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
     val flowTaskExecutorProbe = TestProbe()
 
     val taskInstanceInRetry: FlowTaskInstanceDetails = flowTaskInstance.copy(status = FlowTaskInstanceStatus.Retry)
+
+    (flowInstanceRepository.findById(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(Some(flowInstance)))
 
     (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext))
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)), *)
@@ -233,12 +245,12 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
     // pending tasks execution, should not execute retry
     flowInstanceExecutorActor ! Execute(PendingTasks)
 
-    flowExecutorProbe.expectMsg(WorkPending(FlowInstanceDetails("???", "ls-definition-id", 1, None, None, FlowInstanceStatus.Scheduled, List())))
+    flowExecutorProbe.expectMsg(WorkPending(flowInstance.id))
 
     // explicit execute, should execute retry
     flowInstanceExecutorActor ! Execute(TaskId(flowDefinition.tasks.head.id))
 
-    flowExecutorProbe.expectMsg(WorkPending(FlowInstanceDetails("???", "ls-definition-id", 1, None, None, FlowInstanceStatus.Scheduled, List())))
+    flowExecutorProbe.expectMsg(WorkPending(flowInstance.id))
     flowExecutorProbe.expectMsg(TaskCompleted(taskInstanceInRetry))
   }
 
@@ -256,9 +268,9 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, *)
       .returns(Future.successful(Some(taskInstanceWithoutRetries)))
 
-    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), taskInstanceWithoutRetries)
+    flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(taskInstanceWithoutRetries))
 
-    flowExecutorProbe.expectMsg(ExecutionFailed(flowInstance))
+    flowExecutorProbe.expectMsg(ExecutionFailed(flowInstance.id, flowDefinition.id))
   }
 
   it should "throttle task execution" in new InstanceExecutorSetup {
@@ -267,6 +279,11 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       taskParallelism = Some(50))
 
     val manyCommands: Seq[CommandLineTask] = Seq.tabulate(100)(index => CommandLineTask(s"ls-task-id-$index", None, "ls"))
+
+    (flowInstanceRepository.findById(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(Some(flowInstance)))
+      .atLeastOnce()
 
     (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext))
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)), *)

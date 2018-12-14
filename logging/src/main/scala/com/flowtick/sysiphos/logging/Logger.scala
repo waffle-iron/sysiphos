@@ -42,7 +42,7 @@ trait Logger extends Clock {
    *         only this ID and no out of band information should be used
    *         to write to or retrieve logs
    */
-  def logId(key: String): Try[Logger.LogId]
+  def logId(key: String): IO[Logger.LogId]
 
   /**
    * @return a pipe to do custom processing on the stream without needing to overwrite #appendStream
@@ -77,7 +77,7 @@ trait Logger extends Clock {
       .drain
   }
 
-  def format(line: String): String = s"${DateTimeFormatter.ISO_DATE_TIME.format(now)} - $line"
+  def format(line: String): String = s"${DateTimeFormatter.ISO_DATE_TIME.format(currentTime)} - $line"
 
   /**
    * @param logId id of the log to retrieve

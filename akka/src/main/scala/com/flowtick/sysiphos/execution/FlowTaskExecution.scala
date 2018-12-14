@@ -35,7 +35,7 @@ object FlowTaskExecution {
     cfg
   }
 
-  final case class Execute(flowTask: FlowTask, taskInstance: FlowTaskInstance)
+  final case class Execute(flowTask: FlowTask, taskInstance: FlowTaskInstance, contextValues: Seq[FlowInstanceContextValue])
 
   case object TaskAck
   case object TaskStreamInitialized

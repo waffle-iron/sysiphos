@@ -9,14 +9,15 @@ import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ FlatSpec, Matchers }
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.Future
 
 class FlowInstanceExecutionSpec extends FlatSpec
   with FlowInstanceExecution
   with Matchers
   with ScalaFutures
   with MockFactory {
-  val taskInstanceRepositoryMock: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
+  override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
+  override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
 
   "Flow Instance Execution" should "find next tasks" in {
     val cmd4 = CommandLineTask("cmd4", None, "ls 4")
@@ -87,12 +88,10 @@ class FlowInstanceExecutionSpec extends FlatSpec
       .returning(Future.successful(flowTaskInstance))
 
     getOrCreateTaskInstance(
-      flowInstance,
+      flowInstance.id,
+      flowDefinition.id,
       flowDefinition.tasks.head,
-      new ConsoleLogger)(this).futureValue
+      new ConsoleLogger)(this).unsafeRunSync()
   }
 
-  override implicit def executionContext: ExecutionContext = ExecutionContext.Implicits.global
-
-  override def flowTaskInstanceRepository: FlowTaskInstanceRepository = taskInstanceRepositoryMock
 }

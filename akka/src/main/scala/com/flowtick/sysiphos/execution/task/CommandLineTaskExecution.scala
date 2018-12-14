@@ -7,7 +7,7 @@ import java.time.ZoneOffset
 import cats.effect.{ ContextShift, IO }
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.execution.FlowTaskExecution
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowTaskInstance }
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceContextValue, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 
@@ -31,12 +31,12 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
 
   def replaceContext(
     taskInstance: FlowTaskInstance,
-    flowInstance: FlowInstance,
+    contextValues: Seq[FlowInstanceContextValue],
     command: String): Try[String] = {
     val creationDateTime = ofEpochSecond(taskInstance.creationTime, 0, ZoneOffset.UTC)
     val additionalModel = sanitizedSysProps ++ Map("creationTime" -> creationDateTime)
 
-    replaceContextInTemplate(command, flowInstance.context, additionalModel)
+    replaceContextInTemplate(command, contextValues, additionalModel)
   }
 
   private def commandIO(

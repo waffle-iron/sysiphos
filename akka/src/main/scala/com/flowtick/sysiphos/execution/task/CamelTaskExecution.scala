@@ -20,7 +20,7 @@ import org.apache.camel.jsonpath.JsonPathExpression
 import org.apache.camel.language.simple.SimpleLanguage
 import org.springframework.beans.{ BeanUtils, PropertyAccessorFactory }
 
-import scala.util.Try
+import scala.util.{ Failure, Success, Try }
 
 trait CamelTaskExecution extends FlowTaskExecution with Logging {
   protected def createCamelContext(camelTask: CamelTask): IO[CamelContext] = IO.delay {
@@ -152,7 +152,10 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
             evaluateExpression[String](extract, exchange).map(FlowInstanceContextValue(extract.name, _))
           }.toList
 
-        Traverse[List].sequence(expressionsValues).toEither
+        Traverse[List].sequence(expressionsValues) match {
+          case Success(contextValues) => Right(contextValues)
+          case Failure(error) => Left(error)
+        }
       }
     } yield (exchange, contextValues)
 }
