@@ -1,7 +1,7 @@
 package com.flowtick.sysiphos.flow
 
 import com.flowtick.sysiphos.flow.FlowDefinition.{ ItemSpec, SysiphosDefinition, SysiphosTask }
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, DynamicTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task._
 import org.scalatest.{ FlatSpec, Matchers }
 
 class FlowDefinitionSpec extends FlatSpec with Matchers {
@@ -46,6 +46,25 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |          "type": "jsonpath",
          |          "expression": "$$.data.items"
          |        }
+         |      },
+         |      {
+         |        "type" : "definition-import",
+         |        "id" : "definition-import-task-id",
+         |        "targetDefinitionId" : "definition-id",
+         |        "fetchTask" : {
+         |          "id" : "fetch-task-id",
+         |          "uri" : "some uri",
+         |          "type" : "camel"
+         |        },
+         |        "items" : {
+         |          "type" : "jsonpath",
+         |          "expression" : "$$.data.configurations.items"
+         |        },
+         |        "taskTemplate" : {
+         |          "id" : "id-$${businessKey}",
+         |          "uri" : "some template uri",
+         |          "type" : "camel"
+         |        }
          |      }
          |    ]
          |  }]
@@ -53,11 +72,18 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |
        """.stripMargin.trim)
 
-    val children = Seq(
-      SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
-      TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
-      CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None),
-      DynamicTask(id = "dynamic-task-id", contextSourceUri = "http://example.org/path", children = None, items = ItemSpec(`type` = "jsonpath", expression = "$.data.items")))
+    val definitionImportTask = DefinitionImportTask(
+      id = "definition-import-task-id",
+      fetchTask = CamelTask(
+        id = "fetch-task-id",
+        uri = "some uri",
+        children = None),
+      targetDefinitionId = "definition-id",
+      items = ItemSpec(`type` = "jsonpath", expression = "$.data.configurations.items"),
+      taskTemplate = CamelTask(
+        id = "id-${businessKey}",
+        uri = "some template uri",
+        children = None))
 
     val expectedDefinition = SysiphosDefinition(
       id = "test-flow",
@@ -67,7 +93,12 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
       latestOnly = true,
       tasks = Seq(CommandLineTask(
         id = "test-task",
-        children = Some(children),
+        children = Some(Seq(
+          SysiphosTask(id = "something", `type` = "noop", None, Some(Map("foo" -> "bar"))),
+          TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
+          CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None),
+          DynamicTask(id = "dynamic-task-id", contextSourceUri = "http://example.org/path", children = None, items = ItemSpec(`type` = "jsonpath", expression = "$.data.items")),
+          definitionImportTask)),
         command = "ls")))
 
     tryParse should be(Right(expectedDefinition))

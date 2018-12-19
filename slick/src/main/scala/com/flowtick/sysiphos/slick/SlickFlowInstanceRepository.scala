@@ -139,7 +139,7 @@ class SlickFlowInstanceRepository(
       .groupBy(q => (q.flowDefinitionId, q.status))
       .map {
         case ((idValue, statusValue), groupedByIdAndStatus) => (idValue, statusValue, groupedByIdAndStatus.length)
-      }.result.map(_.map(InstanceCount.tupled))
+      }.sortBy(_._2).result.map(_.map(InstanceCount.tupled))
 
     db.run(countQuery)
   }

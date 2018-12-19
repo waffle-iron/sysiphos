@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "id": "1",
+      "businessKey": "key1",
+      "properties": [
+        {
+          "key": "api_key",
+          "value": "api_key1"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "businessKey": "key2",
+      "properties": [
+        {
+          "key": "api_key",
+          "value": "api_key2"
+        }
+      ]
+    }
+  ]
+}

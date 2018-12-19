@@ -13,7 +13,7 @@ trait FlowTaskExecution {
   def replaceContextInTemplate(
     template: String,
     context: Seq[FlowInstanceContextValue],
-    additionalModel: Map[String, Any]): Try[String] = Try {
+    additionalModel: Map[String, Any] = Map.empty): Try[String] = Try {
     import scala.collection.JavaConverters._
 
     val javaModel = (context.map(value => (value.key, value.value)).toMap ++ additionalModel).asJava

@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.flow
 
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, DynamicTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task._
 import io.circe.Decoder.Result
 import io.circe._
 import com.flowtick.sysiphos._
@@ -129,7 +129,8 @@ object FlowDefinition {
       case task: TriggerFlowTask => task.asJson
       case task: CamelTask => task.asJson
       case task: SysiphosTask => task.asJson
-      case _ => Json.obj()
+      case task: DefinitionImportTask => task.asJson
+      case _ => Json.Null
     }
   }
 
@@ -139,6 +140,7 @@ object FlowDefinition {
       case "trigger" => cursor.as[TriggerFlowTask]
       case "camel" => cursor.as[CamelTask]
       case "dynamic" => cursor.as[DynamicTask]
+      case "definition-import" => cursor.as[DefinitionImportTask]
       case _ => cursor.as[SysiphosTask]
     }
   }

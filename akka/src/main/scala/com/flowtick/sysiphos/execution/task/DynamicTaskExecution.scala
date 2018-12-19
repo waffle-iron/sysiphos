@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.execution.task
 
-import java.util.{ List => javaList, Map => javaMap }
+import java.util.{ List => javaList }
 
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.Logging
@@ -12,18 +12,12 @@ import com.flowtick.sysiphos.task.{ CamelTask, DynamicTask }
 import scala.collection.JavaConverters._
 import scala.util.{ Failure, Success }
 
-case class DynamicTaskConfiguration(contextValues: Seq[FlowInstanceContextValue])
-case class DynamicTaskConfigurations(
-  limit: Long,
-  offset: Long,
-  configurations: Seq[DynamicTaskConfiguration])
-
 trait DynamicTaskExecution extends CamelTaskExecution with Logging {
   def getConfigurations(
     offset: Long,
     limit: Long,
     dynamicTask: DynamicTask,
-    logId: LogId)(logger: Logger): IO[DynamicTaskConfigurations] = {
+    logId: LogId)(logger: Logger): IO[TaskConfigurations] = {
     val uriWithOffsetAndLimit = replaceContextInTemplate(
       dynamicTask.contextSourceUri,
       Seq.empty,
@@ -36,17 +30,17 @@ trait DynamicTaskExecution extends CamelTaskExecution with Logging {
 
     executeExchange(camelTask, Seq.empty, logId)(logger).flatMap {
       case (exchange, _) =>
-        evaluateExpression[javaList[javaList[javaMap[String, String]]]]( // -> Seq[Seq[FlowInstanceContextValue]]
+        evaluateExpression[javaList[TaskConfigurationDto], TaskConfigurationDto](
           dynamicTask.items,
           exchange) match {
             case Success(configurations) =>
-              val contexts = configurations.asScala.map { contextValues =>
-                DynamicTaskConfiguration(contextValues.asScala.map { keyValueMap =>
-                  FlowInstanceContextValue(keyValueMap.get("key").toString, keyValueMap.get("value").toString)
+              val taskConfigs = configurations.asScala.map { taskConfigDto =>
+                TaskConfiguration(id = taskConfigDto.id, businessKey = taskConfigDto.businessKey, contextValues = taskConfigDto.properties.asScala.map { property =>
+                  FlowInstanceContextValue(property.key, property.value)
                 })
               }
 
-              IO.delay(DynamicTaskConfigurations(limit, offset, contexts))
+              IO.delay(TaskConfigurations(Some(limit), Some(offset), taskConfigs))
             case Failure(error) => IO.raiseError(error)
           }
     }

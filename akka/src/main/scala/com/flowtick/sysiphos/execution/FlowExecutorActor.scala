@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ Actor, Cancellable, PoisonPill, Props }
 import akka.pattern.pipe
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
-import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
+import com.flowtick.sysiphos.execution.FlowExecutorActor.{ ImportDefinition, NewInstance, RequestInstance, CreatedOrUpdatedDefinition }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
@@ -18,6 +18,8 @@ object FlowExecutorActor {
   case class Init()
   case class Tick()
   case class RequestInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue])
+  case class ImportDefinition(flowDefinition: FlowDefinition)
+  case class CreatedOrUpdatedDefinition(result: Either[Throwable, FlowDefinitionDetails])
   case class NewInstance(result: Either[Throwable, FlowInstanceDetails])
   case class RunInstanceExecutors(instances: Seq[FlowInstance])
   case class DueFlowDefinitions(flows: Seq[FlowDefinition])
@@ -30,6 +32,7 @@ class FlowExecutorActor(
   val flowTaskInstanceRepository: FlowTaskInstanceRepository,
   val flowScheduleStateStore: FlowScheduleStateStore,
   val flowScheduler: FlowScheduler)(implicit val executionContext: ExecutionContext) extends Actor with FlowExecution with Logging {
+  import Logging._
 
   val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
   val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
@@ -59,6 +62,15 @@ class FlowExecutorActor(
         case None =>
           Future.successful(FlowExecutorActor.NewInstance(Left(new IllegalArgumentException(s"unable to find flow id $flowDefinitionId"))))
       }.pipeTo(sender())
+
+    case ImportDefinition(flowDefinition) =>
+      flowDefinitionRepository
+        .createOrUpdateFlowDefinition(flowDefinition)
+        .logFailed(s"unable to create or update definition ${flowDefinition.id}")
+        .map(definition => CreatedOrUpdatedDefinition(Right(definition)))
+        .recoverWith {
+          case error => Future.successful(Left(error))
+        }.pipeTo(sender())
 
     case FlowInstanceExecution.Finished(flowInstanceId, flowDefinitionId) =>
       log.info(s"finished $flowInstanceId")

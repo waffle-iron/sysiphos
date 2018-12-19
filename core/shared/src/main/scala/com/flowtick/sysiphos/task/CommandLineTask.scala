@@ -4,7 +4,7 @@ import com.flowtick.sysiphos.flow.FlowTask
 
 final case class CommandLineTask(
   id: String,
-  children: Option[Seq[FlowTask]],
+  children: Option[Seq[FlowTask]] = None,
   command: String,
   `type`: String = "shell",
   shell: Option[String] = None,

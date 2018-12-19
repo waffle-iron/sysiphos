@@ -6,11 +6,12 @@ import akka.actor.{ Actor, ActorRef }
 import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
 import cats.effect.IO
-import com.flowtick.sysiphos.execution.FlowExecutorActor.{ NewInstance, RequestInstance }
+import com.flowtick.sysiphos.execution.FlowExecutorActor.{ CreatedOrUpdatedDefinition, ImportDefinition, NewInstance, RequestInstance }
 import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamCompleted, TaskStreamFailure, TaskStreamInitialized }
-import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTaskExecution }
+import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTaskExecution, DefinitionImportTaskExecution }
+import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.logging.Logger
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, TriggerFlowTask }
+import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask, DefinitionImportTask, TriggerFlowTask }
 
 import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, Future }
 import scala.util.{ Failure, Success, Try }
@@ -21,6 +22,7 @@ class FlowTaskExecutionActor(
   taskLogger: Logger) extends Actor
   with CommandLineTaskExecution
   with CamelTaskExecution
+  with DefinitionImportTaskExecution
   with Logging {
 
   import Logging._
@@ -85,6 +87,30 @@ class FlowTaskExecutionActor(
           taskLogger.appendLine(taskInstance.logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()
           FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
       }.pipeTo(flowInstanceActor)
+
+      sender() ! TaskAck
+
+    case FlowTaskExecution.Execute(definitionImportTask: DefinitionImportTask, taskInstance, contextValues) =>
+      log.info(s"executing task with id ${definitionImportTask.id}")
+
+      getFlowDefinition(definitionImportTask, contextValues, taskInstance.logId)(taskLogger)
+        .unsafeToFuture()
+        .logFailed("unable to get flow definition")
+        .map[Either[Throwable, FlowDefinition]](Right(_))
+        .recoverWith {
+          case error => Future.successful(Left(error))
+        }
+        .flatMap {
+          case Right(definition) => ask(flowExecutorActor, ImportDefinition(definition))(Timeout(30, TimeUnit.SECONDS))
+          case Left(error) => Future.successful(CreatedOrUpdatedDefinition(Left(error)))
+        }.map {
+          case CreatedOrUpdatedDefinition(Right(definition)) =>
+            taskLogger.appendLine(taskInstance.logId, s"created or updated ${definition.id}").unsafeRunSync()
+            FlowInstanceExecution.WorkDone(taskInstance)
+          case CreatedOrUpdatedDefinition(Left(error)) =>
+            taskLogger.appendLine(taskInstance.logId, s"😞 error while importing flow definition ${definitionImportTask.targetDefinitionId}").unsafeRunSync()
+            FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
+        }.pipeTo(flowInstanceActor)
 
       sender() ! TaskAck
 
