@@ -63,7 +63,7 @@ class DynamicTaskExecutionSpec extends FlatSpec with DynamicTaskExecution with M
       val dynamicTask = DynamicTask(
         id = "foo",
         contextSourceUri = s"http4://localhost:${server.port()}/configurations",
-        items = ItemSpec("jsonpath", "$.data.configurations.items"))
+        items = ItemSpec("jsonpath", "$.data.configurations"))
 
       getConfigurations(0, 100, dynamicTask, "test")(new ConsoleLogger)
     }).unsafeRunSync()

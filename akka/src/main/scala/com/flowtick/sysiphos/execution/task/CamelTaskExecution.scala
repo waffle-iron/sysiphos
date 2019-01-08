@@ -1,11 +1,9 @@
 package com.flowtick.sysiphos.execution.task
 
 import java.io.InputStream
-import java.util
 
 import cats._
 import cats.instances.list._
-import cats.instances.try_._
 import cats.effect.IO
 import com.fasterxml.jackson.databind.{ DeserializationFeature, ObjectMapper }
 import com.flowtick.sysiphos.execution.{ FlowTaskExecution, Logging }
@@ -20,8 +18,6 @@ import org.apache.camel.impl.{ DefaultCamelContext, SimpleRegistry }
 import org.apache.camel.jsonpath.JsonPathExpression
 import org.apache.camel.language.simple.SimpleLanguage
 import org.springframework.beans.{ BeanUtils, PropertyAccessorFactory }
-import scala.collection.JavaConverters._
-import scala.util.{ Failure, Success, Try }
 
 trait CamelTaskExecution extends FlowTaskExecution with Logging {
 
@@ -117,9 +113,9 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
 
   }
 
-  def evaluateExpression[T, I](
+  def evaluateExpression[T](
     extractExpression: ExtractExpression,
-    exchange: Exchange)(implicit targetType: Manifest[T], itemType: Manifest[I]): Try[T] = Try(extractExpression.`type`.toLowerCase match {
+    exchange: Exchange)(implicit targetType: Manifest[T]): IO[T] = IO(extractExpression.`type`.toLowerCase match {
     case "jsonpath" =>
       val jsonPathExpression = new JsonPathExpression(extractExpression.expression.trim)
       jsonPathExpression.init()
@@ -129,23 +125,16 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
       expressionExchange.getIn.setBody(exchange.getOut.getBody)
 
       val targetTypeClass: Class[T] = targetType.runtimeClass.asInstanceOf[Class[T]]
-      val itemTypeClass: Class[I] = itemType.runtimeClass.asInstanceOf[Class[I]]
+      val extracted = jsonPathExpression.evaluate(expressionExchange, classOf[Object])
 
-      jsonPathExpression.evaluate(expressionExchange, classOf[Object]) match {
-        case javaList: java.util.List[Any] if javaList.size() == 1 && extractExpression.extractSingle.getOrElse(true) =>
-          exchange.getContext.getTypeConverter.convertTo(targetTypeClass, javaList.get(0))
-        case other: java.util.List[Any] =>
-          val resultList: util.List[I] = new util.ArrayList[I]()
-
-          other.asScala.foreach(item => resultList.add(objectMapper.convertValue(item, itemTypeClass)))
-
-          resultList.asInstanceOf[T]
-        case other: Any => exchange.getContext.getTypeConverter.convertTo(targetTypeClass, other)
-      }
+      objectMapper.convertValue(extracted, targetTypeClass)
 
     case "simple" =>
       SimpleLanguage.simple(extractExpression.expression).evaluate(exchange, targetType.runtimeClass.asInstanceOf[Class[T]])
-  })
+  }).map {
+    case list: java.util.List[_] if extractExpression.extractSingle.getOrElse(true) && list.size() == 1 => list.get(0)
+    case other: T => other
+  }.map(_.asInstanceOf[T])
 
   def executeExchange(
     camelTask: CamelTask,
@@ -160,18 +149,15 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
         }
         exchange
       }
-      contextValues <- IO.fromEither {
-        val expressionsValues: List[Try[FlowInstanceContextValue]] = camelTask
+      contextValues <- {
+        val expressionsValues: List[IO[FlowInstanceContextValue]] = camelTask
           .extract
           .getOrElse(Seq.empty)
           .map { extract =>
-            evaluateExpression[String, Nothing](extract, exchange).map(FlowInstanceContextValue(extract.name, _))
+            evaluateExpression[String](extract, exchange).map(FlowInstanceContextValue(extract.name, _))
           }.toList
 
-        Traverse[List].sequence(expressionsValues) match {
-          case Success(contextValues) => Right(contextValues)
-          case Failure(error) => Left(error)
-        }
+        Traverse[List].sequence(expressionsValues)
       }
     } yield (exchange, contextValues)
 }

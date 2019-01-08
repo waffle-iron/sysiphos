@@ -1,7 +1,5 @@
 package com.flowtick.sysiphos.execution.task
 
-import java.util.{ List => javaList }
-
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
@@ -11,7 +9,6 @@ import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.{ CamelTask, DefinitionImportTask }
 
 import scala.collection.JavaConverters._
-import scala.util.{ Failure, Success }
 
 trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
   def getFlowDefinition(
@@ -20,12 +17,11 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
     logId: LogId)(logger: Logger): IO[FlowDefinition] = {
     executeExchange(definitionImportTask.fetchTask, Seq.empty, logId)(logger).flatMap {
       case (exchange, _) =>
-        evaluateExpression[javaList[TaskConfigurationDto], TaskConfigurationDto](definitionImportTask.items, exchange) match {
-          case Success(configurations) => definitionFromConfigurations(
+        evaluateExpression[TaskConfigurationDtos](definitionImportTask.items, exchange).flatMap { configurations =>
+          definitionFromConfigurations(
             definitionImportTask.targetDefinitionId,
             definitionImportTask.taskTemplate,
-            configurations.asScala)
-          case Failure(error) => IO.raiseError(error)
+            configurations.items.asScala)
         }
     }
   }
@@ -33,7 +29,7 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
   protected def definitionFromConfigurations(
     definitionId: String,
     taskTemplate: FlowTask,
-    configurations: Seq[TaskConfigurationDto]): IO[SysiphosDefinition] = IO {
+    configurations: Seq[TaskConfigurationDto]): IO[FlowDefinition] = IO {
     val taskConfigs: Seq[TaskConfiguration] = configurations.map { taskConfigDto =>
       TaskConfiguration(id = taskConfigDto.id, businessKey = taskConfigDto.businessKey, contextValues = taskConfigDto.properties.asScala.map { property =>
         FlowInstanceContextValue(property.key, property.value)

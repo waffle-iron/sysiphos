@@ -1,7 +1,5 @@
 package com.flowtick.sysiphos.execution.task
 
-import java.util.{ List => javaList }
-
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowInstanceContextValue
@@ -10,7 +8,6 @@ import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.{ CamelTask, DynamicTask }
 
 import scala.collection.JavaConverters._
-import scala.util.{ Failure, Success }
 
 trait DynamicTaskExecution extends CamelTaskExecution with Logging {
   def getConfigurations(
@@ -30,18 +27,14 @@ trait DynamicTaskExecution extends CamelTaskExecution with Logging {
 
     executeExchange(camelTask, Seq.empty, logId)(logger).flatMap {
       case (exchange, _) =>
-        evaluateExpression[javaList[TaskConfigurationDto], TaskConfigurationDto](
+        evaluateExpression[TaskConfigurationDtos](
           dynamicTask.items,
-          exchange) match {
-            case Success(configurations) =>
-              val taskConfigs = configurations.asScala.map { taskConfigDto =>
-                TaskConfiguration(id = taskConfigDto.id, businessKey = taskConfigDto.businessKey, contextValues = taskConfigDto.properties.asScala.map { property =>
-                  FlowInstanceContextValue(property.key, property.value)
-                })
-              }
-
-              IO.delay(TaskConfigurations(Some(limit), Some(offset), taskConfigs))
-            case Failure(error) => IO.raiseError(error)
+          exchange).map { configurations =>
+            val taskConfigs = configurations.items.asScala.map(taskConfigDto =>
+              TaskConfiguration(id = taskConfigDto.id, businessKey = taskConfigDto.businessKey, contextValues = taskConfigDto.properties.asScala.map { property =>
+                FlowInstanceContextValue(property.key, property.value)
+              }))
+            TaskConfigurations(Some(limit), Some(offset), taskConfigs)
           }
     }
   }

@@ -16,6 +16,10 @@ class TaskConfigurationDto(
   def this() = this(null, null, null)
 }
 
+class TaskConfigurationDtos(@BeanProperty var items: java.util.List[TaskConfigurationDto]) {
+  def this() = this(null)
+}
+
 final case class TaskConfiguration(id: String, businessKey: String, contextValues: Seq[FlowInstanceContextValue])
 final case class TaskConfigurations(
   limit: Option[Long],
