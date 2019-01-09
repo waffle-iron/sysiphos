@@ -105,4 +105,12 @@ class SysiphosApiContext(
   override def deleteInstance(flowInstanceId: String): Future[String] = {
     flowInstanceRepository.deleteFlowInstance(flowInstanceId)
   }
+
+  override def setTaskStatus(
+    taskInstanceId: String,
+    status: String,
+    retries: Option[Int],
+    nextRetry: Option[Long]): Future[Option[FlowTaskInstanceDetails]] = {
+    flowTaskInstanceRepository.setStatus(taskInstanceId, FlowTaskInstanceStatus.withName(status), retries, nextRetry)
+  }
 }

@@ -91,7 +91,7 @@ trait FlowInstanceExecution extends Logging with Clock {
 
     runningTask <- if (execute.taskInstance.status != FlowTaskInstanceStatus.Running) {
       log.info(s"setting task ${execute.taskInstance.id} to running")
-      IO.fromFuture(IO(flowTaskInstanceRepository.setStatus(execute.taskInstance.id, FlowTaskInstanceStatus.Running)))
+      IO.fromFuture(IO(flowTaskInstanceRepository.setStatus(execute.taskInstance.id, FlowTaskInstanceStatus.Running, None, None)))
     } else IO.pure(Some(execute.taskInstance))
 
     preparedTask <- runningTask match {

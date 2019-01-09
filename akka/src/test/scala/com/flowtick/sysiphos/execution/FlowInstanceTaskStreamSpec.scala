@@ -96,8 +96,8 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
       .returning(Future.successful(Some(flowTaskInstance)))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *, *, *)
       .returning(Future.successful(Some(flowTaskInstance)))
       .atLeastOnce()
 

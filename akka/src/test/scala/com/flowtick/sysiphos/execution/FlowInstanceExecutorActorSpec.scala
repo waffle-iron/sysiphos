@@ -6,11 +6,10 @@ import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
-import com.flowtick.sysiphos.flow.FlowDefinition.{ ExtractSpec, SysiphosDefinition }
-import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
+import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.{ CamelTask, CommandLineTask }
+import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 
@@ -107,12 +106,12 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstance.id, testEpoch, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *, *, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *, *, *)
       .returns(Future.successful(Some(flowTaskInstance)))
 
     (flowInstanceRepository.insertOrUpdateContextValues(_: String, _: Seq[FlowInstanceContextValue])(_: RepositoryContext))
@@ -157,8 +156,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(taskInstanceInRetry.taskId)), *)
       .returning(Future.successful(Some(taskInstanceInRetry)))
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, *, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, *, *, *, *)
       .returns(Future.successful(Some(taskInstanceInRetry)))
       .never()
 
@@ -181,16 +180,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstanceWithRetry.id, testEpoch, *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstanceWithRetry.id, FlowTaskInstanceStatus.Retry, *)
-      .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
-
-    (flowTaskInstanceRepository.setRetries(_: String, _: Int)(_: RepositoryContext))
-      .expects(flowTaskInstanceWithRetry.id, 0, *)
-      .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
-
-    (flowTaskInstanceRepository.setNextDueDate(_: String, _: Option[Long])(_: RepositoryContext))
-      .expects(flowTaskInstanceWithRetry.id, Some(flowTaskInstance.retryDelay + testEpoch), *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstanceWithRetry.id, FlowTaskInstanceStatus.Retry, Some(0), Some(flowTaskInstance.retryDelay + testEpoch), *)
       .returns(Future.successful(Some(flowTaskInstanceWithRetry)))
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(flowTaskInstanceWithRetry))
@@ -223,13 +214,13 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returning(Future.successful(Some(taskInstanceInRetry)))
       .noMoreThanTwice()
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *, *, *)
       .returns(Future.successful(Some(taskInstanceInRetry)))
       .noMoreThanTwice()
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *, *, *)
       .returns(Future.successful(Some(taskInstanceInRetry)))
       .noMoreThanTwice()
 
@@ -264,8 +255,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(flowTaskInstance.id, testEpoch, *)
       .returns(Future.successful(Some(taskInstanceWithoutRetries)))
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, *, *, *)
       .returns(Future.successful(Some(taskInstanceWithoutRetries)))
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(taskInstanceWithoutRetries))
@@ -315,13 +306,13 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returns(Future.successful(Some(flowInstance)))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Running, *, *, *)
       .returning(Future.successful(Some(flowTaskInstance)))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus)(_: RepositoryContext))
-      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *)
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(flowTaskInstance.id, FlowTaskInstanceStatus.Done, *, *, *)
       .returning(Future.successful(Some(flowTaskInstance)))
       .atLeastOnce()
 

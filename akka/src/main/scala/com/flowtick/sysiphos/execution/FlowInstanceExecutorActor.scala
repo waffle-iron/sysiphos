@@ -118,7 +118,7 @@ class FlowInstanceExecutorActor(
         ("task", flowTaskInstance.taskId)).increment()
 
       val doneTaskInstance = for {
-        _ <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done)
+        _ <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done, None, None)
         ended <- flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
         _ <- flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
       } yield ended
@@ -143,16 +143,18 @@ class FlowInstanceExecutorActor(
     if (flowTaskInstance.retries == 0) {
       log.error(s"retries exceeded for $flowTaskInstance, failed execution", error)
       flowTaskInstanceRepository
-        .setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed)
+        .setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, None, None)
         .map(_ => FlowInstanceExecution.ExecutionFailed(flowInstanceId, flowDefinition.id))
     } else {
       val dueDate = repositoryContext.epochSeconds + flowTaskInstance.retryDelay
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")
 
       for {
-        _ <- flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Retry)
-        _ <- flowTaskInstanceRepository.setRetries(flowTaskInstance.id, flowTaskInstance.retries - 1)
-        _ <- flowTaskInstanceRepository.setNextDueDate(flowTaskInstance.id, Some(dueDate))
+        _ <- flowTaskInstanceRepository.setStatus(
+          flowTaskInstance.id,
+          FlowTaskInstanceStatus.Retry,
+          Some(flowTaskInstance.retries - 1),
+          Some(dueDate))
       } yield RetryScheduled(flowTaskInstance)
     }
 }

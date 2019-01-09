@@ -1,10 +1,11 @@
 package com.flowtick.sysiphos.ui.execution
 
-import com.flowtick.sysiphos.flow.{ FlowTaskInstanceDetails }
+import com.flowtick.sysiphos.flow.{ FlowTaskInstanceDetails, FlowTaskInstanceStatus }
 import com.flowtick.sysiphos.ui.util.DateSupport
 import com.flowtick.sysiphos.ui.{ FlowInstanceOverview, HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ Constants, SingletonBindingSeq, Var }
 import com.thoughtworks.binding.{ Binding, dom }
+import org.scalajs.dom.Event
 import org.scalajs.dom.html.{ Div, TableRow }
 
 import scala.scalajs.js.URIUtils
@@ -36,7 +37,18 @@ class ShowInstanceComponent(
       <td>{ taskInstanceDetails.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
       <td>{ taskStatusLabel(taskInstanceDetails.status).bind }</td>
       <td><span>{ taskInstanceDetails.retries.toString }</span></td>
-      <td><a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId)}" } class="btn btn-primary">Log</a></td>
+      <td>
+        <div class="btn-group btn-group" data:role="group" style="display:flex">
+          <a href={ s"#/log/${URIUtils.encodeURIComponent(taskInstanceDetails.logId)}" } class="btn btn-primary">Log</a>
+          {
+            taskInstanceDetails.status match {
+              case FlowTaskInstanceStatus.Failed | FlowTaskInstanceStatus.Retry =>
+                <a onclick={ (_: Event) => circuit.dispatch(RetryTask(taskInstanceDetails)) } class="btn btn-warning"><i class="fas fa-redo"></i></a>
+              case _ => <!-- retry only allowed in status failed -->
+            }
+          }
+        </div>
+      </td>
     </tr>
 
   @dom

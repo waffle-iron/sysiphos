@@ -119,12 +119,15 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     db.run((taskInstancesTable += newInstance).transactionally).map(_ => newInstance)
   }
 
-  override def setStatus(taskInstanceId: String, status: FlowTaskInstanceStatus.FlowTaskInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
-    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
-      .map { task => task.status }
-      .update(status.toString)
+  override def setStatus(taskInstanceId: String, status: FlowTaskInstanceStatus.FlowTaskInstanceStatus, retries: Option[Int], nextRetry: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
+    val taskInstance = taskInstancesTable.filter(_.id === taskInstanceId)
 
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
+    val updates = Seq(
+      Some(taskInstance.map { task => task.status }.update(status.toString)),
+      retries.map(newRetries => taskInstance.map { task => task.retries }.update(newRetries)),
+      nextRetry.map(newNextRetry => taskInstance.map { task => task.nextDueDate }.update(Some(newNextRetry)))).flatten
+
+    db.run(DBIO.seq(updates: _*)).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
   }
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
@@ -141,22 +144,6 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .update(Some(endTime))
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
-  }
-
-  override def setRetries(taskInstanceId: String, retries: Int)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
-    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
-      .map { task => task.retries }
-      .update(retries)
-
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))))
-  }
-
-  override def setNextDueDate(taskInstanceId: String, nextDueDate: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
-    val columnsForUpdates = taskInstancesTable.filter(_.id === taskInstanceId)
-      .map { task => task.nextDueDate }
-      .update(nextDueDate)
-
-    db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap(_ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))))
   }
 
   override def deleteFlowTaskInstance(flowTaskInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[String] = {

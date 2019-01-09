@@ -84,6 +84,9 @@ object SysiphosApi {
 
     @GraphQLField
     def setDueDate(flowScheduleId: String, dueDate: Long): Future[Boolean]
+
+    @GraphQLField
+    def setTaskStatus(taskInstanceId: String, status: String, retries: Option[Int], nextRetry: Option[Long]): Future[Option[FlowTaskInstanceDetails]]
   }
 
   trait ApiContext extends ApiQueryContext with ApiMutationContext

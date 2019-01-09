@@ -18,11 +18,17 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
   it should "update status" in new DefaultRepositoryContext("test-user") {
     val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
 
-    slickFlowTaskInstanceRepository.setStatus(newInstance.id, FlowTaskInstanceStatus.Failed)(this).futureValue
+    val updatedInstance: Option[FlowTaskInstanceDetails] = slickFlowTaskInstanceRepository
+      .setStatus(newInstance.id, FlowTaskInstanceStatus.Failed, Some(42), None)(this).futureValue
 
-    val updatedInstance: Option[FlowTaskInstance] = slickFlowTaskInstanceRepository.setRetries(newInstance.id, 42)(this).futureValue
-    updatedInstance.head.status should be(FlowTaskInstanceStatus.Failed)
-    updatedInstance.head.retries should be(42)
+    updatedInstance.get.status should be(FlowTaskInstanceStatus.Failed)
+    updatedInstance.get.retries should be(42)
+
+    val twiceUpdatedInstance: Option[FlowTaskInstanceDetails] = slickFlowTaskInstanceRepository
+      .setStatus(newInstance.id, FlowTaskInstanceStatus.Running, None, Some(0))(this).futureValue
+
+    twiceUpdatedInstance.get.status should be(FlowTaskInstanceStatus.Running)
+    twiceUpdatedInstance.get.nextDueDate should be(Some(0))
   }
 
   it should "update time" in new DefaultRepositoryContext("test-user") {

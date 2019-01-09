@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.ui
 
+import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import io.circe.{ Decoder, Json }
@@ -22,6 +23,7 @@ case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class CreateFlowScheduleResult[T](createFlowSchedule: T)
 case class CreateInstanceResult[T](createInstance: T)
 case class DeleteInstanceResult[T](deleteInstance: T)
+case class SetTaskStatusResult[T](setTaskStatus: T)
 case class DeleteTaskInstanceResult[T](deleteFlowTaskInstance: T)
 
 case class EnableResult(enabled: Boolean)
@@ -57,6 +59,8 @@ trait SysiphosApi {
   def setFlowScheduleExpression(
     id: String,
     expression: String): Future[String]
+
+  def setTaskStatus(taskInstanceId: String, status: FlowTaskInstanceStatus, retries: Int): Future[String]
 
   def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList]
 
@@ -234,4 +238,13 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
     query[DeleteInstanceResult[String]](deleteInstanceQuery).map(_.data.deleteInstance)
   }
 
+  override def setTaskStatus(taskInstanceId: String, status: FlowTaskInstanceStatus, retries: Int): Future[String] = {
+    val deleteInstanceQuery =
+      s"""
+         |mutation {
+         |	setTaskStatus(taskInstanceId: "$taskInstanceId", status: "${status.toString}", retries: $retries, nextRetry: 0) { id }
+         |}
+     """.stripMargin
+    query[SetTaskStatusResult[IdResult]](deleteInstanceQuery).map(_.data.setTaskStatus.id)
+  }
 }
