@@ -127,7 +127,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       retries.map(newRetries => taskInstance.map { task => task.retries }.update(newRetries)),
       nextRetry.map(newNextRetry => taskInstance.map { task => task.nextDueDate }.update(Some(newNextRetry)))).flatten
 
-    db.run(DBIO.seq(updates: _*)).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
+    db.run(DBIO.seq(updates: _*).transactionally).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
   }
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {
