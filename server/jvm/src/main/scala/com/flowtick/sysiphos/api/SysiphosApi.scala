@@ -62,6 +62,9 @@ object SysiphosApi {
     def createOrUpdateFlowDefinition(json: String): Future[FlowDefinitionDetails]
 
     @GraphQLField
+    def deleteFlowDefinition(flowDefinitionId: String): Future[String]
+
+    @GraphQLField
     def createFlowSchedule(
       id: Option[String],
       flowDefinitionId: String,

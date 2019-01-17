@@ -2,23 +2,28 @@ package com.flowtick.sysiphos.ui.flow
 
 import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, FlowInstanceStatus, InstanceCount }
 import com.flowtick.sysiphos.ui.execution.FlowInstanceStatusHelper
-import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
+import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
+import org.scalajs.dom.Event
 import org.scalajs.dom.html._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
-class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLinkComponent with Layout {
+class FlowsComponent(circuit: FlowsCircuit) extends HtmlComponent with RunLinkComponent with Layout {
   val flows: Vars[FlowDefinitionSummary] = Vars.empty[FlowDefinitionSummary]
 
-  def loadDefinitions: Binding[Vars[FlowDefinitionSummary]] = Binding {
-    sysiphosApi.getFlowDefinitions.foreach { response =>
+  override def init: Unit = {
+    circuit.subscribe(circuit.zoom(identity)) { model =>
       flows.value.clear()
-      flows.value.append(response.definitions: _*)
+      flows.value.appendAll(model.value.flowDefinitions)
     }
 
-    flows
+    circuit.dispatch(LoadFlows)
+  }
+
+  def deleteFlowDefinition(flowDefinitionId: String): Unit = {
+    if (org.scalajs.dom.window.confirm(s"Do you really want to delete flow definition $flowDefinitionId?")) {
+      circuit.dispatch(DeleteFlow(flowDefinitionId))
+    }
   }
 
   @dom
@@ -39,7 +44,10 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLin
         </div>
       </td>
       <td>
-        { runLink(flow.id).bind }
+        <div class="btn-group">
+          { runLink(flow.id).bind }
+          <a class="btn btn-danger" onclick={ _: Event => deleteFlowDefinition(flow.id) }><i class="fas fa-trash"></i></a>
+        </div>
       </td>
     </tr>
 
@@ -53,7 +61,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLin
       </thead>
       <tbody>
         {
-          for (flow <- loadDefinitions.bind) yield flowRow(flow).bind
+          for (flow <- flows) yield flowRow(flow).bind
         }
       </tbody>
     </table>

@@ -114,4 +114,11 @@ class SysiphosApiContext(
     nextRetry: Option[Long]): Future[Option[FlowTaskInstanceDetails]] = {
     flowTaskInstanceRepository.setStatus(taskInstanceId, FlowTaskInstanceStatus.withName(status), retries, nextRetry)
   }
+
+  override def deleteFlowDefinition(flowDefinitionId: String): Future[String] = for {
+    schedules <- flowScheduleRepository.getFlowSchedules(None, flowId = Some(flowDefinitionId))
+    _ <- Future.sequence(schedules.map(schedule => flowScheduleRepository.delete(schedule.id)))
+    _ <- flowDefinitionRepository.delete(flowDefinitionId)
+  } yield flowDefinitionId
+
 }

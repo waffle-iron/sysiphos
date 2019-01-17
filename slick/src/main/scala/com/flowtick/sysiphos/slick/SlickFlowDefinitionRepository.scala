@@ -78,4 +78,11 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowDefinitionDetails]] = {
     db.run(flowDefinitionTable.filter(_.id === id).result.map(_.headOption.flatMap(definitionDetails)))
   }
+
+  override def delete(flowDefinitionId: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    db.run(flowDefinitionTable.filter(_.id === flowDefinitionId).delete).flatMap {
+      case 1 => Future.successful(())
+      case other => Future.failed(new IllegalStateException(s"updated $other rows during delete"))
+    }
+  }
 }

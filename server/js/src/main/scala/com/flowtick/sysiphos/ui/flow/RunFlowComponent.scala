@@ -71,7 +71,7 @@ class RunFlowComponent(flowDefinitionId: String)(circuit: FlowCircuit) extends H
               </div>
             </div>
           </div>
-          <a class="btn btn-success" onclick={ _: Event => circuit.dispatch(RunInstance(contextValues.value)) }><i class="glyphicon glyphicon-play"></i></a>
+          <a class="btn btn-success" onclick={ _: Event => circuit.dispatch(RunInstance(contextValues.value)) }><i class="fas fa-play"></i></a>
         </div>
 
       case None => <div>flow definition not found</div>

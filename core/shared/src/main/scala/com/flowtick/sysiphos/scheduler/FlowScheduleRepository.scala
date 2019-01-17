@@ -24,6 +24,7 @@ trait FlowScheduleRepository {
     flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]]
 
   def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowScheduleDetails]]
+  def delete(id: String)(implicit repositoryContext: RepositoryContext): Future[Unit]
 }
 
 trait FlowScheduleStateStore {

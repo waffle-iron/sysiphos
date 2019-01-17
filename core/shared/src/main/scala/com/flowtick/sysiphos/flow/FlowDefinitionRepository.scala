@@ -8,6 +8,7 @@ final case class FlowDefinitionDetails(id: String, version: Option[Long], source
 
 trait FlowDefinitionRepository {
   def createOrUpdateFlowDefinition(flowDefinition: FlowDefinition)(implicit repositoryContext: RepositoryContext): Future[FlowDefinitionDetails]
+  def delete(flowDefinitionId: String)(implicit repositoryContext: RepositoryContext): Future[Unit]
   def getFlowDefinitions(implicit repositoryContext: RepositoryContext): Future[Seq[FlowDefinitionDetails]]
   def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowDefinitionDetails]]
 }

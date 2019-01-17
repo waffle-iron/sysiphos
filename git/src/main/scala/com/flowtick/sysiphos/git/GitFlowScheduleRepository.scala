@@ -55,4 +55,6 @@ class GitFlowScheduleRepository(
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowScheduleDetails]] =
     getFlowSchedules(None, None).map(_.find(_.id == id))
+
+  override def delete(id: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = ???
 }

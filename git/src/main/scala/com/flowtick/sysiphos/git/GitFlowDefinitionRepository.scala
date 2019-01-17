@@ -26,4 +26,5 @@ class GitFlowDefinitionRepository(
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowDefinitionDetails]] =
     list.map(_.find(_.id == id).map(definition => FlowDefinitionDetails(definition.id, None, None, None)))
 
+  override def delete(flowDefinitionId: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = ???
 }

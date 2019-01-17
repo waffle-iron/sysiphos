@@ -63,9 +63,9 @@ class FlowInstancesComponent(
       <td style="vertical-align: middle;">{ FlowInstanceStatusHelper.instanceStatusLabel(flowInstance.status).bind }</td>
       {
         if (flowInstance.status != FlowInstanceStatus.Running)
-          <td><a class="btn btn-danger btn-sm" onclick={ (_: Event) => deleteInstance(flowInstance.id) } data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
+          <td><a class="btn btn-danger" onclick={ (_: Event) => deleteInstance(flowInstance.id) } data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
         else
-          <td><a class="btn btn-danger btn-sm" data:disabled="" data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
+          <td><a class="btn btn-danger" data:disabled="" data:data-tooltip="delete instance"><i class="fa fa-trash"></i></a></td>
       }
     </tr>
 

@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.ui
 
-import com.flowtick.sysiphos.flow.FlowInstanceQuery
 import com.flowtick.sysiphos.ui.execution._
 import com.flowtick.sysiphos.ui.flow._
 import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
@@ -38,7 +37,7 @@ object SysiphosUI extends App with Layout {
 
   val api = new SysiphosApiClient()(ExecutionContext.global)
 
-  def flowsComponent = new FlowsComponent(api)
+  def flowsComponent = new FlowsComponent(new FlowsCircuit(api))
   def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))
   def instancesComponent(flowId: Option[String], statusCsv: Option[String], startDate: Option[String], endDate: Option[String]) = new FlowInstancesComponent(flowId, statusCsv, startDate, endDate, new FlowInstancesCircuit(api))
   def instanceComponent(instanceId: String) = new ShowInstanceComponent(instanceId, new ShowInstanceCircuit(api))

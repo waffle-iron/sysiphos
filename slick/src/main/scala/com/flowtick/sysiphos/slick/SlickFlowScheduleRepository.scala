@@ -117,4 +117,11 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
       case None => Future.failed(new IllegalArgumentException(s"could not find schedule with id $id"))
     }
   }
+
+  override def delete(id: String)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    db.run(flowSchedulesTable.filter(_.id === id).delete).flatMap {
+      case 1 => Future.successful(())
+      case other => Future.failed(new IllegalStateException(s"updated $other rows during delete"))
+    }
+  }
 }
