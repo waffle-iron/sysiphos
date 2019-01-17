@@ -71,8 +71,9 @@ class SysiphosApiContext(
     flowDefinitionId: Option[String],
     instanceIds: Option[Seq[String]],
     status: Option[Seq[String]],
-    createdGreaterThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
-    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(_.map(FlowInstanceStatus.withName)), createdGreaterThan))
+    createdGreaterThan: Option[Long],
+    createdSmallerThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
+    flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(_.map(FlowInstanceStatus.withName)), createdGreaterThan, createdSmallerThan))
   }
 
   override def taskInstances(

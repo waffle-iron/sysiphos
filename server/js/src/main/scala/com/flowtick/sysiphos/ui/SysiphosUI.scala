@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.ui
 
+import com.flowtick.sysiphos.flow.FlowInstanceQuery
 import com.flowtick.sysiphos.ui.execution._
 import com.flowtick.sysiphos.ui.flow._
 import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
@@ -39,7 +40,7 @@ object SysiphosUI extends App with Layout {
 
   def flowsComponent = new FlowsComponent(api)
   def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))
-  def instancesComponent(flowId: Option[String], status: Option[String]) = new FlowInstancesComponent(flowId, status, new FlowInstancesCircuit(api))
+  def instancesComponent(flowId: Option[String], statusCsv: Option[String], startDate: Option[String], endDate: Option[String]) = new FlowInstancesComponent(flowId, statusCsv, startDate, endDate, new FlowInstancesCircuit(api))
   def instanceComponent(instanceId: String) = new ShowInstanceComponent(instanceId, new ShowInstanceCircuit(api))
   def flowComponent(id: String) = new ShowFlowComponent(id)(new FlowCircuit(api), schedulesComponent(Some(id)))
   def runComponent(id: String) = new RunFlowComponent(id)(new FlowCircuit(api))
@@ -54,8 +55,7 @@ object SysiphosUI extends App with Layout {
       .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(notFound))
       .page("/schedules", _ => schedulesComponent(None))
       .page("/schedules/show/:flowId", ctx => ctx.pathParams.get("flowId").map(id => schedulesComponent(Some(id))).getOrElse(notFound))
-      .page("/instances", ctx => instancesComponent(None, ctx.queryParams.get("status")))
-      .page("/instances/filter/:flowId", ctx => instancesComponent(ctx.pathParams.get("flowId"), ctx.queryParams.get("status")))
+      .page("/instances", ctx => instancesComponent(ctx.queryParams.get("flowId"), ctx.queryParams.get("status"), ctx.queryParams.get("startDate"), ctx.queryParams.get("endDate")))
       .page("/instances/show/:instanceId", ctx => ctx.pathParams.get("instanceId").map(id => instanceComponent(id)).getOrElse(notFound))
       .page("/not-found", _ => notFound)
       .page("/log/:logId", ctx => ctx.pathParams.get("logId").map(logComponent).getOrElse(notFound))

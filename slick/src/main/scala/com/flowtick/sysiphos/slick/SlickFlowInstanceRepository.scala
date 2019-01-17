@@ -71,6 +71,7 @@ class SlickFlowInstanceRepository(
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
       .filterOptional(query.status)(status => _.status.inSet(status.map(_.toString)))
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
+      .filterOptional(query.createdSmallerThan)(createdSmallerThan => _.created <= createdSmallerThan)
 
     val instancesWithContext = (for {
       (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)

@@ -44,7 +44,8 @@ object SysiphosApi {
       flowDefinitionId: Option[String],
       instanceIds: Option[Seq[String]],
       status: Option[Seq[String]],
-      createdGreaterThan: Option[Long]): Future[Seq[FlowInstanceDetails]]
+      createdGreaterThan: Option[Long],
+      createdSmallerThan: Option[Long]): Future[Seq[FlowInstanceDetails]]
 
     @GraphQLField
     def taskInstances(

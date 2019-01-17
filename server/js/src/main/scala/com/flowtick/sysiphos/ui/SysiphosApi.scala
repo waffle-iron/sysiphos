@@ -62,7 +62,7 @@ trait SysiphosApi {
 
   def setTaskStatus(taskInstanceId: String, status: FlowTaskInstanceStatus, retries: Int): Future[String]
 
-  def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList]
+  def getInstances(query: FlowInstanceQuery): Future[FlowInstanceList]
 
   def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]]
 
@@ -76,8 +76,6 @@ trait SysiphosApi {
 
 class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
   import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
-
-  def quotedOrNull(optional: Option[String]): String = optional.map("\"" + _ + "\"").getOrElse("null")
 
   def query[T](query: String, variables: Map[String, Json] = Map.empty)(implicit ev: Decoder[T]): Future[GraphQLResponse[T]] = {
     val queryJson = Json.obj(
@@ -111,13 +109,13 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
 
   override def getSchedules(flowId: Option[String]): Future[FlowScheduleList] =
     query[FlowScheduleList](
-      s"""
-         |{
-         |  schedules (flowId: ${quotedOrNull(flowId)})
+      """
+         |query($flowId: String) {
+         |  schedules (flowId: $flowId)
          |  {id, creator, created, version, flowDefinitionId, enabled, expression, nextDueDate, backFill }
          |}
          |
-       """.stripMargin).map(_.data)
+       """.stripMargin, Map("flowId" -> flowId.map(Json.fromString).getOrElse(Json.Null))).map(_.data)
 
   override def getFlowDefinitions: Future[FlowDefinitionList] =
     query[FlowDefinitionList]("{ definitions {id, counts { status, count, flowDefinitionId } } }").map(_.data)
@@ -173,32 +171,47 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
     query[CreateFlowScheduleResult[FlowScheduleDetails]](createScheduleQuery).map(_.data.createFlowSchedule)
   }
 
-  override def getInstances(flowId: Option[String], status: Option[String], createdGreaterThan: Option[Long]): Future[FlowInstanceList] = {
+  override def getInstances(selection: FlowInstanceQuery): Future[FlowInstanceList] = {
     val instancesQuery =
-      s"""
-         |{
-         |  instances (flowDefinitionId: ${quotedOrNull(flowId)},
-         |             status: ${quotedOrNull(status)},
-         |             createdGreaterThan: ${createdGreaterThan.map(_.toString).getOrElse("null")}) {
+      """
+         |query($flowDefinitionId: String, $status: [String!], $createdGreaterThan: Long, $createdSmallerThan: Long) {
+         |  instances (flowDefinitionId: $flowDefinitionId,
+         |             status: $status,
+         |             createdGreaterThan: $createdGreaterThan,
+         |             createdSmallerThan: $createdSmallerThan) {
          |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
          |      key, value
          |    }
          |  }
          |}
        """.stripMargin
-    query[FlowInstanceList](instancesQuery).map(_.data)
+
+    val statusVariable: Json = selection
+      .status
+      .map(statuses => Json.fromValues(statuses.map(s => Json.fromString(s.toString))))
+      .getOrElse(Json.Null)
+
+    val definitionVariable = selection.flowDefinitionId.map(Json.fromString).getOrElse(Json.Null)
+    val createdGreaterThan = selection.createdGreaterThan.map(Json.fromLong).getOrElse(Json.Null)
+    val createdSmallerThan = selection.createdSmallerThan.map(Json.fromLong).getOrElse(Json.Null)
+
+    query[FlowInstanceList](instancesQuery, Map(
+      "flowDefinitionId" -> definitionVariable,
+      "status" -> statusVariable,
+      "createdGreaterThan" -> createdGreaterThan,
+      "createdSmallerThan" -> createdSmallerThan)).map(_.data)
   }
 
   override def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]] = {
     val instanceOverviewQuery =
-      s"""
-         |{
-         |  instances(instanceIds: ["$instanceId"]) {
+      """
+         |query($instanceId: String!) {
+         |  instances(instanceIds: [$instanceId]) {
          |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
          |      key, value
          |    }
          |  },
-         |	taskInstances(flowInstanceId: "$instanceId") {
+         |	taskInstances(flowInstanceId: $instanceId) {
          |    id, flowInstanceId, taskId, creationTime, updatedTime, startTime, endTime, status, retries, retryDelay, logId, nextDueDate
          |  }
          |}
@@ -209,7 +222,8 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
         Some(FlowInstanceOverview(details, result.taskInstances))
       })
 
-    query[OverviewQueryResult](instanceOverviewQuery).map(result => resultToOverview(result.data))
+    query[OverviewQueryResult](instanceOverviewQuery, variables = Map("instanceId" -> Json.fromString(instanceId)))
+      .map(result => resultToOverview(result.data))
   }
 
   override def getLog(logId: String): Future[String] = {

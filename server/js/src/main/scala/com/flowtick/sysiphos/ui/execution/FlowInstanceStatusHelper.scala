@@ -5,7 +5,7 @@ import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Span
 
-trait FlowInstanceStatusLabel {
+object FlowInstanceStatusHelper {
   @dom
   def instanceStatusLabel(instanceStatus: FlowInstanceStatus): Binding[Span] = {
     val labelType = instanceStatus match {
@@ -16,6 +16,14 @@ trait FlowInstanceStatusLabel {
       case _ => "label-default"
     }
     <span class={ s"label $labelType lb-md" }>{ instanceStatus.toString }</span>
+  }
+
+  def instanceStatusButtonClass(instanceStatus: FlowInstanceStatus): String = instanceStatus match {
+    case FlowInstanceStatus.Scheduled | FlowInstanceStatus.Triggered => "btn btn-info"
+    case FlowInstanceStatus.Running => "btn btn-warning"
+    case FlowInstanceStatus.Failed => "btn btn-danger"
+    case FlowInstanceStatus.Done => "btn btn-success"
+    case _ => "btn btn-default"
   }
 
 }

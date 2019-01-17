@@ -11,6 +11,7 @@ trait TwitterBootstrapResources extends StaticResourceSupport {
     getResource("fontawesome-all.css", "text/css") :+:
     getResource("toastr.min.css", "text/css") :+:
     getResource("toastr.min.js", "text/css") :+:
+    getResource("moment-with-locales.js", "application/javascript") :+:
     getResource("ace.js", "text/css") :+:
     getResource("theme-monokai.js", "text/css") :+:
     getResource("theme-textmate.js", "text/css") :+:

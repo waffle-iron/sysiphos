@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui.execution
 
-import com.flowtick.sysiphos.flow.FlowInstance
+import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceQuery }
 import com.flowtick.sysiphos.ui.SysiphosApi
 import com.flowtick.sysiphos.ui.util.DateSupport
 import diode.ActionResult.{ EffectOnly, ModelUpdate }
@@ -11,7 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 final case class InstancesModel(instances: Seq[FlowInstance])
 
-final case class LoadInstances(flowId: Option[String], status: Option[String], hoursBack: Int) extends Action
+final case class LoadInstances(query: FlowInstanceQuery) extends Action
 final case class FoundInstances(instances: Seq[FlowInstance]) extends Action
 final case class DeleteInstances(flowInstanceId: String) extends Action
 
@@ -21,8 +21,8 @@ class FlowInstancesCircuit(api: SysiphosApi) extends Circuit[InstancesModel] wit
   override protected def actionHandler: HandlerFunction = {
     case (model: InstancesModel, action) =>
       action match {
-        case LoadInstances(flowId, status, hoursBack) =>
-          val loadInstances = Effect(api.getInstances(flowId, status, Some(nowMinusHours(hoursBack))).map(list => FoundInstances(list.instances)))
+        case LoadInstances(query) =>
+          val loadInstances = Effect(api.getInstances(query).map(list => FoundInstances(list.instances)))
           Some(EffectOnly(loadInstances))
 
         case FoundInstances(newInstances) =>

@@ -1,6 +1,7 @@
 package com.flowtick.sysiphos.ui.flow
 
 import com.flowtick.sysiphos.flow.{ FlowDefinitionSummary, FlowInstanceStatus, InstanceCount }
+import com.flowtick.sysiphos.ui.execution.FlowInstanceStatusHelper
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout, SysiphosApi }
 import com.thoughtworks.binding.Binding.{ Constants, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
@@ -22,15 +23,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLin
 
   @dom
   def instanceCountButton(count: InstanceCount): Binding[Anchor] =
-    <a href={ s"#/instances/filter/${count.flowDefinitionId}?status=${count.status}" } class={
-      FlowInstanceStatus.withName(count.status) match {
-        case FlowInstanceStatus.Scheduled | FlowInstanceStatus.Triggered => "btn btn-info"
-        case FlowInstanceStatus.Running => "btn btn-warning"
-        case FlowInstanceStatus.Failed => "btn btn-danger"
-        case FlowInstanceStatus.Done => "btn btn-success"
-        case _ => "btn btn-default"
-      }
-    }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></a>
+    <a href={ s"#/instances?flowId=${count.flowDefinitionId}&status=${count.status}" } class={ FlowInstanceStatusHelper.instanceStatusButtonClass(FlowInstanceStatus.withName(count.status)) }><strong>{ count.status }</strong>&nbsp;<span class="badge"> { count.count.toString } </span></a>
 
   @dom
   def flowRow(flow: FlowDefinitionSummary): Binding[TableRow] =
@@ -39,7 +32,7 @@ class FlowsComponent(sysiphosApi: SysiphosApi) extends HtmlComponent with RunLin
       <td>
         <div class="btn-group" data:role="group" data:aria-label="count-buttons">
           { Constants(flow.counts: _*).map(instanceCountButton(_).bind) }
-          <a class="btn btn-default" href={ s"#/instances/filter/${flow.id}" }>
+          <a class="btn btn-default" href={ s"#/instances?flowId=${flow.id}" }>
             <strong>all</strong>
             <span class="badge"><i class="fas fa-search"></i></span>
           </a>

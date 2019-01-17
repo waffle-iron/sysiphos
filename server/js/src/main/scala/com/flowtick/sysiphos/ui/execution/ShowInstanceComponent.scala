@@ -15,7 +15,6 @@ class ShowInstanceComponent(
   circuit: ShowInstanceCircuit) extends HtmlComponent
   with Layout
   with DateSupport
-  with FlowInstanceStatusLabel
   with FlowTaskInstanceStatusLabel {
   val overview: Var[Option[FlowInstanceOverview]] = Var(None)
 
@@ -66,7 +65,7 @@ class ShowInstanceComponent(
           <ul class="list-group">
             <li class="list-group-item">
               <p class="list-group-item-heading"><strong>Status</strong></p>
-              <p class="list-group-item-text">{ instanceStatusLabel(instanceOverview.instance.status).bind }</p>
+              <p class="list-group-item-text">{ FlowInstanceStatusHelper.instanceStatusLabel(instanceOverview.instance.status).bind }</p>
             </li>
             <li class="list-group-item">
               <p class="list-group-item-heading"><strong>Creation Time</strong></p>

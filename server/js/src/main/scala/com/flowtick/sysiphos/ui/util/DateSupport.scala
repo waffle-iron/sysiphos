@@ -1,12 +1,44 @@
 package com.flowtick.sysiphos.ui.util
 
-import scala.scalajs.js.Date
+import com.flowtick.sysiphos.ui.util.MomentJS.MomentApi
 
-trait DateSupport {
-  def formatDate(epochSeconds: Long): String = {
-    val date = new Date(epochSeconds * 1000)
-    s"${date.toDateString()}, ${date.toTimeString()}"
+import scala.scalajs.js
+import scala.scalajs.js.annotation.JSGlobal
+
+@JSGlobal("moment")
+@js.native
+object MomentJS extends js.Any {
+
+  @js.native
+  trait MomentApi extends js.Any {
+    def calendar: js.Any = js.native
+    def format(format: String): String = js.native
+
+    def utc(offset: js.UndefOr[Long] = js.undefined): MomentApi = js.native
+    def unix(): Double = js.native
+
+    def add(amount: Int, unit: String): MomentApi = js.native
+    def subtract(amount: Int, unit: String): MomentApi = js.native
+
+    def locale(): String = js.native
+    def toISOString(): String = js.native
   }
 
-  def nowMinusHours(hours: Int): Long = (new Date().getTime() / 1000).toLong - hours * 3600
+  def apply(constructorValue: js.UndefOr[Any]): MomentApi = js.native
+
+  def unix(epoch: Long): MomentApi = js.native
+}
+
+trait DateSupport {
+  def formatDate(epochSeconds: Long): String = formatDate(epochSeconds, "YYYY-MM-DD HH:mm:ss")
+
+  def formatDate(epochSeconds: Long, format: String): String = MomentJS
+    .unix(epochSeconds)
+    .format(format)
+
+  def parseDate(date: String): Long = {
+    MomentJS(date).unix().toLong
+  }
+
+  def now(): MomentApi = MomentJS()
 }

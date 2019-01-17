@@ -9,7 +9,8 @@ final case class FlowInstanceQuery(
   flowDefinitionId: Option[String],
   instanceIds: Option[Seq[String]] = None,
   status: Option[Seq[FlowInstanceStatus]] = None,
-  createdGreaterThan: Option[Long] = None)
+  createdGreaterThan: Option[Long] = None,
+  createdSmallerThan: Option[Long] = None)
 final case class InstanceCount(flowDefinitionId: String, status: String, count: Int)
 final case class FlowDefinitionSummary(id: String, counts: Seq[InstanceCount])
 
