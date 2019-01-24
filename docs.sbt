@@ -21,7 +21,8 @@ paradoxProperties in Paradox ++= Map(
 
 mappings in makeSite ++= Seq(
   file("LICENSE") -> "LICENSE",
-  file("docker-compose-dev.yml") -> "docker-compose-dev.yml"
+  file("docker-compose-dev-mysql.yml") -> "docker-compose-dev-mysql.yml",
+  file("docker-compose-dev-postgres.yml") -> "docker-compose-dev-postgres.yml"
 )
 
 git.remoteRepo := "git@github.com:flowtick/sysiphos.git"

@@ -1,0 +1,46 @@
+version: '3.1'
+
+services:
+
+  db:
+    image: postgres:10.6
+    restart: always
+    ports:
+    - 5432:5432
+    environment:
+      POSTGRES_USER: sysiphos
+      POSTGRES_PASSWORD: sysiphos
+
+  # to have a look at the tables etc.
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+    - 9091:8080
+
+  sysiphos:
+    image: flowtick/sysiphos:latest
+    depends_on:
+      - db
+    links:
+      - db
+      - grafana
+    ports:
+      - 9090:8080
+      - 10095:9095
+    environment:
+      DATABASE_PROFILE: postgres
+      DATABASE_URL: jdbc:postgresql://db:5432/sysiphos
+      DATABASE_USER: sysiphos
+      DATABASE_PASSWORD: sysiphos
+      STATS_ENABLED: "true"
+      STATS_HOST: grafana
+
+  grafana:
+    image: kamon/grafana_graphite
+    ports:
+      - 3000:80
+      - 3001:81
+      - 8125:8125/udp
+      - 8126:8126
+      - 2003:2003

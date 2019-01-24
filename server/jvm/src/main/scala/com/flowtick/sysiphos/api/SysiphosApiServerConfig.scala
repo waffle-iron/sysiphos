@@ -20,12 +20,14 @@ trait SysiphosApiServerConfig {
     driverClassName = jdbcProfile match {
       case MySQLProfile => classOf[com.mysql.jdbc.Driver].getName
       case H2Profile => classOf[org.h2.Driver].getName
+      case PostgresProfile => classOf[org.postgresql.Driver].getName
       case _ => throw new RuntimeException(s"unknown driver for $dbProfileName")
     })
 
   def dbProfile = dbProfileName match {
     case "mysql" => MySQLProfile
     case "h2" => H2Profile
+    case "postgres" => PostgresProfile
     case _ => throw new RuntimeException(s"unsupported database profile $dbProfileName")
   }
 

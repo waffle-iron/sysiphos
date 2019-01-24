@@ -11,7 +11,7 @@ Will run Sysiphos with an in-memory database, that will accessible in the browse
 
 See also the `docker-compose` example, which is using MySQL:
 
-@@snip [docker-compose-dev.yml](../docker-compose-dev.yml)
+@@snip [docker-compose-dev-mysql.yml](../docker-compose-dev-mysql.yml)
 
 ### From Source
 
