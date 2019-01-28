@@ -36,14 +36,24 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
       })
     }
 
+    def replaceValuesInCamelTasks(camelTask: CamelTask, taskConfig: TaskConfiguration, extraProps: Map[LogId, String]): CamelTask = {
+      val children = camelTask.children.map(_.flatMap { child =>
+        child match {
+          case childrenCamel: CamelTask => Some(replaceValuesInCamelTasks(childrenCamel, taskConfig, extraProps))
+          case _ => None
+        }
+      })
+      camelTask.copy(id = replaceContextInTemplate(camelTask.id, taskConfig.contextValues, extraProps).get)
+        .copy(uri = replaceContextInTemplate(camelTask.uri, taskConfig.contextValues, extraProps).get)
+        .copy(bodyTemplate = camelTask.bodyTemplate.map(replaceContextInTemplate(_, taskConfig.contextValues, extraProps).get))
+        .copy(children = children)
+    }
+
     val tasks: Seq[CamelTask] = taskConfigs.map { taskConfig =>
       taskTemplate match {
         case camelTask: CamelTask =>
           val extraProps = Map("businessKey" -> taskConfig.businessKey)
-          camelTask
-            .copy(id = replaceContextInTemplate(camelTask.id, taskConfig.contextValues, extraProps).get)
-            .copy(uri = replaceContextInTemplate(camelTask.uri, taskConfig.contextValues, extraProps).get)
-            .copy(bodyTemplate = camelTask.bodyTemplate.map(replaceContextInTemplate(_, taskConfig.contextValues, extraProps).get))
+          replaceValuesInCamelTasks(camelTask, taskConfig, extraProps)
       }
     }
 
