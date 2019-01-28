@@ -7,6 +7,7 @@ import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext 
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
 import com.flowtick.sysiphos.slick._
 import com.flowtick.sysiphos.task.CommandLineTask
+import javax.sql.DataSource
 import monix.execution.Scheduler
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 
@@ -17,10 +18,12 @@ object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures
   val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
-  val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
-  val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
-  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutor)
+  lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
+
+  val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutor)
+  val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutor)
+  val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutor)
+  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutor)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   implicit val executorSystem: ActorSystem = ActorSystem()

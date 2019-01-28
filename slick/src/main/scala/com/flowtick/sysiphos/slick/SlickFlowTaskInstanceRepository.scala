@@ -16,7 +16,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
 
   import profile.api._
 
-  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-task-instance-repository"))
+  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, executor("flow-task-instance-repository"))
 
   class FlowTaskInstances(tag: Tag) extends Table[FlowTaskInstanceDetails](tag, "_FLOW_TASK_INSTANCE") {
     def id = column[String]("_ID", O.PrimaryKey)

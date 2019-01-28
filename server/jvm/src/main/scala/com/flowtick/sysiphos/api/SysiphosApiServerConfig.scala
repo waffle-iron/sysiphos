@@ -2,6 +2,8 @@ package com.flowtick.sysiphos.api
 
 import slick.jdbc._
 import com.flowtick.sysiphos.config.Configuration._
+import com.zaxxer.hikari.HikariDataSource
+import javax.sql.DataSource
 
 trait SysiphosApiServerConfig {
   def bindAddress: String = propOrEnv("http.bind.address").getOrElse("0.0.0.0")
@@ -13,16 +15,19 @@ trait SysiphosApiServerConfig {
   def dbProfileName: String = propOrEnv("database.profile", "h2")
   def dbUrl: String = propOrEnv("database.url", "jdbc:h2:mem:sysiphos;DB_CLOSE_DELAY=-1")
 
-  def dataSource(jdbcProfile: JdbcProfile) = new DriverDataSource(
-    dbUrl,
-    propOrEnv("database.user", "sa"),
-    propOrEnv("database.password", ""),
-    driverClassName = jdbcProfile match {
+  def dataSource(jdbcProfile: JdbcProfile): DataSource = {
+    val ds = new HikariDataSource()
+    ds.setJdbcUrl(dbUrl)
+    ds.setUsername(propOrEnv("database.user", "sa"))
+    ds.setPassword(propOrEnv("database.password", ""))
+    ds.setDriverClassName(jdbcProfile match {
       case MySQLProfile => classOf[com.mysql.jdbc.Driver].getName
       case H2Profile => classOf[org.h2.Driver].getName
       case PostgresProfile => classOf[org.postgresql.Driver].getName
       case _ => throw new RuntimeException(s"unknown driver for $dbProfileName")
     })
+    ds
+  }
 
   def dbProfile = dbProfileName match {
     case "mysql" => MySQLProfile

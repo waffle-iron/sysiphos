@@ -21,7 +21,7 @@ class SlickFlowDefinitionRepository(dataSource: DataSource)(implicit val profile
 
   import profile.api._
 
-  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-definition-repository"))
+  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, executor("flow-definition-repository"))
 
   class FlowDefinitions(tag: Tag) extends Table[SlickFlowDefinition](tag, "_FLOW_DEFINITION") {
     def id = column[String]("_ID", O.PrimaryKey)

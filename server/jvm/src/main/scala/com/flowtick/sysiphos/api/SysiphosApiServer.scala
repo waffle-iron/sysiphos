@@ -17,8 +17,10 @@ import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
 import io.finch.Application
 import io.finch.circe._
+import javax.sql.DataSource
 import kamon.Kamon
 import kamon.prometheus.PrometheusReporter
+import kamon.system.SystemMetrics
 import monix.execution.Scheduler
 import org.slf4j.{ Logger, LoggerFactory }
 
@@ -82,6 +84,8 @@ trait SysiphosApiServer extends SysiphosApi
 
   def addStatsReporter(): Unit = {
     if (Configuration.propOrEnv("stats.enabled", "false").toBoolean) {
+      SystemMetrics.startCollecting()
+
       log.info("adding stats reporters...")
 
       Kamon.addReporter(new DataDogStatsDReporter)
@@ -105,6 +109,7 @@ trait SysiphosApiServer extends SysiphosApi
     startedServer.handleErrorWith { error =>
       IO(log.error("unable to start server", error)) *>
         IO(executorSystem.terminate()) *>
+        IO(SystemMetrics.stopCollecting()) *>
         IO.raiseError(new RuntimeException(s"unable to start server", error))
     }
   }
@@ -115,10 +120,12 @@ object SysiphosApiServerApp extends SysiphosApiServer with App {
   val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
   val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
-  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(dataSource(dbProfile))(dbProfile, slickExecutionContext)
+  lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
+
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
 
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 

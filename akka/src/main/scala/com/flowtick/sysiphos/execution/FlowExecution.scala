@@ -36,46 +36,50 @@ trait FlowExecution extends Logging {
       })
     }.logFailed(s"unable to check for retries")
 
-  def manuallyTriggeredInstances: Future[Seq[FlowInstance]] =
+  def manuallyTriggeredInstances: Future[Option[Seq[FlowInstance]]] =
     flowInstanceRepository.getFlowInstances(FlowInstanceQuery(
       flowDefinitionId = None,
       instanceIds = None,
       status = Some(Seq(FlowInstanceStatus.Triggered)),
-      createdGreaterThan = None))
+      createdGreaterThan = None)).map(Option.apply)
 
-  def dueScheduledFlowInstances(now: Long): Future[Seq[FlowInstance]] = {
+  def dueScheduledFlowInstances(now: Long): Future[Option[Seq[FlowInstance]]] = {
     log.debug("tick.")
     val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
       .getFlowSchedules(enabled = Some(true), None)
 
     for {
       schedules: Seq[FlowSchedule] <- futureEnabledSchedules
-      applied <- Future.sequence(schedules.map(applySchedule(_, now)))
-    } yield applied.flatten
+      applied: Seq[Option[Seq[FlowInstance]]] <- Future.sequence(schedules.map(applySchedule(_, now)))
+    } yield Some(applied.flatten.flatten)
   }
 
-  def applySchedule(schedule: FlowSchedule, now: Long): Future[Seq[FlowInstance]] = {
-    val potentialInstance: Future[Seq[FlowInstance]] = if (isDue(schedule, now))
-      createFlowInstance(schedule).map(Seq(_))
-    else Future.successful(Seq.empty)
+  def applySchedule(schedule: FlowSchedule, now: Long): Future[Option[Seq[FlowInstance]]] = {
+    val dueInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now)) {
+      Future
+        .successful(flowScheduler.nextOccurrence(schedule, now))
+        .map {
+          case Some(nextDue) => setNextDueDate(schedule, nextDue)
+          case None => Future.successful(None)
+        }
+        .flatMap(_ => createFlowInstance(schedule).map(Seq(_)).map(Option.apply))
+    } else Future.successful(None)
 
-    val missedInstances: Future[Seq[FlowInstance]] = if (schedule.backFill.contains(true))
-      Future.sequence(flowScheduler.missedOccurrences(schedule, now).map { _ => createFlowInstance(schedule) })
-    else Future.successful(Seq.empty)
+    val missedInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now) && schedule.backFill.contains(true)) {
+      Future
+        .sequence(flowScheduler.missedOccurrences(schedule, now).map { _ => createFlowInstance(schedule) })
+        .map(Option.apply)
+    } else Future.successful(None)
 
-    val potentialInstances = for {
-      instance <- potentialInstance
+    val potentialInstances: Future[Option[Seq[FlowInstance]]] = for {
+      newInstances <- dueInstances
       missed <- missedInstances
-    } yield instance ++ missed
+    } yield Some(newInstances.getOrElse(Seq.empty) ++ missed.getOrElse(Seq.empty))
 
     potentialInstances.recoverWith {
       case error =>
         log.error("unable to create instance", error)
-        Future.successful(Seq.empty)
-    }.flatMap { instances =>
-      flowScheduler.nextOccurrence(schedule, now).map { next =>
-        setNextDueDate(schedule, next)
-      }.getOrElse(Future.successful()).map { _ => instances }
+        Future.successful(None)
     }
   }
 
@@ -168,14 +172,14 @@ trait FlowExecution extends Logging {
     selectedTaskId: Option[String]): Future[Any]
 
   def executeScheduled(): Unit = {
-    val taskInstancesFuture: Future[Seq[FlowInstance]] = for {
+    val taskInstancesFuture: Future[Option[Seq[FlowInstance]]] = for {
       manuallyTriggered <- manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")
       newTaskInstances <- dueScheduledFlowInstances(currentEpochSeconds).logFailed("unable to get scheduled flow instance")
-    } yield newTaskInstances ++ manuallyTriggered
+    } yield Some(newTaskInstances.getOrElse(Seq.empty) ++ manuallyTriggered.getOrElse(Seq.empty))
 
     for {
-      instances <- taskInstancesFuture
-      newInstances <- Future.successful(instances.groupBy(_.flowDefinitionId).toSeq.map {
+      instances: Option[Seq[FlowInstance]] <- taskInstancesFuture
+      newInstances <- Future.successful(instances.getOrElse(Seq.empty).groupBy(_.flowDefinitionId).toSeq.map {
         case (flowDefinitionId, triggeredInstances) =>
           val flowDefinitionFuture: Future[Option[FlowDefinitionDetails]] = flowDefinitionRepository.findById(flowDefinitionId)
 

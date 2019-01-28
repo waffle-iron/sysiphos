@@ -17,7 +17,7 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
 
   import profile.api._
 
-  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, AsyncExecutor.default("flow-schedule-repository"))
+  val db: profile.backend.DatabaseDef = profile.backend.Database.forDataSource(dataSource, None, executor("flow-schedule-repository"))
 
   class FlowSchedules(tag: Tag) extends Table[FlowScheduleDetails](tag, "_FLOW_SCHEDULE") {
     def id = column[String]("_ID", O.PrimaryKey)

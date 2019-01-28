@@ -22,7 +22,6 @@ object FlowExecutorActor {
   case class CreatedOrUpdatedDefinition(result: Either[Throwable, FlowDefinitionDetails])
   case class NewInstance(result: Either[Throwable, FlowInstanceDetails])
   case class RunInstanceExecutors(instances: Seq[FlowInstance])
-  case class DueFlowDefinitions(flows: Seq[FlowDefinition])
 }
 
 class FlowExecutorActor(
