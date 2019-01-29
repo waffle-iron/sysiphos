@@ -39,7 +39,6 @@ object FlowTaskExecution {
 
   case object TaskAck
   case object TaskStreamInitialized
-  case object TaskStreamCompleted
   final case class TaskStreamFailure(ex: Throwable)
 }
 

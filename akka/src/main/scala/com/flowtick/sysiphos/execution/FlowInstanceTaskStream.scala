@@ -1,8 +1,9 @@
 package com.flowtick.sysiphos.execution
 
+import java.util.UUID
+
 import akka.NotUsed
-import akka.actor.{ ActorRef, ActorSystem, Props }
-import akka.routing.BalancingPool
+import akka.actor.{ ActorRef, ActorSystem, PoisonPill, Props }
 import akka.stream.scaladsl.{ Keep, RunnableGraph, Sink, Source, SourceQueueWithComplete }
 import akka.stream.{ KillSwitches, UniqueKillSwitch }
 import cats.data.OptionT
@@ -25,7 +26,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
     flowExecutorActor: ActorRef,
     poolSize: Int,
     logger: Logger): ActorRef = {
-    actorSystem.actorOf(BalancingPool(poolSize).props(Props(new FlowTaskExecutionActor(flowInstanceActor, flowExecutorActor, logger))))
+    actorSystem.actorOf(Props(new FlowTaskExecutionActor(flowInstanceActor, flowExecutorActor, logger)), "taskWorker-" + UUID.randomUUID().toString)
   }
 
   protected def taskStreamSink(sinkActor: ActorRef): Sink[Any, NotUsed] =
@@ -33,7 +34,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       sinkActor,
       onInitMessage = FlowTaskExecution.TaskStreamInitialized,
       ackMessage = FlowTaskExecution.TaskAck,
-      onCompleteMessage = FlowTaskExecution.TaskStreamCompleted,
+      onCompleteMessage = PoisonPill,
       onFailureMessage = (ex: Throwable) => FlowTaskExecution.TaskStreamFailure(ex))
 
   def createTaskStream(

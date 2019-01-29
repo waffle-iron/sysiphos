@@ -15,7 +15,6 @@ import org.slf4j
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
-import scala.util.Try
 
 trait Logger extends Clock {
   /**
@@ -105,6 +104,7 @@ object Logger {
   private def s3AccessKey: String = propOrEnv("logger.s3.accessKey", "changeme")
   private def s3SecretKey: String = propOrEnv("logger.s3.secretKey", "changeme")
   private def s3Bucket: String = propOrEnv("logger.s3.bucket", "changeme")
+  private def s3Region: String = propOrEnv("logger.s3.region", "us-east-1")
 
   private def streamChunkSize: Int = propOrEnv("logger.stream.chunkSize", "100").toInt
 
@@ -113,12 +113,14 @@ object Logger {
       new FileLogger(new File(baseDirPath))(logExecutionContext)
 
     case "s3" =>
+      val awsCredentials = new AWSCredentialsProviderChain(
+        DefaultAWSCredentialsProviderChain.getInstance(),
+        new AWSStaticCredentialsProvider(new BasicAWSCredentials(s3AccessKey, s3SecretKey)))
       val s3: AmazonS3 = AmazonS3ClientBuilder
         .standard()
-        .withCredentials(
-          new AWSCredentialsProviderChain(
-            DefaultAWSCredentialsProviderChain.getInstance(),
-            new AWSStaticCredentialsProvider(new BasicAWSCredentials(s3AccessKey, s3SecretKey)))).build()
+        .withCredentials(awsCredentials)
+        .withRegion(s3Region)
+        .build()
 
       val s3Store: Store[IO] = S3Store[IO](s3, blockingExecutionContext = logExecutionContext)
       new StreamLogger(s3Bucket, s3Store, streamChunkSize)

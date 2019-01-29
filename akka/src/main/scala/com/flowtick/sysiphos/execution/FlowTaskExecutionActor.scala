@@ -7,7 +7,7 @@ import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ CreatedOrUpdatedDefinition, ImportDefinition, NewInstance, RequestInstance }
-import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamCompleted, TaskStreamFailure, TaskStreamInitialized }
+import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamFailure, TaskStreamInitialized }
 import com.flowtick.sysiphos.execution.task.{ CamelTaskExecution, CommandLineTaskExecution, DefinitionImportTaskExecution }
 import com.flowtick.sysiphos.flow.FlowDefinition
 import com.flowtick.sysiphos.logging.Logger
@@ -117,9 +117,6 @@ class FlowTaskExecutionActor(
     case TaskStreamInitialized =>
       log.info("stream initialized")
       sender() ! TaskAck
-
-    case TaskStreamCompleted =>
-      log.info("stream completed")
 
     case streamError: TaskStreamFailure =>
       flowInstanceActor ! streamError
