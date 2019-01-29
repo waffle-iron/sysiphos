@@ -1,13 +1,12 @@
 package com.flowtick.sysiphos.execution.task
 
 import java.io.{ File, FileOutputStream }
-import java.time.LocalDateTime.ofEpochSecond
-import java.time.ZoneOffset
 
 import cats.effect.{ ContextShift, IO }
 import com.flowtick.sysiphos.config.Configuration
+import com.flowtick.sysiphos.core.Clock
 import com.flowtick.sysiphos.execution.FlowTaskExecution
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceContextValue, FlowTaskInstance }
+import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
 
@@ -15,7 +14,7 @@ import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.util.Try
 import scala.sys.process._
 
-trait CommandLineTaskExecution extends FlowTaskExecution {
+trait CommandLineTaskExecution extends FlowTaskExecution with Clock {
   implicit val taskExecutionContext: ExecutionContextExecutor
 
   def createScriptFile(taskInstance: FlowTaskInstance, command: String): File = {
@@ -33,7 +32,7 @@ trait CommandLineTaskExecution extends FlowTaskExecution {
     taskInstance: FlowTaskInstance,
     contextValues: Seq[FlowInstanceContextValue],
     command: String): Try[String] = {
-    val creationDateTime = ofEpochSecond(taskInstance.creationTime, 0, ZoneOffset.UTC)
+    val creationDateTime = fromEpochSeconds(taskInstance.creationTime)
     val additionalModel = sanitizedSysProps ++ Map("creationTime" -> creationDateTime)
 
     replaceContextInTemplate(command, contextValues, additionalModel)

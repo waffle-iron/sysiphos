@@ -68,9 +68,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       new FlowInstanceExecutorActor(
         DefaultClusterContext(flowDefinitionRepository = flowDefinitionRepository, flowInstanceRepository = flowInstanceRepository, flowTaskInstanceRepository = flowTaskInstanceRepository, flowScheduleRepository = null, flowScheduleStateStore = null),
         flowExecutorProbe.ref,
-        logger)(repositoryContext) {
-        override def currentTime: ZonedDateTime = LocalDateTime.ofEpochSecond(testEpoch, testEpoch, ZoneOffset.UTC).atZone(timeZone)
-      })
+        logger)(repositoryContext))
 
     (flowDefinitionRepository.findById(_: String)(_: RepositoryContext))
       .expects("ls-definition-id", *)

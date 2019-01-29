@@ -1,17 +1,15 @@
 package com.flowtick.sysiphos.execution
 
-import java.time.{ LocalDateTime, ZoneId }
-
 import cats.data.{ EitherT, OptionT }
 import cats.instances.future._
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.{ Clock, RepositoryContext }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import Logging._
 
-trait FlowExecution extends Logging {
+trait FlowExecution extends Logging with Clock {
   val flowDefinitionRepository: FlowDefinitionRepository
   val flowScheduleRepository: FlowScheduleRepository
   val flowInstanceRepository: FlowInstanceRepository
@@ -21,8 +19,6 @@ trait FlowExecution extends Logging {
 
   implicit val repositoryContext: RepositoryContext
   implicit val executionContext: ExecutionContext
-
-  def currentEpochSeconds: Long = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond
 
   def createFlowInstance(flowSchedule: FlowSchedule): Future[FlowInstance] = {
     log.debug(s"creating instance for $flowSchedule.")
@@ -164,7 +160,7 @@ trait FlowExecution extends Logging {
   def executeScheduled(): Unit = {
     val taskInstancesFuture: Future[Option[Seq[FlowInstance]]] = for {
       manuallyTriggered <- manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")
-      newTaskInstances <- dueScheduledFlowInstances(currentEpochSeconds).logFailed("unable to get scheduled flow instance")
+      newTaskInstances <- dueScheduledFlowInstances(epochSeconds).logFailed("unable to get scheduled flow instance")
     } yield Some(newTaskInstances.getOrElse(Seq.empty) ++ manuallyTriggered.getOrElse(Seq.empty))
 
     for {
@@ -189,7 +185,7 @@ trait FlowExecution extends Logging {
   }
 
   def executeRetries(): Unit = {
-    dueTaskRetries(currentEpochSeconds).logFailed("unable to get due tasks").foreach { dueTasks =>
+    dueTaskRetries(epochSeconds).logFailed("unable to get due tasks").foreach { dueTasks =>
       dueTasks.foreach {
         case (Some(instance), taskId) => executeInstance(instance, Some(taskId))
         case _ =>
