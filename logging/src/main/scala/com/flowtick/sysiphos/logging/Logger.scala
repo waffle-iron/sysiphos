@@ -101,8 +101,8 @@ object Logger {
   private def baseDirDefault: LogId = sys.props.get("java.io.tmpdir").map(_ + s"${File.separatorChar}sysiphos").getOrElse(s"${File.separatorChar}tmp")
   private def baseDirPath: String = propOrEnv("logger.file.baseDir", baseDirDefault)
 
-  private def s3AccessKey: String = propOrEnv("logger.s3.accessKey", "changeme")
-  private def s3SecretKey: String = propOrEnv("logger.s3.secretKey", "changeme")
+  private def s3AccessKey: Option[String] = propOrEnv("logger.s3.accessKey")
+  private def s3SecretKey: Option[String] = propOrEnv("logger.s3.secretKey")
   private def s3Bucket: String = propOrEnv("logger.s3.bucket", "changeme")
   private def s3Region: String = propOrEnv("logger.s3.region", "us-east-1")
 
@@ -113,9 +113,17 @@ object Logger {
       new FileLogger(new File(baseDirPath))(logExecutionContext)
 
     case "s3" =>
-      val awsCredentials = new AWSCredentialsProviderChain(
-        DefaultAWSCredentialsProviderChain.getInstance(),
-        new AWSStaticCredentialsProvider(new BasicAWSCredentials(s3AccessKey, s3SecretKey)))
+      val credentials = for {
+        accessKey <- s3AccessKey
+        secretKey <- s3SecretKey
+      } yield new BasicAWSCredentials(accessKey, secretKey)
+
+      val credentialsChain = credentials
+        .map(new AWSStaticCredentialsProvider(_))
+        .getOrElse(DefaultAWSCredentialsProviderChain.getInstance())
+
+      val awsCredentials = new AWSCredentialsProviderChain(credentialsChain)
+
       val s3: AmazonS3 = AmazonS3ClientBuilder
         .standard()
         .withCredentials(awsCredentials)
