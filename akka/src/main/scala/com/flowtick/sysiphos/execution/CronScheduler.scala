@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.execution
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduler }
 import cron4s.Cron
 import cron4s.lib.javatime._
+import com.flowtick.sysiphos._
 import com.flowtick.sysiphos.core.Clock
 
 object CronScheduler extends FlowScheduler with Logging with Clock {
