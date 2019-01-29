@@ -67,9 +67,8 @@ trait Logger extends Clock {
    */
   def appendStream(logId: Logger.LogId, lines: fs2.Stream[IO, String]): IO[Unit] = {
     source(logId)
-      .append(lines)
+      .append(lines.map(format))
       .through(pipe)
-      .map(format)
       .through(fs2.text.utf8Encode)
       .to(sink(logId))
       .compile
