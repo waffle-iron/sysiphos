@@ -54,11 +54,14 @@ trait FlowExecution extends Logging with Clock {
     val dueInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now)) {
       Future
         .successful(flowScheduler.nextOccurrence(schedule, now))
-        .map {
-          case Some(nextDue) => setNextDueDate(schedule, nextDue)
+        .flatMap {
+          case Some(nextDue) => setNextDueDate(schedule, nextDue).map(_ => Some(nextDue))
           case None => Future.successful(None)
         }
-        .flatMap(_ => createFlowInstance(schedule).map(Seq(_)).map(Option.apply))
+        .flatMap {
+          case Some(_) => createFlowInstance(schedule).map(Seq(_)).map(Option.apply)
+          case None => Future.successful(None)
+        }
     } else Future.successful(None)
 
     val missedInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now) && schedule.backFill.contains(true)) {
