@@ -16,8 +16,8 @@ class FlowInstanceExecutionSpec extends FlatSpec
   with Matchers
   with ScalaFutures
   with MockFactory {
-  override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
-  override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
+  val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
 
   "Flow Instance Execution" should "find next tasks" in {
     val cmd4 = CommandLineTask("cmd4", None, "ls 4")
@@ -37,6 +37,7 @@ class FlowInstanceExecutionSpec extends FlatSpec
     val doneTaskInstance = FlowTaskInstanceDetails(
       id = "taskInstanceId",
       flowInstanceId = "flowInstanceId",
+      flowDefinitionId = "flowDefinitionId",
       taskId = "cmd1",
       0, None, None, None, 3,
       FlowTaskInstanceStatus.Done, 10, None, "log-id")
@@ -69,6 +70,7 @@ class FlowInstanceExecutionSpec extends FlatSpec
     lazy val flowTaskInstance = FlowTaskInstanceDetails(
       id = "task-id",
       flowInstanceId = flowInstance.id,
+      flowDefinitionId = "flowDefinitionId",
       taskId = flowDefinition.tasks.head.id,
       creationTime = 1l,
       startTime = None,
@@ -83,11 +85,12 @@ class FlowInstanceExecutionSpec extends FlatSpec
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(flowDefinition.tasks.head.id)), *)
       .returning(Future.successful(None))
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *, Some(52L), *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, Some(52L), *, *)
       .returning(Future.successful(flowTaskInstance))
 
     getOrCreateTaskInstance(
+      flowTaskInstanceRepository,
       flowInstance.id,
       flowDefinition.id,
       flowDefinition.tasks.head,

@@ -7,8 +7,6 @@ import com.flowtick.sysiphos.flow.{ FlowTaskInstanceStatus, _ }
 import com.flowtick.sysiphos.logging.Logger
 
 trait FlowInstanceExecution extends Logging with Clock {
-  def flowInstanceRepository: FlowInstanceRepository
-  def flowTaskInstanceRepository: FlowTaskInstanceRepository
 
   protected def taskInstanceFilter[T](
     instancesById: Map[String, Seq[FlowTaskInstance]],
@@ -56,6 +54,7 @@ trait FlowInstanceExecution extends Logging with Clock {
   }
 
   def getOrCreateTaskInstance(
+    flowTaskInstanceRepository: FlowTaskInstanceRepository,
     flowInstanceId: String,
     flowDefinitionId: String,
     task: FlowTask,
@@ -68,7 +67,7 @@ trait FlowInstanceExecution extends Logging with Clock {
           }.getOrElse((None, None))
 
           IO.fromFuture(IO(flowTaskInstanceRepository.createFlowTaskInstance(
-            flowInstanceId = flowInstanceId, flowTaskId = task.id, logId = logId,
+            flowInstanceId = flowInstanceId, flowTaskId = task.id, flowDefinitionId = flowDefinitionId, logId = logId,
             retries = task.retries.getOrElse(taskRetriesDefault(task)),
             retryDelay = task.retryDelay.getOrElse(retryDelayDefault),
             dueDate = dueDate,
@@ -85,6 +84,7 @@ trait FlowInstanceExecution extends Logging with Clock {
   }
 
   def setRunning(
+    flowTaskInstanceRepository: FlowTaskInstanceRepository,
     execute: FlowTaskExecution.Execute,
     logger: Logger)(implicit repositoryContext: RepositoryContext): IO[FlowTaskExecution.Execute] = for {
     _ <- IO.fromFuture(IO(flowTaskInstanceRepository.setStartTime(execute.taskInstance.id, repositoryContext.epochSeconds)))
@@ -118,7 +118,7 @@ trait FlowInstanceExecution extends Logging with Clock {
 object FlowInstanceExecution {
   sealed trait FlowInstanceMessage
 
-  case class Execute(taskSelection: FlowTaskSelection) extends FlowInstanceMessage
+  case class Execute(instance: FlowInstanceDetails, taskSelection: FlowTaskSelection) extends FlowInstanceMessage
 
   case class WorkDone(flowTaskInstance: FlowTaskInstance, addToContext: Seq[FlowInstanceContextValue] = Seq.empty) extends FlowInstanceMessage
   case class TaskCompleted(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage

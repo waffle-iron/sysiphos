@@ -18,6 +18,7 @@ trait FlowTaskInstanceRepository {
   def createFlowTaskInstance(
     flowInstanceId: String,
     flowTaskId: String,
+    flowDefinitionId: String,
     logId: String,
     retries: Int,
     retryDelay: Long,

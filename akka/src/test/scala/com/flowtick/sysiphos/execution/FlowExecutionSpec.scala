@@ -102,6 +102,5 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
 
   override def executeRunning(
     running: FlowInstanceDetails,
-    definition: FlowDefinition,
     selectedTaskId: Option[String]): Future[Any] = Future.successful()
 }

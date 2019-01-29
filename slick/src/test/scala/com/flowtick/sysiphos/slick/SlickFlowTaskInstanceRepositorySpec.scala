@@ -9,14 +9,14 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
 
   "Slick Flow Task Instance Repository" should "create instance" in new DefaultRepositoryContext("test-user") {
     slickFlowTaskInstanceRepository.getFlowTaskInstances.futureValue should be(empty)
-    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-instance", "some-definition", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
     val instancesWithContext: Seq[FlowTaskInstance] = slickFlowTaskInstanceRepository.find(FlowTaskInstanceQuery(id = Some(newInstance.id)))(this).futureValue
     instancesWithContext.map(_.id) should contain(newInstance.id)
     instancesWithContext.head.logId should be("log-id")
   }
 
   it should "update status" in new DefaultRepositoryContext("test-user") {
-    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-instance_retries", "some-definition", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
 
     val updatedInstance: Option[FlowTaskInstanceDetails] = slickFlowTaskInstanceRepository
       .setStatus(newInstance.id, FlowTaskInstanceStatus.Failed, Some(42), None)(this).futureValue
@@ -32,7 +32,7 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
   }
 
   it should "update time" in new DefaultRepositoryContext("test-user") {
-    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-instance_retries", "some-definition", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
 
     slickFlowTaskInstanceRepository.setStartTime(newInstance.id, 42)(this).futureValue
     val updatedInstance: Option[FlowTaskInstance] = slickFlowTaskInstanceRepository.setEndTime(newInstance.id, 43)(this).futureValue
@@ -42,7 +42,7 @@ class SlickFlowTaskInstanceRepositorySpec extends SlickSpec {
   }
 
   it should "delete flow task instance" in new DefaultRepositoryContext("test-user") {
-    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-definition_retries", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
+    val newInstance: FlowTaskInstance = slickFlowTaskInstanceRepository.createFlowTaskInstance("some-instance_retries", "some-definition", "some-task-id", "log-id", 3, 10, None, None)(this).futureValue
 
     slickFlowTaskInstanceRepository.findOne(FlowTaskInstanceQuery(Some(newInstance.id)))(this).futureValue should be(Some(newInstance))
 

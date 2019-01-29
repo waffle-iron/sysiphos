@@ -31,8 +31,8 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
   override implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   override implicit val actorSystem: ActorSystem = system
 
-  override val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
-  override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
+  val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
+  val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
 
   val taskActorProbe = TestProbe()
 
@@ -46,6 +46,8 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
     flowInstanceDetails: FlowInstanceDetails,
     flowInstanceActor: ActorRef,
     flowExecutorActor: ActorRef)(repositoryContext: RepositoryContext): ((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed) = createTaskStream(
+    flowTaskInstanceRepository,
+    flowInstanceRepository,
     flowInstanceActor,
     flowExecutorActor)(
     flowInstanceId = "instance",
@@ -70,6 +72,7 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
     val flowTaskInstance = FlowTaskInstanceDetails(
       id = "taskInstanceId",
       flowInstanceId = flowInstance.id,
+      flowDefinitionId = flowInstance.flowDefinitionId,
       taskId = testTask.id,
       0, None, None, None, 3,
       FlowTaskInstanceStatus.New, 10, None, "log-id")
@@ -86,8 +89,8 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
       .returning(Future.successful(None))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(*, *, *, *, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(*, *, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
       .atLeastOnce()
 

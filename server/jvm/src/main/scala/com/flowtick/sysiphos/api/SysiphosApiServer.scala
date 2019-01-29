@@ -10,9 +10,9 @@ import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
 import com.flowtick.sysiphos.execution.Monitoring.DataDogStatsDReporter
-import com.flowtick.sysiphos.execution.{ CronScheduler, FlowExecutorActor }
+import com.flowtick.sysiphos.execution._
+import com.flowtick.sysiphos.execution.cluster.ClusterSetup
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.scheduler._
 import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
 import io.finch.Application
@@ -21,47 +21,50 @@ import javax.sql.DataSource
 import kamon.Kamon
 import kamon.prometheus.PrometheusReporter
 import kamon.system.SystemMetrics
-import monix.execution.Scheduler
 import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.ExecutionContext
 
 trait SysiphosApiServer extends SysiphosApi
   with SysiphosApiServerConfig
+  with ClusterSetup
   with GraphIQLResources
   with TwitterBootstrapResources
   with UIResources {
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
-  val flowDefinitionRepository: FlowDefinitionRepository
-  val flowScheduleRepository: SlickFlowScheduleRepository
-  val flowInstanceRepository: FlowInstanceRepository
-  val flowTaskInstanceRepository: FlowTaskInstanceRepository
+  val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
+  val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
-  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext
+  lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
+
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+
+  StaticClusterContext.init(flowScheduleRepository, flowDefinitionRepository, flowInstanceRepository, flowTaskInstanceRepository, flowScheduleRepository)
 
   implicit val executionContext: ExecutionContext
-  implicit def executorSystem: ActorSystem
-  implicit def scheduler: Scheduler
+  implicit val executorSystem: ActorSystem = ActorSystem(clusterName)
 
-  def startExecutorSystem(
-    flowScheduleRepository: FlowScheduleRepository,
-    flowInstanceRepository: FlowInstanceRepository,
-    flowScheduleStateStore: FlowScheduleStateStore,
-    flowDefinitionRepository: FlowDefinitionRepository,
-    flowTaskInstanceRepository: FlowTaskInstanceRepository): Unit = {
+  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext = new SysiphosApiContext(clusterContext)(apiExecutionContext, repositoryContext)
+
+  def clusterContext: ClusterContext = StaticClusterContext.instance.get
+
+  def startExecutorSystem(clusterContext: ClusterContext): Unit = {
     val executorActorProps = Props[FlowExecutorActor](new FlowExecutorActor(
-      flowScheduleRepository,
-      flowInstanceRepository,
-      flowDefinitionRepository,
-      flowTaskInstanceRepository,
-      flowScheduleStateStore,
-      CronScheduler)(scheduler))
+      clusterContext.flowScheduleRepository,
+      clusterContext.flowInstanceRepository,
+      clusterContext.flowDefinitionRepository,
+      clusterContext.flowTaskInstanceRepository,
+      clusterContext.flowScheduleStateStore,
+      CronScheduler))
 
-    val executorActor = executorSystem.actorOf(executorActorProps)
+    val clusterActors = setupCluster(executorSystem, clusterName, executorActorProps)
 
-    executorActor ! Init()
+    clusterActors.executorSingleton ! Init(clusterActors.workerPool)
   }
 
   def bindServerToAddress: IO[ListeningServer] = IO {
@@ -93,18 +96,13 @@ trait SysiphosApiServer extends SysiphosApi
     }
   }
 
-  def startApiServer(): IO[Unit] = {
+  def startApiServer(clusterContext: ClusterContext): IO[Unit] = {
     addStatsReporter()
 
     val startedServer = for {
       _ <- updateDatabase()
       _ <- bindServerToAddress
-    } yield startExecutorSystem(
-      flowScheduleRepository,
-      flowInstanceRepository,
-      flowScheduleRepository,
-      flowDefinitionRepository,
-      flowTaskInstanceRepository)
+    } yield startExecutorSystem(clusterContext)
 
     startedServer.handleErrorWith { error =>
       IO(log.error("unable to start server", error)) *>
@@ -117,27 +115,7 @@ trait SysiphosApiServer extends SysiphosApi
 }
 
 object SysiphosApiServerApp extends SysiphosApiServer with App {
-  val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
-  val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
-
-  lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
-
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
-  implicit val executorSystem: ActorSystem = ActorSystem()
-  implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
-
-  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(
-    flowDefinitionRepository,
-    flowScheduleRepository,
-    flowInstanceRepository,
-    flowScheduleRepository,
-    flowTaskInstanceRepository)(apiExecutionContext, repositoryContext)
-
-  startApiServer().unsafeRunSync()
+  startApiServer(clusterContext).unsafeRunSync()
 }

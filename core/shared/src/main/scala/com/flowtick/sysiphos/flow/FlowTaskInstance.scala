@@ -25,6 +25,7 @@ object FlowTaskInstanceStatus extends Enumeration {
 trait FlowTaskInstance {
   def id: String
   def flowInstanceId: String
+  def flowDefinitionId: String
   def taskId: String
   def creationTime: Long
   def updatedTime: Option[Long]
@@ -40,6 +41,7 @@ trait FlowTaskInstance {
 final case class FlowTaskInstanceDetails(
   id: String,
   flowInstanceId: String,
+  flowDefinitionId: String,
   taskId: String,
   creationTime: Long,
   updatedTime: Option[Long] = None,

@@ -70,6 +70,5 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("executor-actor-spec"))
 
   override def executeRunning(
     running: FlowInstanceDetails,
-    definition: FlowDefinition,
     selectedTaskId: Option[String]): Future[Any] = Future.successful(running)
 }

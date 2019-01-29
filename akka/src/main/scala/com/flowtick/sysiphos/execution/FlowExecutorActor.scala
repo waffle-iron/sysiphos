@@ -2,12 +2,11 @@ package com.flowtick.sysiphos.execution
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ Actor, Cancellable, PoisonPill, Props }
+import akka.actor.{ Actor, ActorRef, Cancellable, PoisonPill }
 import akka.pattern.pipe
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
-import com.flowtick.sysiphos.execution.FlowExecutorActor.{ ImportDefinition, NewInstance, RequestInstance, CreatedOrUpdatedDefinition }
+import com.flowtick.sysiphos.execution.FlowExecutorActor.{ CreatedOrUpdatedDefinition, ImportDefinition, NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
-import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 import kamon.Kamon
 
@@ -15,8 +14,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
 
 object FlowExecutorActor {
-  case class Init()
-  case class Tick()
+  case class Init(workerRouterPool: ActorRef)
+  case object Tick
   case class RequestInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue])
   case class ImportDefinition(flowDefinition: FlowDefinition)
   case class CreatedOrUpdatedDefinition(result: Either[Throwable, FlowDefinitionDetails])
@@ -36,19 +35,15 @@ class FlowExecutorActor(
   val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
   val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
 
-  override implicit val repositoryContext: RepositoryContext = new DefaultRepositoryContext("test-user")
+  var workerPool: Option[ActorRef] = None
 
-  def flowInstanceActorProps(flowDefinition: FlowDefinition, flowInstance: FlowInstance) = Props(
-    new FlowInstanceExecutorActor(
-      flowInstance.id,
-      flowDefinition,
-      flowInstanceRepository,
-      flowTaskInstanceRepository,
-      Logger.defaultLogger)(repositoryContext))
+  override implicit val repositoryContext: RepositoryContext = new DefaultRepositoryContext("executor")
 
   override def receive: PartialFunction[Any, Unit] = {
-    case _: FlowExecutorActor.Init => init
-    case _: FlowExecutorActor.Tick =>
+    case FlowExecutorActor.Init(pool) =>
+      workerPool = Some(pool)
+      init
+    case FlowExecutorActor.Tick =>
       executeScheduled()
       executeRetries()
 
@@ -93,34 +88,39 @@ class FlowExecutorActor(
 
     case FlowInstanceExecution.TaskCompleted(taskInstance) =>
       log.info(s"task completed: ${taskInstance.id}")
-      sender() ! FlowInstanceExecution.Execute(PendingTasks)
+      executePending(taskInstance)
 
     case FlowInstanceExecution.WorkPending(instanceId) =>
       log.info(s"work pending: $instanceId")
 
-    case FlowInstanceExecution.RetryScheduled(instance) =>
-      log.info(s"retry scheduled: $instance")
-      Kamon.counter("retry-scheduled").refine("task", instance.taskId).increment()
+    case FlowInstanceExecution.RetryScheduled(taskInstance) =>
+      log.info(s"retry scheduled: $taskInstance")
+      Kamon.counter("retry-scheduled").refine("task", taskInstance.taskId).increment()
+      executePending(taskInstance)
+  }
 
-      sender() ! FlowInstanceExecution.Execute(PendingTasks)
+  def executePending(taskInstance: FlowTaskInstance): Future[FlowInstanceExecution.Execute] = {
+    flowInstanceRepository
+      .findById(taskInstance.flowInstanceId)
+      .flatMap {
+        case Some(instance) => Future.successful(FlowInstanceExecution.Execute(instance, PendingTasks))
+        case None => Future.failed(new IllegalStateException("unable to find task instance"))
+      }.pipeTo(sender())
   }
 
   def init: Cancellable = {
     log.info("initializing scheduler...")
 
-    context.system.scheduler.schedule(initialDelay, tickInterval, self, FlowExecutorActor.Tick())(context.system.dispatcher)
+    context.system.scheduler.schedule(initialDelay, tickInterval, self, FlowExecutorActor.Tick)(context.system.dispatcher)
   }
 
   override def executeRunning(
     running: FlowInstanceDetails,
-    definition: FlowDefinition,
-    selectedTaskId: Option[String]): Future[Any] = {
-    val instanceActor = context.child(running.id).getOrElse(
-      context.actorOf(flowInstanceActorProps(definition, running), running.id))
-
+    selectedTaskId: Option[String]): Future[Any] = workerPool.map { pool =>
     Future
-      .successful(FlowInstanceExecution.Execute(selectedTaskId.map(TaskId).getOrElse(PendingTasks)))
-      .pipeTo(instanceActor)(sender())
-  }
+      .successful(FlowInstanceExecution.Execute(running, selectedTaskId.map(TaskId).getOrElse(PendingTasks)))
+      .pipeTo(pool)(sender())
+  }.getOrElse(Future.failed(new IllegalStateException(s"asked to execute $running, but there is no worker pool")))
+
 }
 

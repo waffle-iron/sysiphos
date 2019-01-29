@@ -8,7 +8,10 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: example
       MYSQL_DATABASE: sysiphos
-
+    networks:
+      main:
+        aliases:
+          - db
   # to have a look at the tables etc.
   adminer:
     image: adminer
@@ -16,17 +19,49 @@ services:
     ports:
     - 9091:8080
 
-  sysiphos:
+  sysiphos-master:
     image: flowtick/sysiphos:latest
     depends_on:
       - db
-    links:
-      - db
-      - grafana
     ports:
-      - 9090:8080
-      - 10095:9095
+      - 1040:8080
+      - 1050:8558
+      - 1060:9095
+    networks:
+      main:
+        aliases:
+          - sysiphos-master
     environment:
+      CLUSTER_ENABLED: "true"
+      CLUSTER_IP: "sysiphos-master"
+      ALLOW_MASTER: "on"
+      ENDPOINT1_IP: "sysiphos-master"
+      ENDPOINT2_IP: "sysiphos-worker"
+      DATABASE_PROFILE: mysql
+      DATABASE_URL: jdbc:mysql://db:3306/sysiphos
+      DATABASE_USER: root
+      DATABASE_PASSWORD: example
+      STATS_ENABLED: "true"
+      STATS_HOST: grafana
+
+  sysiphos-worker:
+    image: flowtick/sysiphos:latest
+    depends_on:
+      - db
+    ports:
+      - 2040:8080
+      - 2050:8558
+      - 2060:9095
+    networks:
+      main:
+        aliases:
+          - sysiphos-worker
+    environment:
+      CLUSTER_ENABLED: "true"
+      CLUSTER_IP: "sysiphos-worker"
+      ALLOW_MASTER: "off"
+      ENDPOINT1_IP: "sysiphos-master"
+      ENDPOINT2_IP: "sysiphos-worker"
       DATABASE_PROFILE: mysql
       DATABASE_URL: jdbc:mysql://db:3306/sysiphos
       DATABASE_USER: root
@@ -42,3 +77,9 @@ services:
       - 8125:8125/udp
       - 8126:8126
       - 2003:2003
+    networks:
+      main:
+        aliases:
+          - grafana
+networks:
+  main:

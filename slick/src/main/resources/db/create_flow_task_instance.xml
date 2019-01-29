@@ -164,4 +164,17 @@
                               columnDataType="bigint" />
     </changeSet>
 
+    <changeSet id="11" author="sysiphos">
+        <preConditions>
+            <not>
+                <columnExists tableName="_FLOW_TASK_INSTANCE" columnName="_FLOW_DEFINITION_ID"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="_FLOW_TASK_INSTANCE">
+            <column name="_FLOW_DEFINITION_ID" defaultValue="" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

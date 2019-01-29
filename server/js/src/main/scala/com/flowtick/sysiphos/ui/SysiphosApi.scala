@@ -215,7 +215,7 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
          |    }
          |  },
          |	taskInstances(flowInstanceId: $instanceId) {
-         |    id, flowInstanceId, taskId, creationTime, updatedTime, startTime, endTime, status, retries, retryDelay, logId, nextDueDate
+         |    id, flowInstanceId, flowDefinitionId, taskId, creationTime, updatedTime, startTime, endTime, status, retries, retryDelay, logId, nextDueDate
          |  }
          |}
        """.stripMargin

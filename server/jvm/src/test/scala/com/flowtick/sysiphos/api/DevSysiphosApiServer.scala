@@ -1,44 +1,18 @@
 package com.flowtick.sysiphos.api
 
-import java.util.concurrent.Executors
-
-import akka.actor.ActorSystem
-import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
+import com.flowtick.sysiphos.core.DefaultRepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
-import com.flowtick.sysiphos.slick._
 import com.flowtick.sysiphos.task.CommandLineTask
-import javax.sql.DataSource
-import monix.execution.Scheduler
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 
-import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 object DevSysiphosApiServer extends App with SysiphosApiServer with ScalaFutures with IntegrationPatience {
-  val slickExecutor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
-  val apiExecutor = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
-
-  lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
-
-  val flowDefinitionRepository: SlickFlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutor)
-  val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutor)
-  val flowInstanceRepository: SlickFlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutor)
-  val flowTaskInstanceRepository: SlickFlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutor)
-
   implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
-  implicit val executorSystem: ActorSystem = ActorSystem()
-  implicit val scheduler: Scheduler = monix.execution.Scheduler.Implicits.global
-
-  def apiContext(repositoryContext: RepositoryContext) = new SysiphosApiContext(
-    flowDefinitionRepository,
-    flowScheduleRepository,
-    flowInstanceRepository,
-    flowScheduleRepository,
-    flowTaskInstanceRepository)(apiExecutor, repositoryContext)
-
   implicit val repositoryContext = new DefaultRepositoryContext("dev-test")
 
-  startApiServer().unsafeRunSync()
+  startApiServer(clusterContext).unsafeRunSync()
 
   Try {
     val definitionDetails = flowDefinitionRepository.createOrUpdateFlowDefinition(SysiphosDefinition(

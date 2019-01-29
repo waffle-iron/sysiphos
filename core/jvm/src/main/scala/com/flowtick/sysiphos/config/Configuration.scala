@@ -14,11 +14,8 @@ object Configuration {
       .orElse(Option(System.getenv(envKey(key))))
       .orElse(internalBackend.flatMap(_.propOrEnv(key)))
 
-  def propOrEnv(key: String, defaultValue: String): String =
-    Option(System.getProperties.getProperty(key))
-      .orElse(Option(System.getenv(envKey(key))))
-      .orElse(internalBackend.flatMap(_.propOrEnv(key)))
-      .getOrElse(defaultValue)
+  def propOrEnv(key: String, defaultValue: String): String = propOrEnv(key).getOrElse(defaultValue)
 
   def setBackend(backend: Configuration): Unit = internalBackend = Some(backend)
 }
+

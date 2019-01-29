@@ -142,6 +142,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch.syntax._
 
   def apiContext(repositoryContext: RepositoryContext): ApiContext
+
   implicit val executionContext: ExecutionContext
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }

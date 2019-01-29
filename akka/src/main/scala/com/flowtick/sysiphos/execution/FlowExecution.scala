@@ -140,35 +140,25 @@ trait FlowExecution extends Logging {
   }
 
   def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] = {
-    val maybeFlowDefinition: EitherT[Future, String, FlowDefinition] = for {
-      details <- EitherT.fromOptionF(flowDefinitionRepository.findById(instance.flowDefinitionId), s"unable to find definition for id ${instance.flowDefinitionId}")
-      source <- EitherT.fromOption(details.source, s"source flow definition missing for id ${instance.flowDefinitionId}")
-      parsedFlowDefinition <- EitherT.fromEither(FlowDefinition.fromJson(source)).leftMap(e => e.getLocalizedMessage)
-    } yield parsedFlowDefinition
+    val runningInstance = for {
+      _ <- if (instance.startTime.isEmpty)
+        flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
+      else
+        Future.successful(())
+      running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
+    } yield running
 
-    val flowInstanceInit = maybeFlowDefinition.flatMap { definition =>
-      val runningInstance = for {
-        _ <- if (instance.startTime.isEmpty)
-          flowInstanceRepository.setStartTime(instance.id, repositoryContext.epochSeconds)
-        else
-          Future.successful(())
-        running <- flowInstanceRepository.setStatus(instance.id, FlowInstanceStatus.Running)
-      } yield running
-
-      EitherT
-        .fromOptionF(runningInstance, "unable to update flow instance")
-        .semiflatMap(instance => executeRunning(instance, definition, selectedTaskId).map(_ => instance))
-    }
-
-    flowInstanceInit.value.flatMap {
-      case Left(message) => Future.failed(new IllegalStateException(message))
-      case Right(value) => Future.successful(value)
-    }
+    EitherT
+      .fromOptionF(runningInstance, "unable to update flow instance")
+      .semiflatMap(instance => executeRunning(instance, selectedTaskId).map(_ => instance))
+      .value.flatMap {
+        case Left(message) => Future.failed(new IllegalStateException(message))
+        case Right(value) => Future.successful(value)
+      }
   }
 
   def executeRunning(
     running: FlowInstanceDetails,
-    definition: FlowDefinition,
     selectedTaskId: Option[String]): Future[Any]
 
   def executeScheduled(): Unit = {

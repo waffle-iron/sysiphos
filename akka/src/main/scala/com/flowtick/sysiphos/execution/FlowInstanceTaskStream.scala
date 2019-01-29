@@ -10,7 +10,7 @@ import cats.data.OptionT
 import cats.effect.IO
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.Logging._
-import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowTask }
+import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowTask, FlowTaskInstanceRepository }
 import com.flowtick.sysiphos.logging.Logger
 
 import scala.concurrent.ExecutionContext
@@ -38,6 +38,8 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       onFailureMessage = (ex: Throwable) => FlowTaskExecution.TaskStreamFailure(ex))
 
   def createTaskStream(
+    flowTaskInstanceRepository: FlowTaskInstanceRepository,
+    flowInstanceRepository: FlowInstanceRepository,
     flowInstanceActor: ActorRef,
     flowExecutorActor: ActorRef)(
     flowInstanceId: String,
@@ -53,7 +55,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       .mapAsync(parallelism = taskParallelism)(flowTask => {
         (for {
           freshFlowInstance <- OptionT[IO, FlowInstanceDetails](IO.fromFuture(IO(flowInstanceRepository.findById(flowInstanceId))))
-          newTaskInstance <- OptionT.liftF(getOrCreateTaskInstance(flowInstanceId, flowDefinitionId, flowTask, logger))
+          newTaskInstance <- OptionT.liftF(getOrCreateTaskInstance(flowTaskInstanceRepository, flowInstanceId, flowDefinitionId, flowTask, logger))
         } yield FlowTaskExecution.Execute(flowTask, newTaskInstance, freshFlowInstance.context))
           .getOrElseF(IO.raiseError(new IllegalStateException("unable to find instance")))
           .unsafeToFuture()
@@ -61,7 +63,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       })
       .filter(execute => isRunnable(execute.taskInstance))
       .filter(execute => execute.taskInstance.nextDueDate.forall(fromEpochSeconds(_).isBefore(currentTime.toLocalDateTime)))
-      .mapAsync(parallelism = taskParallelism)(setRunning(_, logger).unsafeToFuture().logFailed("unable to set running"))
+      .mapAsync(parallelism = taskParallelism)(setRunning(flowTaskInstanceRepository, _, logger).unsafeToFuture().logFailed("unable to set running"))
       .wireTap(execute => log.debug(s"passing from stream to actor $execute"))
       .toMat(taskStreamSink(taskActorPool(flowInstanceActor, flowExecutorActor, taskParallelism, logger)))(Keep.both)
 
