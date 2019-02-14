@@ -45,8 +45,8 @@ class FlowInstancesComponent(
     flowDefinitionId = flowId.value.filter(_.nonEmpty),
     None,
     status = if (statuses.value.nonEmpty) Some(statuses.value) else None,
-    createdGreaterThan = Some(parseDate(startDate.value)),
-    createdSmallerThan = Some(parseDate(endDate.value)))))
+    createdGreaterThan = parseDate(startDate.value),
+    createdSmallerThan = parseDate(endDate.value))))
 
   def deleteInstance(flowInstanceId: String): Unit = {
     if (window.confirm(s"Do you really want to delete instance $flowInstanceId")) {

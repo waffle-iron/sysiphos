@@ -16,6 +16,7 @@ case class FoundSchedules(list: FlowScheduleList) extends Action
 case class ToggleEnabled(scheduleId: String, enabled: Boolean) extends Action
 case class ToggleBackFill(scheduleId: String, backFill: Boolean) extends Action
 case class SetExpression(scheduleId: String, expression: String) extends Action
+case class SetDueDate(scheduleId: String, epoch: Long) extends Action
 case class CreateSchedule(flowId: String, expression: String) extends Action
 
 class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
@@ -46,6 +47,10 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
         case CreateSchedule(flowId, expression) =>
           val createFuture = Effect(createSchedule(flowId, expression).map(_ => LoadSchedules(model.flowId)))
           Some(EffectOnly(createFuture))
+
+        case SetDueDate(scheduleId, epoch) =>
+          val setDueDateFuture = Effect(setDueDate(scheduleId, epoch).map(_ => LoadSchedules(model.flowId)))
+          Some(EffectOnly(setDueDateFuture))
       }
   }
 
@@ -63,6 +68,11 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
     api
       .setFlowScheduleExpression(id, expression)
       .successMessage(_ => s"$id expression updated: $expression")
+
+  def setDueDate(id: String, epoch: Long): Future[Boolean] =
+    api
+      .setDueDate(id, epoch)
+      .successMessage(_ => s"$id due date updated")
 
   def createSchedule(flowId: String, expression: String): Future[FlowScheduleDetails] =
     api

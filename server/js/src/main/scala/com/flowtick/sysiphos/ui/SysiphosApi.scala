@@ -30,6 +30,7 @@ case class DeleteTaskInstanceResult[T](deleteFlowTaskInstance: T)
 case class EnableResult(enabled: Boolean)
 case class BackFillResult(backFill: Boolean)
 case class ExpressionResult(expression: String)
+case class DueDateResult(setDueDate: Boolean)
 case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
 case class LogResult(log: String)
 
@@ -62,6 +63,10 @@ trait SysiphosApi {
   def setFlowScheduleExpression(
     id: String,
     expression: String): Future[String]
+
+  def setDueDate(
+    scheduleId: String,
+    epoch: Long): Future[Boolean]
 
   def setTaskStatus(taskInstanceId: String, status: FlowTaskInstanceStatus, retries: Int): Future[String]
 
@@ -274,5 +279,10 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
        """.stripMargin
 
     query[DeleteFlowResult[String]](deleteFlowDefinitionQuery, Map("flowDefinitionId" -> Json.fromString(id))).map(_.data.deleteFlowDefinition)
+  }
+
+  override def setDueDate(scheduleId: String, epoch: Long): Future[Boolean] = {
+    val queryString = s"""mutation { setDueDate(flowScheduleId: "$scheduleId", dueDate: $epoch) }"""
+    query[DueDateResult](queryString).map(_.data.setDueDate)
   }
 }

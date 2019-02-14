@@ -25,6 +25,28 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
 
   override implicit val executionContext: ExecutionContext = ExecutionContext.Implicits.global
 
+  val testSchedule = FlowScheduleDetails(
+    "test-schedule",
+    "test",
+    0,
+    0,
+    None,
+    None,
+    "flow-definition",
+    None,
+    nextDueDate = Some(0),
+    enabled = Some(true),
+    backFill = Some(false))
+
+  val newInstance = FlowInstanceDetails(
+    status = FlowInstanceStatus.Scheduled,
+    id = "1",
+    flowDefinitionId = testSchedule.flowDefinitionId,
+    creationTime = 2L,
+    context = Seq.empty,
+    startTime = None,
+    endTime = None)
+
   "Akka flow executor" should "create child actors for due schedules" in new DefaultRepositoryContext("test-user") {
     val testInstance = FlowInstanceDetails(
       id = "test-instance",
@@ -52,6 +74,7 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
     (flowScheduleRepository.getFlowSchedules(_: Option[Boolean], _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
     (flowInstanceRepository.createFlowInstance(_: String, _: Seq[FlowInstanceContextValue], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Seq.empty[FlowInstanceContextValue], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
     (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
+    (flowScheduler.missedOccurrences _).expects(*, *).returning(Seq.empty)
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *).returning(Future.successful(()))
 
     dueScheduledFlowInstances(now = 0).futureValue
@@ -95,6 +118,38 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
       None).returning(Future.successful(Seq(InstanceCount(flowDefinition.id, FlowInstanceStatus.Running.toString, 1))))
 
     executeInstances(flowDefinition.copy(parallelism = Some(2)), instances).futureValue should have size 1
+  }
+
+  it should "return new instances when applying the schedule" in {
+    val backFillDisabled = testSchedule.copy(backFill = Some(true))
+
+    (flowScheduler.nextOccurrence _).expects(backFillDisabled, 1).returning(Some(2))
+    (flowScheduler.missedOccurrences _).expects(backFillDisabled, 1).returning(Seq.empty)
+
+    (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext))
+      .expects(backFillDisabled.id, 2, *)
+      .returning(Future.successful())
+
+    (flowInstanceRepository.createFlowInstance(_: String, _: Seq[FlowInstanceContextValue], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
+      .expects("flow-definition", Seq.empty[FlowInstanceContextValue], *, *)
+      .returning(Future.successful(newInstance))
+
+    applySchedule(backFillDisabled, 1).futureValue should be(Some(Seq(newInstance)))
+  }
+
+  it should "return missed occurrences only when back fill is enabled" in {
+    (flowScheduler.nextOccurrence _).expects(testSchedule, 1).returning(Some(2))
+    (flowScheduler.missedOccurrences _).expects(*, *).never()
+
+    (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext))
+      .expects(*, *, *)
+      .returning(Future.successful())
+
+    (flowInstanceRepository.createFlowInstance(_: String, _: Seq[FlowInstanceContextValue], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext))
+      .expects("flow-definition", Seq.empty[FlowInstanceContextValue], *, *)
+      .returning(Future.successful(newInstance))
+
+    applySchedule(testSchedule, 1).futureValue should be(Some(Seq(newInstance)))
   }
 
   override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] =

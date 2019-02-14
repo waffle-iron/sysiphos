@@ -2,6 +2,7 @@ package com.flowtick.sysiphos.ui.schedule
 
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.flowtick.sysiphos.ui.util.DateSupport
+import com.flowtick.sysiphos.ui.vendor.Toastr
 import com.flowtick.sysiphos.ui.{ HtmlComponent, Layout }
 import com.thoughtworks.binding.Binding.{ SingletonBindingSeq, Vars }
 import com.thoughtworks.binding.{ Binding, dom }
@@ -25,6 +26,13 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
   def updateScheduleExpression(schedule: FlowScheduleDetails, newExpression: String): Unit =
     if (!schedule.expression.contains(newExpression)) {
       circuit.dispatch(SetExpression(schedule.id, newExpression))
+    }
+
+  def updateDueDue(schedule: FlowScheduleDetails, newDateString: String) =
+    parseDate(newDateString) match {
+      case Some(epoch) if !schedule.nextDueDate.contains(epoch) => circuit.dispatch(SetDueDate(schedule.id, epoch))
+      case Some(_) => ()
+      case None => Toastr.warning(s"unable to parse $newDateString")
     }
 
   @dom
@@ -63,7 +71,9 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
             </button>
         }
       </td>
-      <td>{ schedule.nextDueDate.map(formatDate).getOrElse("N/A") }</td>
+      <td>
+        <input placeholder="YYYY-MM-DD HH:mm:ss" class="form-control" type="text" id="due-date" value={ schedule.nextDueDate.map(formatDate).getOrElse("N/A") } onblur={ (event: Event) => updateDueDue(schedule, event.target.asInstanceOf[HTMLInputElement].value) }/>
+      </td>
     </tr>
 
   @dom

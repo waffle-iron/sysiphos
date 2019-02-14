@@ -70,7 +70,7 @@ trait FlowExecution extends Logging with Clock {
         }
     } else Future.successful(None)
 
-    val missedInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now) && schedule.backFill.contains(true)) {
+    val missedInstances: Future[Option[Seq[FlowInstance]]] = if (isDue(schedule, now) && schedule.backFill.getOrElse(true)) {
       Future
         .sequence(flowScheduler.missedOccurrences(schedule, now).map { _ => createFlowInstance(schedule) })
         .map(Option.apply)

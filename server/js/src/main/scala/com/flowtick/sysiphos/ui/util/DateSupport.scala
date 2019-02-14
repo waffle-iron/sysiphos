@@ -4,6 +4,7 @@ import com.flowtick.sysiphos.ui.util.MomentJS.MomentApi
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSGlobal
+import scala.util.{ Failure, Success, Try }
 
 @JSGlobal("moment")
 @js.native
@@ -36,8 +37,11 @@ trait DateSupport {
     .unix(epochSeconds)
     .format(format)
 
-  def parseDate(date: String): Long = {
-    MomentJS(date).unix().toLong
+  def parseDate(date: String): Option[Long] = Try(MomentJS(date).unix().toLong) match {
+    case Success(epoch) => Some(epoch).filter(_ != 0)
+    case Failure(error) =>
+      println(s"unable to parse date $date : $error")
+      None
   }
 
   def now(): MomentApi = MomentJS()
