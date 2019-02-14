@@ -52,4 +52,13 @@ code:before{
     opacity: 1;
 }
 
+#progress-bar {
+    position: fixed;
+    height: 5px;
+    top: 0;
+    width: 100%;
+    line-height: 0;
+    z-index: 10000;
+}
+
 

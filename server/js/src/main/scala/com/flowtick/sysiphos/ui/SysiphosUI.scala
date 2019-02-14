@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.ui
 import com.flowtick.sysiphos.ui.execution._
 import com.flowtick.sysiphos.ui.flow._
 import com.flowtick.sysiphos.ui.schedule.{ SchedulesCircuit, SchedulesComponent }
+import com.flowtick.sysiphos.ui.vendor.ProgressBar
 import com.thoughtworks.binding.Binding.Var
 import com.thoughtworks.binding.{ Binding, dom }
 import org.scalajs.dom.html.Div
@@ -11,6 +12,7 @@ import pages.DomView
 import pages.Page.{ Routing, page }
 
 import scala.concurrent.ExecutionContext
+import scala.scalajs.js
 
 object SysiphosUI extends App with Layout {
   val currentView: Var[Option[HtmlComponent]] = Var(None)
@@ -35,7 +37,13 @@ object SysiphosUI extends App with Layout {
     case _ =>
   })
 
-  val api = new SysiphosApiClient()(ExecutionContext.global)
+  val progressBar = new ProgressBar.Line("#progress-bar", options = js.Dictionary[Any](
+    "easing" -> "easeInOut",
+    "duration" -> 3500,
+    "color" -> "#5fc1e8",
+    "svgStyle" -> js.Dictionary("width" -> "100%", "height" -> "100%")))
+
+  val api = new SysiphosApiClient(progressBar)(ExecutionContext.global)
 
   def flowsComponent = new FlowsComponent(new FlowsCircuit(api))
   def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))

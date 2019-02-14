@@ -16,5 +16,6 @@ trait TwitterBootstrapResources extends StaticResourceSupport {
     getResource("theme-monokai.js", "text/css") :+:
     getResource("theme-textmate.js", "text/css") :+:
     getResource("mode-json.js", "application/javascript") :+:
+    getResource("progressbar.min.js", "application/javascript") :+:
     getResource("worker-json.js", "application/javascript")
 }

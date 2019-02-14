@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.ui
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
+import com.flowtick.sysiphos.ui.vendor.ProgressBar.ProgressBar
 import io.circe.{ Decoder, Json }
 import io.circe.generic.auto._
 import io.circe.parser._
@@ -82,13 +83,15 @@ trait SysiphosApi {
 
 }
 
-class SysiphosApiClient(implicit executionContext: ExecutionContext) extends SysiphosApi {
+class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: ExecutionContext) extends SysiphosApi {
   import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 
   def query[T](query: String, variables: Map[String, Json] = Map.empty)(implicit ev: Decoder[T]): Future[GraphQLResponse[T]] = {
     val queryJson = Json.obj(
       "query" -> Json.fromString(query),
       "variables" -> Json.fromFields(variables)).noSpaces
+
+    progressBar.animate(1.0)
 
     Ajax.post("/api", queryJson, headers = Map("Content-Type" -> "application/json")).flatMap(response => decode[GraphQLResponse[T]](response.responseText) match {
       case Right(parsed) =>
@@ -113,7 +116,9 @@ class SysiphosApiClient(implicit executionContext: ExecutionContext) extends Sys
 
       transformedError
     })
-  }.notifyError
+  }.notifyError.andThen {
+    case _ => progressBar.animate(0.0)
+  }
 
   override def getSchedules(flowId: Option[String]): Future[FlowScheduleList] =
     query[FlowScheduleList](
