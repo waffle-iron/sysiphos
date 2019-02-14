@@ -8,6 +8,7 @@ import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, F
 
 import scala.concurrent.{ ExecutionContext, Future }
 import Logging._
+import com.flowtick.sysiphos.config.Configuration
 
 trait FlowExecution extends Logging with Clock {
   val flowDefinitionRepository: FlowDefinitionRepository
@@ -16,6 +17,8 @@ trait FlowExecution extends Logging with Clock {
   val flowScheduleStateStore: FlowScheduleStateStore
   val flowScheduler: FlowScheduler
   val flowTaskInstanceRepository: FlowTaskInstanceRepository
+
+  def retryBatchSize: Int = Configuration.propOrEnv("retry.batch.size").map(_.toInt).getOrElse(20)
 
   implicit val repositoryContext: RepositoryContext
   implicit val executionContext: ExecutionContext
@@ -26,9 +29,12 @@ trait FlowExecution extends Logging with Clock {
   }
 
   def dueTaskRetries(now: Long): Future[Seq[(Option[FlowInstance], String)]] =
-    flowTaskInstanceRepository.find(FlowTaskInstanceQuery(dueBefore = Some(now), status = Some(Seq(FlowTaskInstanceStatus.Retry)))).flatMap { tasks =>
+    flowTaskInstanceRepository.find(FlowTaskInstanceQuery(dueBefore = Some(now), status = Some(Seq(FlowTaskInstanceStatus.Retry)), limit = Some(retryBatchSize))).flatMap { tasks =>
       Future.sequence(tasks.map { task =>
-        flowInstanceRepository.findById(task.flowInstanceId).map(instance => (instance, task.taskId))
+        flowInstanceRepository
+          .findById(task.flowInstanceId)
+          .map(_.filter(_.status != FlowInstanceStatus.Failed))
+          .map(instance => (instance, task.taskId))
       })
     }.logFailed(s"unable to check for retries")
 

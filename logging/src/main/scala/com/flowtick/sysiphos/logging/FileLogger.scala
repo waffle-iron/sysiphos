@@ -23,8 +23,7 @@ class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends L
     if (logFile.canWrite) {
       log.debug(s"created log $logFile")
       IO(logFile.getAbsolutePath)
-    } else
-      IO.raiseError(new IllegalStateException(s"unable to create logfile for $logKey"))
+    } else IO.raiseError(new IllegalStateException(s"unable to create logfile for $logKey"))
   }
 
   override def getLog(logId: LogId): LogStream =

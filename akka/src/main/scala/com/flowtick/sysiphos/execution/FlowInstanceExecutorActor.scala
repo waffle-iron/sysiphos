@@ -157,7 +157,8 @@ class FlowInstanceExecutorActor(
 
     case TaskStreamFailure(error) =>
       log.error("error in task stream", error)
-      self ! FlowInstanceExecution.Execute(taskQueue.get._1, PendingTasks)
+      val (instance, _) = taskQueue.get
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(instance.id, instance.flowDefinitionId)
 
     case other => log.warn(s"unhandled message: $other")
   }

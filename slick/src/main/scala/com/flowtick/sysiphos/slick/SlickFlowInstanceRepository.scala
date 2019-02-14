@@ -65,13 +65,17 @@ class SlickFlowInstanceRepository(
 
   private[slick] def getFlowInstances: Future[Seq[SlickFlowInstance]] = db.run(instanceTable.result)
 
-  override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]] = {
-    val filteredInstances = instanceTable
+  private def createQuery(query: FlowInstanceQuery) = {
+    instanceTable
       .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
       .filterOptional(query.status)(status => _.status.inSet(status.map(_.toString)))
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
       .filterOptional(query.createdSmallerThan)(createdSmallerThan => _.created <= createdSmallerThan)
+  }
+
+  override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]] = {
+    val filteredInstances = createQuery(query)
 
     val instancesWithContext = (for {
       (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
@@ -144,12 +148,23 @@ class SlickFlowInstanceRepository(
 
     db.run(countQuery)
   }
+
   override def setStatus(flowInstanceId: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
     val columnsForUpdates = instanceTable.filter(_.id === flowInstanceId)
       .map { instance => instance.status }
       .update(status.toString)
 
     db.run(columnsForUpdates.transactionally).filter(_ == 1).flatMap { _ => findById(flowInstanceId) }
+  }
+
+  override def update(
+    query: FlowInstanceQuery,
+    status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    val columnsForUpdates = createQuery(query)
+      .map { instance => instance.status }
+      .update(status.toString)
+
+    db.run(DBIO.seq(columnsForUpdates).transactionally)
   }
 
   override def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {

@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, ActorRef, Cancellable, PoisonPill }
 import akka.pattern.pipe
+import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ CreatedOrUpdatedDefinition, ImportDefinition, NewInstance, RequestInstance }
 import com.flowtick.sysiphos.flow.{ FlowInstance, _ }
@@ -32,8 +33,8 @@ class FlowExecutorActor(
   val flowScheduler: FlowScheduler)(implicit val executionContext: ExecutionContext) extends Actor with FlowExecution with Logging {
   import Logging._
 
-  val initialDelay = FiniteDuration(10000, TimeUnit.MILLISECONDS)
-  val tickInterval = FiniteDuration(10000, TimeUnit.MILLISECONDS)
+  def initialDelay = FiniteDuration(Configuration.propOrEnv("scheduler.delay.ms").map(_.toInt).getOrElse(10000), TimeUnit.MILLISECONDS)
+  def tickInterval = FiniteDuration(Configuration.propOrEnv("scheduler.interval.ms").map(_.toInt).getOrElse(10000), TimeUnit.MILLISECONDS)
 
   var workerPool: Option[ActorRef] = None
 
@@ -108,10 +109,19 @@ class FlowExecutorActor(
       }.pipeTo(sender())
   }
 
-  def init: Cancellable = {
-    log.info("initializing scheduler...")
+  def init: Future[Cancellable] = {
+    log.info("restarting abandoned running instances...")
 
-    context.system.scheduler.schedule(initialDelay, tickInterval, self, FlowExecutorActor.Tick)(context.system.dispatcher)
+    val runningInstances = FlowInstanceQuery(flowDefinitionId = None, status = Some(Seq(FlowInstanceStatus.Running)))
+    val runningTasks = FlowTaskInstanceQuery(status = Some(Seq(FlowTaskInstanceStatus.Running)))
+
+    for {
+      _ <- flowInstanceRepository.update(runningInstances, FlowInstanceStatus.Triggered)
+      _ <- flowTaskInstanceRepository.update(runningTasks, FlowTaskInstanceStatus.Retry, None, None)
+    } yield {
+      log.info("initializing scheduler...")
+      context.system.scheduler.schedule(initialDelay, tickInterval, self, FlowExecutorActor.Tick)(context.system.dispatcher)
+    }
   }
 
   override def executeRunning(

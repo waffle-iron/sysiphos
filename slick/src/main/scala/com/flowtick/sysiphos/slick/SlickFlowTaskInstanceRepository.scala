@@ -70,12 +70,14 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
   private[slick] def getFlowTaskInstances: Future[Seq[FlowTaskInstanceDetails]] = db.run(taskInstancesTable.result)
 
   private[slick] def createQuery(taskInstanceQuery: FlowTaskInstanceQuery) = {
-    taskInstancesTable
+    val filtered = taskInstancesTable
       .filterOptional(taskInstanceQuery.id)(id => _.id === id)
       .filterOptional(taskInstanceQuery.flowInstanceId)(flowInstanceId => _.flowInstanceId === flowInstanceId)
       .filterOptional(taskInstanceQuery.taskId)(taskId => _.taskId === taskId)
       .filterOptional(taskInstanceQuery.dueBefore)(dueBefore => _.nextDueDate < dueBefore)
       .filterOptional(taskInstanceQuery.status)(status => _.status.inSet(status.map(_.toString)))
+
+    taskInstanceQuery.limit.map(max => filtered.take(max)).getOrElse(filtered)
   }
 
   override def find(taskInstanceQuery: FlowTaskInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]] = {
@@ -132,6 +134,21 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       nextRetry.map(newNextRetry => taskInstance.map { task => task.nextDueDate }.update(Some(newNextRetry)))).flatten
 
     db.run(DBIO.seq(updates: _*).transactionally).flatMap { _ => findOne(FlowTaskInstanceQuery(id = Some(taskInstanceId))) }
+  }
+
+  override def update(
+    query: FlowTaskInstanceQuery,
+    status: FlowTaskInstanceStatus.FlowTaskInstanceStatus,
+    retries: Option[Int],
+    nextRetry: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    val taskInstance = createQuery(query)
+
+    val updates = Seq(
+      Some(taskInstance.map { task => task.status }.update(status.toString)),
+      retries.map(newRetries => taskInstance.map { task => task.retries }.update(newRetries)),
+      nextRetry.map(newNextRetry => taskInstance.map { task => task.nextDueDate }.update(Some(newNextRetry)))).flatten
+
+    db.run(DBIO.seq(updates: _*).transactionally)
   }
 
   override def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]] = {

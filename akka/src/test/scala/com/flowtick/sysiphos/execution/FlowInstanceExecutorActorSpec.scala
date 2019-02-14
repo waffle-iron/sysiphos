@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.execution
 
-import java.time.{ LocalDateTime, ZoneOffset, ZonedDateTime }
+import java.time.{ LocalDateTime, ZoneId, ZoneOffset, ZonedDateTime }
 
 import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
@@ -68,7 +68,9 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       new FlowInstanceExecutorActor(
         DefaultClusterContext(flowDefinitionRepository = flowDefinitionRepository, flowInstanceRepository = flowInstanceRepository, flowTaskInstanceRepository = flowTaskInstanceRepository, flowScheduleRepository = null, flowScheduleStateStore = null),
         flowExecutorProbe.ref,
-        logger)(repositoryContext))
+        logger)(repositoryContext) {
+        override def currentTime: ZonedDateTime = ZonedDateTime.of(LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC), ZoneId.systemDefault())
+      })
 
     (flowDefinitionRepository.findById(_: String)(_: RepositoryContext))
       .expects("ls-definition-id", *)

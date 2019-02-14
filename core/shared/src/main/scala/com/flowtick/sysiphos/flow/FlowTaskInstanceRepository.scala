@@ -9,7 +9,8 @@ final case class FlowTaskInstanceQuery(
   taskId: Option[String] = None,
   flowInstanceId: Option[String] = None,
   dueBefore: Option[Long] = None,
-  status: Option[Seq[FlowTaskInstanceStatus.FlowTaskInstanceStatus]] = None)
+  status: Option[Seq[FlowTaskInstanceStatus.FlowTaskInstanceStatus]] = None,
+  limit: Option[Int] = None)
 
 trait FlowTaskInstanceRepository {
   def find(query: FlowTaskInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowTaskInstanceDetails]]
@@ -26,6 +27,7 @@ trait FlowTaskInstanceRepository {
     initialStatus: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails]
 
   def setStatus(flowTaskInstanceId: String, status: FlowTaskInstanceStatus.FlowTaskInstanceStatus, retries: Option[Int], nextRetry: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
+  def update(query: FlowTaskInstanceQuery, status: FlowTaskInstanceStatus.FlowTaskInstanceStatus, retries: Option[Int], nextRetry: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Unit]
   def setStartTime(taskInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
   def setEndTime(taskInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]
   def deleteFlowTaskInstance(flowTaskInstanceId: String)(implicit repositoryContext: RepositoryContext): Future[String]
