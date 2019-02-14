@@ -66,12 +66,18 @@ class SlickFlowInstanceRepository(
   private[slick] def getFlowInstances: Future[Seq[SlickFlowInstance]] = db.run(instanceTable.result)
 
   private def createQuery(query: FlowInstanceQuery) = {
-    instanceTable
+    val filtered = instanceTable
       .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
       .filterOptional(query.instanceIds)(ids => _.id inSet ids.toSet)
       .filterOptional(query.status)(status => _.status.inSet(status.map(_.toString)))
       .filterOptional(query.createdGreaterThan)(createdGreaterThan => _.created >= createdGreaterThan)
       .filterOptional(query.createdSmallerThan)(createdSmallerThan => _.created <= createdSmallerThan)
+      .sortBy(instance => (instance.created.desc, instance.id.desc))
+
+    val withOffset = query.offset.map(filtered.drop).getOrElse(filtered)
+    val withLimit = query.limit.map(withOffset.take).getOrElse(withOffset)
+
+    withLimit.sortBy(instance => (instance.created.desc, instance.id))
   }
 
   override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]] = {
@@ -79,7 +85,7 @@ class SlickFlowInstanceRepository(
 
     val instancesWithContext = (for {
       (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
-    } yield (instance, context)).sortBy(_._1.created.desc).result
+    } yield (instance, context)).result
 
     db.run(instancesWithContext).flatMap(instances => {
       val groupedByInstance = instances.groupBy { case (instance, _) => instance }

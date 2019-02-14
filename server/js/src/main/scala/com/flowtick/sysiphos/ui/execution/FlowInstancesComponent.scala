@@ -17,12 +17,16 @@ class FlowInstancesComponent(
   statusCsvParam: Option[String],
   startDateParam: Option[String],
   endDateParam: Option[String],
+  offsetParam: Option[Int],
+  limitParam: Option[Int],
   circuit: FlowInstancesCircuit) extends HtmlComponent
   with Layout
   with DateSupport {
   val instances: Vars[FlowInstance] = Vars.empty[FlowInstance]
 
   val dateFieldFormat = "YYYY-MM-DD"
+
+  val limit: Var[Int] = Var(limitParam.getOrElse(10))
 
   val flowId: Var[Option[String]] = Var(flowIdParam)
   val startDate: Var[String] = Var(startDateParam.getOrElse(now().subtract(7, "days").format(dateFieldFormat)))
@@ -46,7 +50,9 @@ class FlowInstancesComponent(
     None,
     status = if (statuses.value.nonEmpty) Some(statuses.value) else None,
     createdGreaterThan = parseDate(startDate.value),
-    createdSmallerThan = parseDate(endDate.value))))
+    createdSmallerThan = parseDate(endDate.value),
+    offset = offsetParam,
+    limit = Some(limit.value))))
 
   def deleteInstance(flowInstanceId: String): Unit = {
     if (window.confirm(s"Do you really want to delete instance $flowInstanceId")) {
@@ -87,20 +93,18 @@ class FlowInstancesComponent(
     </table>
   }
 
-  def currentViewHash(
-    flowIdFilter: Option[String],
-    statusesFilter: Option[Seq[FlowInstanceStatus]],
-    startDateFilter: Option[String],
-    endDateFilter: Option[String]): String = {
-    val startDateQueryPart = startDateFilter.map(startDate => s"startDate=$startDate").getOrElse("")
-    val endDateQueryPart = endDateFilter.map(endDate => s"endDate=$endDate").getOrElse("")
-    val flowIdQueryPart = flowIdFilter.map(flowId => s"flowId=$flowId").getOrElse("")
-    val statusQueryPart = statusesFilter.filter(_.nonEmpty).map(statuses => s"status=${statuses.mkString(",")}").getOrElse("")
-    s"#/instances?$flowIdQueryPart&$statusQueryPart&$startDateQueryPart&$endDateQueryPart"
+  def currentViewHash(offset: Option[Int]): String = {
+    val startDateQueryPart = Option(startDate.value).map(startDate => s"startDate=$startDate").getOrElse("")
+    val endDateQueryPart = Option(endDate.value).map(endDate => s"endDate=$endDate").getOrElse("")
+    val flowIdQueryPart = flowId.value.map(flowId => s"flowId=$flowId").getOrElse("")
+    val offsetPart = offset.map(offsetValue => s"offset=${Math.max(0, offsetValue)}").getOrElse("")
+    val limitPart = Option(limit.value).map(limitValue => s"limit=$limitValue").getOrElse("")
+    val statusQueryPart = Option(statuses.value).filter(_.nonEmpty).map(statuses => s"status=${statuses.mkString(",")}").getOrElse("")
+    s"#/instances?$flowIdQueryPart&$statusQueryPart&$startDateQueryPart&$endDateQueryPart&$offsetPart&$limitPart"
   }
 
   def updatePath: Event => Unit = (_: Event) => {
-    org.scalajs.dom.window.location.hash = currentViewHash(flowId.value, Some(statuses.value), Some(startDate.value), Some(endDate.value))
+    org.scalajs.dom.window.location.hash = currentViewHash(offsetParam)
   }
 
   def toggleStatus(status: FlowInstanceStatus, isActive: Boolean): Event => Unit = event => {
@@ -164,6 +168,12 @@ class FlowInstancesComponent(
           <div class="panel panel-default">
             <div class="panel-body">
               { instancesTable.bind }
+              <nav data:aria-label="pager">
+                <ul class="pager">
+                  <li class="previous"><a href={ currentViewHash(offsetParam.map(_ - limit.value)) }><span data:aria-hidden="true">&larr;</span> Newer</a></li>
+                  <li class="next"><a href={ currentViewHash(offsetParam.map(_ + limit.value)) }>Older <span data:aria-hidden="true">&rarr;</span></a></li>
+                </ul>
+              </nav>
             </div>
             <div class="panel-footer"></div>
           </div>

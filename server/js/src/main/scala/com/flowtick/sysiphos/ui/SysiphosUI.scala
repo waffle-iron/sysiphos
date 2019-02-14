@@ -47,7 +47,12 @@ object SysiphosUI extends App with Layout {
 
   def flowsComponent = new FlowsComponent(new FlowsCircuit(api))
   def schedulesComponent(flowId: Option[String]) = new SchedulesComponent(flowId, new SchedulesCircuit(api))
-  def instancesComponent(flowId: Option[String], statusCsv: Option[String], startDate: Option[String], endDate: Option[String]) = new FlowInstancesComponent(flowId, statusCsv, startDate, endDate, new FlowInstancesCircuit(api))
+  def instancesComponent(flowId: Option[String],
+                         statusCsv: Option[String],
+                         startDate: Option[String],
+                         endDate: Option[String],
+                         offset: Option[Int],
+                         limit: Option[Int]) = new FlowInstancesComponent(flowId, statusCsv, startDate, endDate, offset, limit, new FlowInstancesCircuit(api))
   def instanceComponent(instanceId: String) = new ShowInstanceComponent(instanceId, new ShowInstanceCircuit(api))
   def flowComponent(id: String) = new ShowFlowComponent(id)(new FlowCircuit(api), schedulesComponent(Some(id)))
   def runComponent(id: String) = new RunFlowComponent(id)(new FlowCircuit(api))
@@ -62,7 +67,14 @@ object SysiphosUI extends App with Layout {
       .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(notFound))
       .page("/schedules", _ => schedulesComponent(None))
       .page("/schedules/show/:flowId", ctx => ctx.pathParams.get("flowId").map(id => schedulesComponent(Some(id))).getOrElse(notFound))
-      .page("/instances", ctx => instancesComponent(ctx.queryParams.get("flowId"), ctx.queryParams.get("status"), ctx.queryParams.get("startDate"), ctx.queryParams.get("endDate")))
+      .page("/instances", ctx => instancesComponent(
+        ctx.queryParams.get("flowId"),
+        ctx.queryParams.get("status"),
+        ctx.queryParams.get("startDate"),
+        ctx.queryParams.get("endDate"),
+        ctx.queryParams.get("offset").map(_.toInt),
+        ctx.queryParams.get("limit").map(_.toInt),
+      ))
       .page("/instances/show/:instanceId", ctx => ctx.pathParams.get("instanceId").map(id => instanceComponent(id)).getOrElse(notFound))
       .page("/not-found", _ => notFound)
       .page("/log/:logId", ctx => ctx.pathParams.get("logId").map(logComponent).getOrElse(notFound))

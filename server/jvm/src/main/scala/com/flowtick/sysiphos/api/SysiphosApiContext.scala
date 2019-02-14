@@ -68,8 +68,10 @@ class SysiphosApiContext(clusterContext: ClusterContext)(implicit executionConte
     instanceIds: Option[Seq[String]],
     status: Option[Seq[String]],
     createdGreaterThan: Option[Long],
-    createdSmallerThan: Option[Long]): Future[Seq[FlowInstanceDetails]] = {
-    clusterContext.flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(_.map(FlowInstanceStatus.withName)), createdGreaterThan, createdSmallerThan))
+    createdSmallerThan: Option[Long],
+    offset: Option[Int],
+    limit: Option[Int]): Future[Seq[FlowInstanceDetails]] = {
+    clusterContext.flowInstanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId, instanceIds, status.map(_.map(FlowInstanceStatus.withName)), createdGreaterThan, createdSmallerThan, offset, limit))
   }
 
   override def taskInstances(

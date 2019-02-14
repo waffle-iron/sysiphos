@@ -187,11 +187,18 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
   override def getInstances(selection: FlowInstanceQuery): Future[FlowInstanceList] = {
     val instancesQuery =
       """
-         |query($flowDefinitionId: String, $status: [String!], $createdGreaterThan: Long, $createdSmallerThan: Long) {
+         |query($flowDefinitionId: String,
+         |      $status: [String!],
+         |      $createdGreaterThan: Long,
+         |      $createdSmallerThan: Long,
+         |      $offset: Int,
+         |      $limit: Int) {
          |  instances (flowDefinitionId: $flowDefinitionId,
          |             status: $status,
          |             createdGreaterThan: $createdGreaterThan,
-         |             createdSmallerThan: $createdSmallerThan) {
+         |             createdSmallerThan: $createdSmallerThan,
+         |             offset: $offset,
+         |             limit: $limit) {
          |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
          |      key, value
          |    }
@@ -207,12 +214,16 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
     val definitionVariable = selection.flowDefinitionId.map(Json.fromString).getOrElse(Json.Null)
     val createdGreaterThan = selection.createdGreaterThan.map(Json.fromLong).getOrElse(Json.Null)
     val createdSmallerThan = selection.createdSmallerThan.map(Json.fromLong).getOrElse(Json.Null)
+    val offset = selection.offset.map(Json.fromInt).getOrElse(Json.Null)
+    val limit = selection.limit.map(Json.fromInt).getOrElse(Json.Null)
 
     query[FlowInstanceList](instancesQuery, Map(
       "flowDefinitionId" -> definitionVariable,
       "status" -> statusVariable,
       "createdGreaterThan" -> createdGreaterThan,
-      "createdSmallerThan" -> createdSmallerThan)).map(_.data)
+      "createdSmallerThan" -> createdSmallerThan,
+      "offset" -> offset,
+      "limit" -> limit)).map(_.data)
   }
 
   override def getInstanceOverview(instanceId: String): Future[Option[FlowInstanceOverview]] = {
