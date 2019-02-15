@@ -12,7 +12,7 @@ object CronScheduler extends FlowScheduler with Logging with Clock {
     schedule.expression
       .flatMap(Cron(_).toOption)
       .flatMap(_.next(fromEpochSeconds(now)))
-      .map(_.toEpochSecond(zoneOffset(currentTime)))
+      .map(_.toEpochSecond)
   }
 
   def missedOccurrences(schedule: FlowSchedule, now: Long): Seq[Long] = {

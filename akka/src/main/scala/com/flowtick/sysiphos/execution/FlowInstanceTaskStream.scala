@@ -62,7 +62,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
           .logFailed("unable to create new task instance")
       })
       .filter(execute => isRunnable(execute.taskInstance))
-      .filter(execute => execute.taskInstance.nextDueDate.forall(fromEpochSeconds(_).isBefore(currentTime.toLocalDateTime)))
+      .filter(execute => execute.taskInstance.nextDueDate.forall(fromEpochSeconds(_).isBefore(currentTime)))
       .mapAsync(parallelism = taskParallelism)(setRunning(flowTaskInstanceRepository, _, logger).unsafeToFuture().logFailed("unable to set running"))
       .wireTap(execute => log.debug(s"passing from stream to actor $execute"))
       .toMat(taskStreamSink(taskActorPool(flowInstanceActor, flowExecutorActor, taskParallelism, logger)))(Keep.both)

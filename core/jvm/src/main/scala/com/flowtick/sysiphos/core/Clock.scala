@@ -7,7 +7,6 @@ trait Clock {
   def timeZone: ZoneId = ZoneId.systemDefault()
   def zoneOffset(temporal: Temporal): ZoneOffset = ZoneOffset.from(temporal)
 
-  def fromEpochSeconds(epoch: Long): LocalDateTime = LocalDateTime.ofEpochSecond(epoch, 0, zoneOffset(currentTime))
+  def fromEpochSeconds(epoch: Long): ZonedDateTime = ZonedDateTime.of(LocalDateTime.ofEpochSecond(epoch, 0, zoneOffset(currentTime)), timeZone)
   def currentTime: ZonedDateTime = LocalDateTime.now().atZone(timeZone)
-  def epochSeconds: Long = currentTime.toLocalDateTime.toEpochSecond(zoneOffset(currentTime))
 }

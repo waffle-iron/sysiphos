@@ -169,7 +169,7 @@ trait FlowExecution extends Logging with Clock {
   def executeScheduled(): Unit = {
     val taskInstancesFuture: Future[Option[Seq[FlowInstance]]] = for {
       manuallyTriggered <- manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")
-      newTaskInstances <- dueScheduledFlowInstances(epochSeconds).logFailed("unable to get scheduled flow instance")
+      newTaskInstances <- dueScheduledFlowInstances(currentTime.toEpochSecond).logFailed("unable to get scheduled flow instance")
     } yield Some(newTaskInstances.getOrElse(Seq.empty) ++ manuallyTriggered.getOrElse(Seq.empty))
 
     for {
@@ -194,7 +194,7 @@ trait FlowExecution extends Logging with Clock {
   }
 
   def executeRetries(): Unit = {
-    dueTaskRetries(epochSeconds).logFailed("unable to get due tasks").foreach { dueTasks =>
+    dueTaskRetries(currentTime.toEpochSecond).logFailed("unable to get due tasks").foreach { dueTasks =>
       dueTasks.foreach {
         case (Some(instance), taskId) => executeInstance(instance, Some(taskId))
         case _ =>
