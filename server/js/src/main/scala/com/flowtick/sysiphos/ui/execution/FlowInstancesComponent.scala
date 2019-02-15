@@ -26,7 +26,8 @@ class FlowInstancesComponent(
 
   val dateFieldFormat = "YYYY-MM-DD"
 
-  val limit: Var[Int] = Var(limitParam.getOrElse(10))
+  val limit: Var[Int] = Var(limitParam.getOrElse(25))
+  val offset: Var[Int] = Var(offsetParam.getOrElse(0))
 
   val flowId: Var[Option[String]] = Var(flowIdParam)
   val startDate: Var[String] = Var(startDateParam.getOrElse(now().subtract(7, "days").format(dateFieldFormat)))
@@ -51,7 +52,7 @@ class FlowInstancesComponent(
     status = if (statuses.value.nonEmpty) Some(statuses.value) else None,
     createdGreaterThan = parseDate(startDate.value),
     createdSmallerThan = parseDate(endDate.value),
-    offset = offsetParam,
+    offset = Some(offset.value),
     limit = Some(limit.value))))
 
   def deleteInstance(flowInstanceId: String): Unit = {
@@ -104,7 +105,9 @@ class FlowInstancesComponent(
   }
 
   def updatePath: Event => Unit = (_: Event) => {
-    org.scalajs.dom.window.location.hash = currentViewHash(offsetParam)
+    offset.value = 0 // reset offset on filter change
+
+    org.scalajs.dom.window.location.hash = currentViewHash(Some(offset.value))
   }
 
   def toggleStatus(status: FlowInstanceStatus, isActive: Boolean): Event => Unit = event => {
@@ -114,6 +117,22 @@ class FlowInstancesComponent(
 
     updatePath(event)
   }
+
+  @dom
+  def pager: Binding[org.scalajs.dom.raw.HTMLElement] =
+    <nav data:aria-label="pager">
+      <ul class="pager">
+        <li class="previous"><a href={ currentViewHash(Some(offset.value - limit.value)) }><span data:aria-hidden="true">&larr;</span> Newer</a></li>
+        {
+          Option(instances.length.bind).filter(size => size > 0 && size >= limit.value) match {
+            case Some(_) =>
+              <li class="next"><a href={ currentViewHash(Some(offset.value + limit.value)) }>Older <span data:aria-hidden="true">&rarr;</span></a></li>
+            case None =>
+              <!-- -->
+          }
+        }
+      </ul>
+    </nav>
 
   @dom
   override def element: Binding[Div] =
@@ -167,13 +186,9 @@ class FlowInstancesComponent(
         <div class="col-lg-12">
           <div class="panel panel-default">
             <div class="panel-body">
+              { pager.bind }
               { instancesTable.bind }
-              <nav data:aria-label="pager">
-                <ul class="pager">
-                  <li class="previous"><a href={ currentViewHash(offsetParam.map(_ - limit.value)) }><span data:aria-hidden="true">&larr;</span> Newer</a></li>
-                  <li class="next"><a href={ currentViewHash(offsetParam.map(_ + limit.value)) }>Older <span data:aria-hidden="true">&rarr;</span></a></li>
-                </ul>
-              </nav>
+              { pager.bind }
             </div>
             <div class="panel-footer"></div>
           </div>
