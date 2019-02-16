@@ -10,7 +10,7 @@ import cats.data.OptionT
 import cats.effect.IO
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.Logging._
-import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceRepository, FlowTask, FlowTaskInstanceRepository }
+import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
 
 import scala.concurrent.ExecutionContext
@@ -52,11 +52,12 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       .queue[FlowTask](taskParallelism, akka.stream.OverflowStrategy.backpressure)
       .throttle(taskRate, taskRateDuration)
       .viaMat(KillSwitches.single)(Keep.both)
-      .mapAsync(parallelism = taskParallelism)(flowTask => {
+      .mapAsync[FlowTaskExecution.Execute](parallelism = taskParallelism)(flowTask => {
         (for {
           freshFlowInstance <- OptionT[IO, FlowInstanceDetails](IO.fromFuture(IO(flowInstanceRepository.findById(flowInstanceId))))
+          contextValues <- OptionT.liftF(IO.fromFuture(IO(flowInstanceRepository.getContextValues(freshFlowInstance.id))))
           newTaskInstance <- OptionT.liftF(getOrCreateTaskInstance(flowTaskInstanceRepository, flowInstanceId, flowDefinitionId, flowTask, logger))
-        } yield FlowTaskExecution.Execute(flowTask, newTaskInstance, freshFlowInstance.context))
+        } yield FlowTaskExecution.Execute(flowTask, newTaskInstance, contextValues))
           .getOrElseF(IO.raiseError(new IllegalStateException("unable to find instance")))
           .unsafeToFuture()
           .logFailed("unable to create new task instance")

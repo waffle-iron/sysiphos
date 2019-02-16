@@ -89,9 +89,9 @@ class ShowInstanceComponent(
           </div>
           <ul class="list-group">
             {
-              if (instanceOverview.instance.context.isEmpty)
+              if (instanceOverview.context.isEmpty)
                 SingletonBindingSeq(Binding(<li class="list-group-item"><span>empty</span></li>))
-              else Constants(instanceOverview.instance.context: _*).map(contextValue => {
+              else Constants(instanceOverview.context: _*).map(contextValue => {
                 <li class="list-group-item">
                   <p class="list-group-item-heading"><strong>{ contextValue.key }</strong></p>
                   <p class="list-group-item-text">

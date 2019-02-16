@@ -86,7 +86,7 @@ class SysiphosApiContext(clusterContext: ClusterContext)(implicit executionConte
     clusterContext.flowTaskInstanceRepository.find(query)
   }
 
-  override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails] = {
+  override def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceContext] = {
     clusterContext.flowDefinitionRepository
       .findById(flowDefinitionId)
       .flatMap {
@@ -119,4 +119,7 @@ class SysiphosApiContext(clusterContext: ClusterContext)(implicit executionConte
     _ <- clusterContext.flowDefinitionRepository.delete(flowDefinitionId)
   } yield flowDefinitionId
 
+  override def contextValues(flowInstanceId: String): Future[Seq[FlowInstanceContextValue]] = {
+    clusterContext.flowInstanceRepository.getContextValues(flowInstanceId)
+  }
 }

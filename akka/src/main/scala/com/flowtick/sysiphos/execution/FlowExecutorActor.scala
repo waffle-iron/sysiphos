@@ -20,7 +20,7 @@ object FlowExecutorActor {
   case class RequestInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue])
   case class ImportDefinition(flowDefinition: FlowDefinition)
   case class CreatedOrUpdatedDefinition(result: Either[Throwable, FlowDefinitionDetails])
-  case class NewInstance(result: Either[Throwable, FlowInstanceDetails])
+  case class NewInstance(result: Either[Throwable, FlowInstanceContext])
   case class RunInstanceExecutors(instances: Seq[FlowInstance])
 }
 

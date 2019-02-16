@@ -15,10 +15,19 @@ case class FlowDefinitionDetailsResult(definition: Option[FlowDefinitionDetails]
 case class FlowDefinitionList(definitions: Seq[FlowDefinitionSummary])
 case class FlowScheduleList(schedules: Seq[FlowScheduleDetails])
 case class FlowInstanceList(instances: Seq[FlowInstanceDetails])
+
+case class Result[T](result: T)
 case class IdResult(id: String)
 
-case class OverviewQueryResult(instances: Seq[FlowInstanceDetails], taskInstances: Seq[FlowTaskInstanceDetails])
-case class FlowInstanceOverview(instance: FlowInstanceDetails, tasks: Seq[FlowTaskInstanceDetails])
+case class OverviewQueryResult(
+  instances: Seq[FlowInstanceDetails],
+  taskInstances: Seq[FlowTaskInstanceDetails],
+  contextValues: Seq[FlowInstanceContextValue])
+
+case class FlowInstanceOverview(
+  instance: FlowInstanceDetails,
+  context: Seq[FlowInstanceContextValue],
+  tasks: Seq[FlowTaskInstanceDetails])
 
 case class CreateOrUpdateFlowResult[T](createOrUpdateFlowDefinition: T)
 case class DeleteFlowResult[T](deleteFlowDefinition: T)
@@ -199,9 +208,7 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
          |             createdSmallerThan: $createdSmallerThan,
          |             offset: $offset,
          |             limit: $limit) {
-         |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
-         |      key, value
-         |    }
+         |    id, flowDefinitionId, creationTime, startTime, endTime, status
          |  }
          |}
        """.stripMargin
@@ -231,9 +238,10 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
       """
          |query($instanceId: String!) {
          |  instances(instanceIds: [$instanceId]) {
-         |    id, flowDefinitionId, creationTime, startTime, endTime, status, context {
-         |      key, value
-         |    }
+         |    id, flowDefinitionId, creationTime, startTime, endTime, status
+         |  },
+         |  contextValues(flowInstanceId: $instanceId) {
+         |    key, value
          |  },
          |	taskInstances(flowInstanceId: $instanceId) {
          |    id, flowInstanceId, flowDefinitionId, taskId, creationTime, updatedTime, startTime, endTime, status, retries, retryDelay, logId, nextDueDate
@@ -243,7 +251,7 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
 
     def resultToOverview(result: OverviewQueryResult): Option[FlowInstanceOverview] =
       result.instances.headOption.flatMap(details => {
-        Some(FlowInstanceOverview(details, result.taskInstances))
+        Some(FlowInstanceOverview(details, result.contextValues, result.taskInstances))
       })
 
     query[OverviewQueryResult](instanceOverviewQuery, variables = Map("instanceId" -> Json.fromString(instanceId)))
@@ -258,12 +266,12 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
     val createInstanceQuery =
       s"""
          |mutation {
-         |	createInstance(flowDefinitionId: "$flowDefinitionId", context: [
+         |	result : createInstance(flowDefinitionId: "$flowDefinitionId", context: [
          |    ${contextValues.map(value => s""" {key: "${value.key}", value : "${value.value}"} """).mkString(",")}
-         |  ]) {id}
+         |  ]) { result : instance { id } }
          |}
        """.stripMargin
-    query[CreateInstanceResult[IdResult]](createInstanceQuery).map(_.data.createInstance.id)
+    query[Result[Result[IdResult]]](createInstanceQuery).map(_.data.result.result.id)
   }
 
   override def deleteInstance(flowInstanceId: String): Future[String] = {

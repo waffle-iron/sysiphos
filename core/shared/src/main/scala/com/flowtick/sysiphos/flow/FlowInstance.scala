@@ -32,10 +32,10 @@ final case class FlowInstanceDetails(
   creationTime: Long,
   startTime: Option[Long],
   endTime: Option[Long],
-  status: FlowInstanceStatus.FlowInstanceStatus,
-  context: Seq[FlowInstanceContextValue]) extends FlowInstance
+  status: FlowInstanceStatus.FlowInstanceStatus) extends FlowInstance
+
+final case class FlowInstanceContext(instance: FlowInstanceDetails, context: Seq[FlowInstanceContextValue])
 
 trait FlowInstance extends FlowExecutable {
   def status: FlowInstanceStatus.FlowInstanceStatus
-  def context: Seq[FlowInstanceContextValue]
 }

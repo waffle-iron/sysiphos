@@ -50,6 +50,9 @@ object SysiphosApi {
       limit: Option[Int]): Future[Seq[FlowInstanceDetails]]
 
     @GraphQLField
+    def contextValues(flowInstanceId: String): Future[Seq[FlowInstanceContextValue]]
+
+    @GraphQLField
     def taskInstances(
       flowInstanceId: Option[String],
       dueBefore: Option[Long],
@@ -83,7 +86,7 @@ object SysiphosApi {
       backFill: Option[Boolean]): Future[FlowScheduleDetails]
 
     @GraphQLField
-    def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceDetails]
+    def createInstance(flowDefinitionId: String, context: Seq[FlowInstanceContextValue]): Future[FlowInstanceContext]
 
     @GraphQLField
     def deleteInstance(flowInstanceId: String): Future[String]
@@ -131,6 +134,10 @@ object SysiphosApi {
   implicit val FlowTaskInstanceDetailsType = deriveObjectType[SysiphosApiContext, FlowTaskInstanceDetails](
     ObjectTypeName("FlowTaskInstanceDetails"),
     ObjectTypeDescription("the details for an execution (instance) of a task"))
+
+  implicit val FlowInstanceContextType = deriveObjectType[SysiphosApiContext, FlowInstanceContext](
+    ObjectTypeName("FlowInstanceContext"),
+    ObjectTypeDescription("the context of a flow instance"))
 
   val MutationType = deriveContextObjectType[ApiContext, ApiMutationContext, Unit](identity)
   val QueryType = deriveContextObjectType[ApiContext, ApiQueryContext, Unit](identity)

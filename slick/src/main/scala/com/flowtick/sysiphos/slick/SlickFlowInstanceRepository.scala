@@ -65,6 +65,16 @@ class SlickFlowInstanceRepository(
 
   private[slick] def getFlowInstances: Future[Seq[SlickFlowInstance]] = db.run(instanceTable.result)
 
+  def toFlowInstanceDetails(instance: SlickFlowInstance): FlowInstanceDetails = {
+    FlowInstanceDetails(
+      instance.id,
+      instance.flowDefinitionId,
+      instance.created,
+      instance.startTime,
+      instance.endTime,
+      FlowInstanceStatus.withName(instance.status))
+  }
+
   private def createQuery(query: FlowInstanceQuery) = {
     val filtered = instanceTable
       .filterOptional(query.flowDefinitionId)(flowDefinitionId => _.flowDefinitionId === flowDefinitionId)
@@ -81,40 +91,14 @@ class SlickFlowInstanceRepository(
   }
 
   override def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]] = {
-    val filteredInstances = createQuery(query)
-
-    val instancesWithContext = (for {
-      (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
-    } yield (instance, context)).result
-
-    db.run(instancesWithContext).flatMap(instances => {
-      val groupedByInstance = instances.groupBy { case (instance, _) => instance }
-      val instancesWithContextValues = instances.map {
-        case (instance, _) =>
-          val contextValues = groupedByInstance
-            .getOrElse(instance, Seq.empty)
-            .flatMap { case (_, contextValue) => contextValue }
-            .map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value))
-
-          FlowInstanceDetails(
-            instance.id,
-            instance.flowDefinitionId,
-            instance.created,
-            instance.startTime,
-            instance.endTime,
-            FlowInstanceStatus.withName(instance.status),
-            contextValues)
-      }.distinct
-
-      Future.successful(instancesWithContextValues)
-    })
+    db.run(createQuery(query).result.map(_.map(toFlowInstanceDetails)))
   }
 
   override def createFlowInstance(
     flowDefinitionId: String,
     context: Seq[FlowInstanceContextValue],
-    initialStatus: FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[FlowInstanceDetails] = {
-    val newInstance = SlickFlowInstance(
+    initialStatus: FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[FlowInstanceContext] = {
+    val instanceToInsert = SlickFlowInstance(
       id = idGenerator.nextId,
       flowDefinitionId = flowDefinitionId,
       created = repositoryContext.epochSeconds,
@@ -126,17 +110,11 @@ class SlickFlowInstanceRepository(
       endTime = None)
 
     val contextActions = context.map { contextValue =>
-      contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, newInstance.id, contextValue.key, contextValue.value)
+      contextTable += SysiphosFlowInstanceContext(idGenerator.nextId, instanceToInsert.id, contextValue.key, contextValue.value)
     }
 
-    db.run(((instanceTable += newInstance) >> DBIO.seq(contextActions: _*)).transactionally).map(_ => FlowInstanceDetails(
-      newInstance.id,
-      newInstance.flowDefinitionId,
-      newInstance.created,
-      newInstance.startTime,
-      newInstance.endTime,
-      FlowInstanceStatus.withName(newInstance.status),
-      context))
+    db.run(((instanceTable += instanceToInsert) >> DBIO.seq(contextActions: _*)).transactionally)
+      .map(_ => FlowInstanceContext(toFlowInstanceDetails(instanceToInsert), context))
   }
 
   override def counts(
@@ -190,23 +168,44 @@ class SlickFlowInstanceRepository(
   }
 
   override def findById(id: String)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
-    val instancesWithContext = (instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)).result
+    val instanceWithId = instanceTable.filter(_.id === id).result.headOption
 
-    db.run(instancesWithContext).map { result =>
-      result.groupBy(_._1).headOption.map {
-        case (instance, contextValues) =>
-          FlowInstanceDetails(
-            instance.id,
-            instance.flowDefinitionId,
-            instance.created,
-            instance.startTime,
-            instance.endTime,
-            FlowInstanceStatus.withName(instance.status),
-            contextValues.flatMap { case (_, contextValue) => contextValue }
-              .map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
-      }
+    db.run(instanceWithId).map {
+      case Some(instance) => Some(toFlowInstanceDetails(instance))
+      case _ => None
     }
+  }
 
+  def findContext(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceContext]] = {
+    val filteredInstances = createQuery(query)
+
+    val instancesWithContext = (for {
+      (instance, context) <- filteredInstances joinLeft contextTable on (_.id === _.flowInstanceId)
+    } yield (instance, context)).result
+
+    db.run(instancesWithContext).flatMap(instances => {
+      val groupedByInstance = instances.groupBy { case (instance, _) => instance }
+      val instancesWithContextValues = instances.map {
+        case (instance, _) =>
+          val contextValues = groupedByInstance
+            .getOrElse(instance, Seq.empty)
+            .flatMap { case (_, contextValue) => contextValue }
+            .map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value))
+
+          FlowInstanceContext(toFlowInstanceDetails(instance), contextValues)
+      }.distinct
+
+      Future.successful(instancesWithContextValues)
+    })
+  }
+
+  def getContextValues(id: String)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceContextValue]] = {
+    val instanceWithContext = (for {
+      (instance, context) <- instanceTable.filter(_.id === id) joinLeft contextTable on (_.id === _.flowInstanceId)
+    } yield (instance, context)).result
+
+    db.run(instanceWithContext)
+      .map(result => result.flatMap(_._2).map(contextValue => FlowInstanceContextValue(contextValue.key, contextValue.value)))
   }
 
   override def insertOrUpdateContextValues(

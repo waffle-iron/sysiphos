@@ -33,7 +33,6 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       id = "???",
       flowDefinitionId = flowDefinition.id,
       creationTime = 1L,
-      context = Seq.empty,
       startTime = None,
       endTime = None)
 
@@ -79,6 +78,11 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
         None,
         Some(FlowDefinition.toJson(flowDefinition)),
         Some(0))))).anyNumberOfTimes()
+
+    (flowInstanceRepository.getContextValues(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(Seq.empty))
+      .anyNumberOfTimes()
   }
 
   override def afterAll {

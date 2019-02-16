@@ -38,24 +38,22 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
     enabled = Some(true),
     backFill = Some(false))
 
-  val newInstance = FlowInstanceDetails(
+  val newInstance = FlowInstanceContext(FlowInstanceDetails(
     status = FlowInstanceStatus.Scheduled,
     id = "1",
     flowDefinitionId = testSchedule.flowDefinitionId,
     creationTime = 2L,
-    context = Seq.empty,
     startTime = None,
-    endTime = None)
+    endTime = None), Seq.empty)
 
   "Akka flow executor" should "create child actors for due schedules" in new DefaultRepositoryContext("test-user") {
-    val testInstance = FlowInstanceDetails(
+    val testInstance = FlowInstanceContext(FlowInstanceDetails(
       id = "test-instance",
       flowDefinitionId = "flow-id",
       creationTime = 0,
       startTime = None,
       endTime = None,
-      status = FlowInstanceStatus.Scheduled,
-      context = Seq.empty)
+      status = FlowInstanceStatus.Scheduled), Seq.empty)
 
     val testSchedule = FlowScheduleDetails(
       id = "test-schedule",
@@ -87,22 +85,20 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
       parallelism = Some(1))
 
     val instances = Seq(
-      FlowInstanceDetails(
+      FlowInstanceContext(FlowInstanceDetails(
         status = FlowInstanceStatus.Scheduled,
         id = "1",
         flowDefinitionId = flowDefinition.id,
         creationTime = 2L,
-        context = Seq.empty,
         startTime = None,
-        endTime = None),
-      FlowInstanceDetails(
+        endTime = None), Seq.empty),
+      FlowInstanceContext(FlowInstanceDetails(
         status = FlowInstanceStatus.Scheduled,
         id = "2",
         flowDefinitionId = flowDefinition.id,
         creationTime = 2L,
-        context = Seq.empty,
         startTime = None,
-        endTime = None))
+        endTime = None), Seq.empty))
 
     (flowInstanceRepository.counts _).expects(
       Option(Seq(flowDefinition.id)),
@@ -152,8 +148,8 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
     applySchedule(testSchedule, 1).futureValue should be(Some(Seq(newInstance)))
   }
 
-  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] =
-    Future.successful(instance)
+  override def executeInstance(instance: FlowInstanceContext, selectedTaskId: Option[String]): Future[FlowInstance] =
+    Future.successful(instance.instance)
 
   override def executeRunning(
     running: FlowInstanceDetails,

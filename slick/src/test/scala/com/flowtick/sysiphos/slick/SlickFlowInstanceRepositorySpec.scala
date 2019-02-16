@@ -16,9 +16,10 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     instanceRepository.getFlowInstances.futureValue should be(empty)
 
-    val newInstance: FlowInstance = instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
+    val newInstance: FlowInstanceContext = instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
     val instancesWithContext: Seq[FlowInstance] = instanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
-    instancesWithContext.head.context should be(Seq(FlowInstanceContextValue("foo", "bar")))
+
+    instanceRepository.getContextValues(newInstance.instance.id)(this).futureValue should be(Seq(FlowInstanceContextValue("foo", "bar")))
     instancesWithContext.head.status should be(FlowInstanceStatus.Scheduled)
   }
 
@@ -28,19 +29,19 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     val instanceRepository = createTestRepository
 
-    val newInstance: FlowInstance =
+    val newInstance: FlowInstanceContext =
       instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
 
-    val anotherInstance: FlowInstance =
+    val anotherInstance: FlowInstanceContext =
       instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("bar", "baz"), FlowInstanceContextValue("mup", "moep")), FlowInstanceStatus.Triggered)(this).futureValue
 
     instanceRepository
       .getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition")))(this)
-      .futureValue should contain only (newInstance, anotherInstance)
+      .futureValue should contain only (newInstance.instance, anotherInstance.instance)
 
     instanceRepository
       .getFlowInstances(FlowInstanceQuery(None, status = Some(Seq(FlowInstanceStatus.Triggered))))(this)
-      .futureValue should contain only anotherInstance
+      .futureValue should contain only anotherInstance.instance
   }
 
   it should "update instance" in new RepositoryContext {
@@ -49,17 +50,17 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     val instanceRepository = createTestRepository
 
-    val newInstance: FlowInstanceDetails =
+    val newInstance: FlowInstanceContext =
       instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
 
     val result = (for {
-      _ <- instanceRepository.setStartTime(newInstance.id, 42)(this)
-      _ <- instanceRepository.setEndTime(newInstance.id, 43)(this)
-      status <- instanceRepository.setStatus(newInstance.id, FlowInstanceStatus.Done)(this)
+      _ <- instanceRepository.setStartTime(newInstance.instance.id, 42)(this)
+      _ <- instanceRepository.setEndTime(newInstance.instance.id, 43)(this)
+      status <- instanceRepository.setStatus(newInstance.instance.id, FlowInstanceStatus.Done)(this)
     } yield status).futureValue
 
     result should be(
-      Some(newInstance.copy(startTime = Some(42), endTime = Some(43), status = FlowInstanceStatus.Done)))
+      Some(newInstance.instance.copy(startTime = Some(42), endTime = Some(43), status = FlowInstanceStatus.Done)))
 
   }
 
@@ -70,16 +71,16 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     val instanceRepository = createTestRepository
 
-    val newInstance: FlowInstanceDetails =
+    val newInstance: FlowInstanceContext =
       instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
 
-    val updatedInstance = instanceRepository.insertOrUpdateContextValues(newInstance.id, Seq(
+    val updatedInstance = instanceRepository.insertOrUpdateContextValues(newInstance.instance.id, Seq(
       FlowInstanceContextValue("foo", "newFooValue"),
       FlowInstanceContextValue("bar", "barValue")))(this).futureValue
 
-    val allContextValues = instanceRepository.contextValues.futureValue
+    val updatedContextValues = instanceRepository.getContextValues(newInstance.instance.id)(this).futureValue
 
-    updatedInstance.get.context should be(Seq(
+    updatedContextValues should be(Seq(
       FlowInstanceContextValue("foo", "newFooValue"),
       FlowInstanceContextValue("bar", "barValue")))
   }
@@ -90,11 +91,9 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     val instanceRepository = createTestRepository
 
-    val newInstance: FlowInstance = instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
-    val instancesWithContext: Seq[FlowInstance] = instanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
-    instancesWithContext.head.context should be(Seq(FlowInstanceContextValue("foo", "bar")))
+    val newInstance: FlowInstanceContext = instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
 
-    instanceRepository.deleteFlowInstance(newInstance.id)(this).futureValue should be(newInstance.id)
+    instanceRepository.deleteFlowInstance(newInstance.instance.id)(this).futureValue should be(newInstance.instance.id)
     val afterDelete = instanceRepository.getFlowInstances(FlowInstanceQuery(flowDefinitionId = Some("some-definition"), None, None, None))(this).futureValue
     afterDelete should be(Seq.empty)
   }

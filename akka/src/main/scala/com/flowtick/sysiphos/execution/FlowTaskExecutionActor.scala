@@ -80,8 +80,8 @@ class FlowTaskExecutionActor(
       log.info(s"executing task with id $id")
 
       ask(flowExecutorActor, RequestInstance(flowDefinitionId, contextValues))(Timeout(30, TimeUnit.SECONDS)).map {
-        case NewInstance(Right(instance)) =>
-          taskLogger.appendLine(taskInstance.logId, s"created ${instance.flowDefinitionId} instance ${instance.id}").unsafeRunSync()
+        case NewInstance(Right(instanceContext)) =>
+          taskLogger.appendLine(taskInstance.logId, s"created ${instanceContext.instance.flowDefinitionId} instance ${instanceContext.instance.id}").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         case NewInstance(Left(error)) =>
           taskLogger.appendLine(taskInstance.logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()

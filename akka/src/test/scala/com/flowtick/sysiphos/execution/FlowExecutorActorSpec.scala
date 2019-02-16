@@ -27,27 +27,26 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("executor-actor-spec"))
     Seq(CommandLineTask("ls-task-id", None, "ls")),
     latestOnly = true)
 
-  val flowInstance = FlowInstanceDetails(
+  val flowInstance = FlowInstanceContext(FlowInstanceDetails(
     status = FlowInstanceStatus.Scheduled,
     id = "???",
     flowDefinitionId = flowDefinition.id,
     creationTime = 1L,
-    context = Seq.empty,
     startTime = None,
-    endTime = None)
+    endTime = None), Seq.empty)
 
   "FlowExecutionActor" should "in case of lastOnly run only last instance with same context" in {
-    Seq(flowInstance, flowInstance.copy(creationTime = 2L)).map { flowInstance =>
+    Seq(flowInstance, flowInstance.copy(instance = flowInstance.instance.copy(creationTime = 2L))).map { flowInstance =>
       (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus)(_: RepositoryContext))
-        .expects(flowInstance.id, FlowInstanceStatus.Skipped, *)
-        .returning(Future.successful(Option(flowInstance)))
+        .expects(flowInstance.instance.id, FlowInstanceStatus.Skipped, *)
+        .returning(Future.successful(Option(flowInstance.instance)))
     }
 
     val latestInstances = latestOnly(
       flowDefinition,
-      Seq(flowInstance, flowInstance.copy(creationTime = 2L), flowInstance.copy(creationTime = 3L)))
+      Seq(flowInstance, flowInstance.copy(instance = flowInstance.instance.copy(creationTime = 2L)), flowInstance.copy(instance = flowInstance.instance.copy(creationTime = 3L))))
 
-    Await.result(latestInstances, Duration.Inf) should be(Seq(FlowInstanceDetails("???", "ls-definition-id", 3, None, None, FlowInstanceStatus.Scheduled, Seq.empty)))
+    Await.result(latestInstances, Duration.Inf) should be(Seq(FlowInstanceContext(FlowInstanceDetails("???", "ls-definition-id", 3, None, None, FlowInstanceStatus.Scheduled), Seq.empty)))
   }
 
   override val flowScheduleRepository: FlowScheduleRepository = mock[FlowScheduleRepository]
@@ -58,8 +57,8 @@ class FlowExecutorActorSpec extends TestKit(ActorSystem("executor-actor-spec"))
   override val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
   override implicit val repositoryContext: RepositoryContext = mock[RepositoryContext]
 
-  override def executeInstance(instance: FlowInstance, selectedTaskId: Option[String]): Future[FlowInstance] = {
-    Future.successful(instance)
+  override def executeInstance(instance: FlowInstanceContext, selectedTaskId: Option[String]): Future[FlowInstance] = {
+    Future.successful(instance.instance)
   }
 
   override def afterAll {

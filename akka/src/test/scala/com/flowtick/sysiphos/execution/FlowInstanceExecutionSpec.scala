@@ -63,7 +63,6 @@ class FlowInstanceExecutionSpec extends FlatSpec
       id = "???",
       flowDefinitionId = flowDefinition.id,
       creationTime = 1L,
-      context = Seq.empty,
       startTime = None,
       endTime = None)
 

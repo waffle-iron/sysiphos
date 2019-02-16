@@ -5,7 +5,7 @@ import java.io.InputStream
 import cats.effect.IO
 import com.flowtick.sysiphos.execution.WireMockSupport
 import com.flowtick.sysiphos.flow.FlowDefinition.ExtractSpec
-import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
+import com.flowtick.sysiphos.flow.{ FlowInstanceContext, FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
 import com.flowtick.sysiphos.logging.ConsoleLogger
 import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
@@ -14,15 +14,14 @@ import org.apache.camel.component.mock.MockEndpoint
 import org.scalatest.{ FlatSpec, Matchers, Succeeded, TryValues }
 
 class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Matchers with TryValues {
-  val flowInstance = FlowInstanceDetails(
+  val flowInstance = FlowInstanceContext(FlowInstanceDetails(
     status = FlowInstanceStatus.Scheduled,
     id = "camel-instance",
     flowDefinitionId = "camel-flow",
     creationTime = 1L,
-    context = Seq(
-      FlowInstanceContextValue("foo", "bar")),
     startTime = None,
-    endTime = None)
+    endTime = None), Seq(
+    FlowInstanceContextValue("foo", "bar")))
 
   "Camel execution" should "execute camel task" in {
     val task = CamelTask(

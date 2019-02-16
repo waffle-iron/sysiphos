@@ -68,7 +68,7 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
 
     val testTask: FlowTask = CommandLineTask(id = "test-task", children = None, command = "ls")
 
-    val flowInstance = FlowInstanceDetails("instance", "definition", 0, Some(0), None, FlowInstanceStatus.Running, storedContextValues)
+    val flowInstance = FlowInstanceDetails("instance", "definition", 0, Some(0), None, FlowInstanceStatus.Running)
     val flowTaskInstance = FlowTaskInstanceDetails(
       id = "taskInstanceId",
       flowInstanceId = flowInstance.id,
@@ -78,6 +78,11 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
       FlowTaskInstanceStatus.New, 10, None, "log-id")
 
     val ((queue, killSwith), done) = testStream(flowInstance, flowInstanceActor.ref, flowExecutorActor.ref)(this)
+
+    (flowInstanceRepository.getContextValues(_: String)(_: RepositoryContext))
+      .expects(*, *)
+      .returning(Future.successful(storedContextValues))
+      .atLeastOnce()
 
     (flowInstanceRepository.findById(_: String)(_: RepositoryContext))
       .expects(*, *)
