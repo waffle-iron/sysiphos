@@ -68,7 +68,7 @@ class SlickFlowScheduleRepository(dataSource: DataSource)(implicit val profile: 
     val filteredSchedules = flowSchedulesTable
       .filterOptional(enabled)(enabled => _.enabled === enabled)
       .filterOptional(flowId)(flowId => _.flowDefinitionId === flowId)
-      .sortBy(_.flowTaskId)
+      .sortBy(schedule => (schedule.flowDefinitionId, schedule.flowTaskId))
 
     db.run(filteredSchedules.result)
   }
