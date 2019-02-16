@@ -5,6 +5,7 @@ import cron4s.Cron
 import cron4s.lib.javatime._
 import com.flowtick.sysiphos._
 import com.flowtick.sysiphos.core.Clock
+import fs2.Pure
 
 object CronScheduler extends FlowScheduler with Logging with Clock {
 
@@ -16,17 +17,17 @@ object CronScheduler extends FlowScheduler with Logging with Clock {
   }
 
   def missedOccurrences(schedule: FlowSchedule, now: Long): Seq[Long] = {
+    def nextDates(dueDate: Long): fs2.Stream[Pure, Long] = nextOccurrence(schedule, dueDate).map { first =>
+      fs2.Stream.unfold(first)(previous => {
+        nextOccurrence(schedule, previous).flatMap(next => Some(previous, next))
+      })
+    }.getOrElse(fs2.Stream.empty)
 
-    def fill(next: Long, acc: Seq[Long]): Seq[Long] = {
-      nextOccurrence(schedule, next).map { nextSchedule =>
-        if (nextSchedule > now)
-          acc
-        else
-          fill(nextSchedule, acc ++ Seq(nextSchedule))
-      }.getOrElse(acc)
-    }
-
-    schedule.nextDueDate.map { next => fill(next, Seq.empty) }.getOrElse(Seq.empty)
+    schedule.nextDueDate
+      .map(nextDates)
+      .getOrElse(fs2.Stream.empty)
+      .takeWhile(_ < now)
+      .compile.toList
   }
 
 }

@@ -59,7 +59,7 @@ class SchedulesComponent(flowId: Option[String], circuit: SchedulesCircuit) exte
       </td>
       <td>
         {
-          if (schedule.backFill.getOrElse(true)) {
+          if (schedule.backFill.getOrElse(false)) {
             <button type="button" class="btn btn-lg btn-default active" onclick={ _: Event => circuit.dispatch(ToggleBackFill(schedule.id, backFill = false)) }>
               <i class="fas fa-toggle-on"></i>
               On

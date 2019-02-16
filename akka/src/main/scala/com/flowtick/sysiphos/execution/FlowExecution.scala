@@ -2,12 +2,16 @@ package com.flowtick.sysiphos.execution
 
 import cats.data.{ EitherT, OptionT }
 import cats.instances.future._
+import cats.instances.list._
+import cats.syntax.traverse._
 import com.flowtick.sysiphos.core.{ Clock, RepositoryContext }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import Logging._
+
+import cats.effect.IO
 import com.flowtick.sysiphos.config.Configuration
 
 trait FlowExecution extends Logging with Clock {
@@ -69,43 +73,42 @@ trait FlowExecution extends Logging with Clock {
   }
 
   def applySchedule(schedule: FlowSchedule, now: Long): Future[Option[Seq[FlowInstanceContext]]] = {
-    val dueInstances: Future[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now)) {
-      Future
-        .successful(flowScheduler.nextOccurrence(schedule, now))
+    val dueInstances: IO[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now)) {
+      IO
+        .pure(flowScheduler.nextOccurrence(schedule, now))
         .flatMap {
           case Some(nextDue) => setNextDueDate(schedule, nextDue).map(_ => Some(nextDue))
-          case None => Future.successful(None)
+          case None => IO.pure(None)
         }
         .flatMap {
-          case Some(_) => createFlowInstance(schedule).map(Seq(_)).map(Option.apply)
-          case None => Future.successful(None)
+          case Some(_) => IO.fromFuture(IO(createFlowInstance(schedule).map(Seq(_)).map(Option.apply)))
+          case None => IO.pure(None)
         }
-    } else Future.successful(None)
+    } else IO.pure(None)
 
-    val missedInstances: Future[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now) && schedule.backFill.getOrElse(true)) {
-      Future
-        .sequence(flowScheduler.missedOccurrences(schedule, now).map { _ => createFlowInstance(schedule) })
+    val missedInstances: IO[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now) && schedule.backFill.getOrElse(false)) {
+      flowScheduler
+        .missedOccurrences(schedule, now)
+        .map { _ => IO.fromFuture(IO(createFlowInstance(schedule))) }
+        .toList
+        .sequence
         .map(Option.apply)
-    } else Future.successful(None)
+    } else IO.pure(None)
 
-    val potentialInstances: Future[Option[Seq[FlowInstanceContext]]] = for {
+    val potentialInstances: IO[Option[Seq[FlowInstanceContext]]] = for {
       newInstances <- dueInstances
       missed <- missedInstances
     } yield Some(newInstances.getOrElse(Seq.empty) ++ missed.getOrElse(Seq.empty))
 
-    potentialInstances.recoverWith {
-      case error =>
+    potentialInstances.handleErrorWith {
+      error =>
         log.error("unable to create instance", error)
-        Future.successful(None)
-    }
+        IO.pure(None)
+    }.unsafeToFuture()
   }
 
-  def setNextDueDate(schedule: FlowSchedule, next: Long): Future[Unit] =
-    flowScheduleStateStore.setDueDate(schedule.id, next).recoverWith {
-      case error =>
-        log.error("unable to set due date", error)
-        Future.successful(())
-    }
+  def setNextDueDate(schedule: FlowSchedule, next: Long): IO[Unit] =
+    IO.fromFuture(IO(flowScheduleStateStore.setDueDate(schedule.id, next)))
 
   def isDue(schedule: FlowSchedule, now: Long): Boolean =
     schedule.nextDueDate match {
