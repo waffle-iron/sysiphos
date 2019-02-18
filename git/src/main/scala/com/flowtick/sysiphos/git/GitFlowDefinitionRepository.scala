@@ -6,8 +6,7 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.FlowDefinition._
 import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowDefinitionDetails, FlowDefinitionRepository }
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 
 class GitFlowDefinitionRepository(
   baseDir: File,
@@ -16,7 +15,7 @@ class GitFlowDefinitionRepository(
   username: Option[String] = None,
   password: Option[String] = None,
   identityFilePath: Option[String] = None,
-  identityFilePassphrase: Option[String] = None) extends AbstractGitRepository[FlowDefinition](baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowDefinitionRepository {
+  identityFilePassphrase: Option[String] = None)(implicit executionContext: ExecutionContext) extends AbstractGitRepository[FlowDefinition](baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowDefinitionRepository {
   override def getFlowDefinitions(implicit repositoryContext: RepositoryContext): Future[Seq[FlowDefinitionDetails]] =
     list.map(definitions => definitions.map(definition => FlowDefinitionDetails(definition.id, None, None, None)))
 

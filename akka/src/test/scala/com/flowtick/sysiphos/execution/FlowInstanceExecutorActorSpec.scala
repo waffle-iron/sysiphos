@@ -13,7 +13,7 @@ import com.flowtick.sysiphos.task.CommandLineTask
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-executor-spec"))
@@ -67,7 +67,7 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       new FlowInstanceExecutorActor(
         DefaultClusterContext(flowDefinitionRepository = flowDefinitionRepository, flowInstanceRepository = flowInstanceRepository, flowTaskInstanceRepository = flowTaskInstanceRepository, flowScheduleRepository = null, flowScheduleStateStore = null),
         flowExecutorProbe.ref,
-        logger)(repositoryContext) {
+        logger)(repositoryContext, ExecutionContext.Implicits.global) {
         override def currentTime: ZonedDateTime = ZonedDateTime.of(LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC), ZoneId.systemDefault())
       })
 

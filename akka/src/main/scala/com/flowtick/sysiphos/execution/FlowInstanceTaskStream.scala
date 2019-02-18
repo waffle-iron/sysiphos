@@ -49,7 +49,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
     taskRateDuration: FiniteDuration,
     logger: Logger)(implicit repositoryContext: RepositoryContext): RunnableGraph[((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)] =
     Source
-      .queue[FlowTask](taskParallelism, akka.stream.OverflowStrategy.backpressure)
+      .queue[FlowTask](0, akka.stream.OverflowStrategy.backpressure)
       .throttle(taskRate, taskRateDuration)
       .viaMat(KillSwitches.single)(Keep.both)
       .mapAsync[FlowTaskExecution.Execute](parallelism = taskParallelism)(flowTask => {

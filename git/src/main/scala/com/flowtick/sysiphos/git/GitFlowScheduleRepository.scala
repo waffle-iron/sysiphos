@@ -7,8 +7,7 @@ import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleDetails, FlowScheduleRepository }
 import io.circe.generic.auto._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 
 class GitFlowScheduleRepository(
   baseDir: File,
@@ -17,7 +16,7 @@ class GitFlowScheduleRepository(
   username: Option[String] = None,
   password: Option[String] = None,
   identityFilePath: Option[String] = None,
-  identityFilePassphrase: Option[String] = None)
+  identityFilePassphrase: Option[String] = None)(implicit executionContext: ExecutionContext)
   extends AbstractGitRepository[FlowScheduleDetails](
     baseDir, remoteUrl, ref, username, password, identityFilePath, identityFilePassphrase) with FlowScheduleRepository {
   override def getFlowSchedules(enabled: Option[Boolean], flowId: Option[String])(implicit repositoryContext: RepositoryContext): Future[Seq[FlowScheduleDetails]] =

@@ -9,13 +9,16 @@ import com.flowtick.sysiphos.execution.FlowTaskExecution
 import com.flowtick.sysiphos.flow.{ FlowInstanceContextValue, FlowTaskInstance }
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.logging.Logger.LogId
+import fs2.Stream
 
-import scala.concurrent.{ ExecutionContextExecutor, Future }
-import scala.util.Try
+import scala.concurrent.ExecutionContext
 import scala.sys.process._
+import scala.util.Try
 
 trait CommandLineTaskExecution extends FlowTaskExecution with Clock {
-  implicit val taskExecutionContext: ExecutionContextExecutor
+  implicit val executionContext: ExecutionContext
+
+  implicit lazy val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(executionContext)
 
   def createScriptFile(taskInstance: FlowTaskInstance, command: String): File = {
     val tempDir = sys.props.get("java.io.tempdir").getOrElse(Configuration.propOrEnv("backup.temp.dir", "/tmp"))
@@ -38,53 +41,34 @@ trait CommandLineTaskExecution extends FlowTaskExecution with Clock {
     replaceContextInTemplate(command, contextValues, additionalModel)
   }
 
-  private def commandIO(
+  protected def commandIO(
     command: String,
-    logId: LogId,
-    logQueue: fs2.concurrent.Queue[IO, Option[String]])(taskLogger: Logger): IO[Int] = IO.async[Int] { callback =>
-    val runningCommand = Future(command.!(ProcessLogger(out => {
-      logQueue.enqueue1(Some(out)).unsafeRunSync()
-    })))
-
-    runningCommand.foreach(exitCode => {
-      logQueue.enqueue1(None).unsafeRunSync()
-      callback(Right(exitCode))
-    })
-
-    runningCommand.failed.foreach(error => {
-      logQueue.enqueue1(None).unsafeRunSync()
-      callback(Left(error))
-    })
-
-    taskLogger.appendStream(logId, logQueue.dequeue.unNoneTerminate).unsafeRunSync()
-  }
+    logId: LogId)(taskLogger: Logger): IO[Int] = {
+    for {
+      outputQueue <- Stream.eval(fs2.concurrent.Queue.synchronous[IO, Option[String]])
+      result <- Stream
+        .eval(IO(command.!(ProcessLogger(line => outputQueue.enqueue1(Some(line)).unsafeRunSync()))))
+        .concurrently(Stream.eval(taskLogger.appendStream(logId, outputQueue.dequeue.unNoneTerminate)))
+    } yield result
+  }.compile.lastOrError
 
   def runCommand(
     taskInstance: FlowTaskInstance,
     command: String,
-    shellOption: Option[String],
-    logId: LogId)(taskLogger: Logger): IO[Int] = IO.unit.flatMap { _ =>
-    import IO._
-    implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(taskExecutionContext)
-
+    shellOption: Option[String])(taskLogger: Logger): IO[Int] = IO.unit.flatMap { _ =>
     val scriptFile = createScriptFile(taskInstance, command)
 
     val commandLine = shellOption.map { shell =>
       s"$shell ${scriptFile.getAbsolutePath}"
     }.getOrElse(command)
 
-    taskLogger.appendLine(logId, s"\n### running '$command' via '$commandLine'").unsafeRunSync()
-
-    val queueSize = Configuration.propOrEnv("logger.stream.queueSize", "1000").toInt
-
-    val finishedProcess: IO[Int] = fs2.concurrent.Queue
-      .circularBuffer[IO, Option[String]](queueSize)
-      .flatMap(commandIO(commandLine, logId, _)(taskLogger))
-
-    finishedProcess.guarantee(IO.delay(scriptFile.delete()))
-  }.flatMap { exitCode =>
-    if (exitCode != 0) {
-      IO.raiseError(new RuntimeException(s"😞 got failure code during execution: $exitCode"))
-    } else IO.pure(exitCode)
+    for {
+      _ <- taskLogger.appendLine(taskInstance.logId, s"\n### running '$command' via '$commandLine'")
+      exitCode <- commandIO(commandLine, taskInstance.logId)(taskLogger).guarantee(IO(scriptFile.delete()))
+      result <- {
+        if (exitCode == 0) IO.pure(exitCode)
+        else IO.raiseError(new RuntimeException(s"😞 got failure code during execution: $exitCode"))
+      }
+    } yield result
   }
 }

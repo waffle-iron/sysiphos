@@ -3,7 +3,7 @@ package com.flowtick.sysiphos.execution
 import java.util.concurrent.Executors
 
 import akka.NotUsed
-import akka.actor.{ Actor, ActorRef, ActorSystem, Props }
+import akka.actor.{ Actor, ActorRef, ActorSystem, PoisonPill, Props }
 import akka.pattern.pipe
 import akka.stream.{ ActorMaterializer, UniqueKillSwitch }
 import akka.stream.QueueOfferResult.Enqueued
@@ -24,12 +24,11 @@ import scala.util.Try
 class FlowInstanceExecutorActor(
   clusterContext: ClusterContext,
   flowExecutorActor: ActorRef,
-  logger: Logger)(implicit repositoryContext: RepositoryContext)
+  logger: Logger)(implicit repositoryContext: RepositoryContext, implicit val executionContext: ExecutionContext)
   extends Actor with FlowInstanceExecution with FlowInstanceTaskStream {
   import Logging._
 
   implicit val actorSystem: ActorSystem = context.system
-  implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   val taskExecutorProps = Props(new FlowTaskExecutionActor(self, context.parent, logger))
@@ -141,9 +140,9 @@ class FlowInstanceExecutorActor(
         ("task", flowTaskInstance.taskId)).increment()
 
       val doneTaskInstance = for {
+        _ <- clusterContext.flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
         _ <- clusterContext.flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Done, None, None)
         ended <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
-        _ <- clusterContext.flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
       } yield ended
 
       OptionT(doneTaskInstance)
@@ -158,6 +157,7 @@ class FlowInstanceExecutorActor(
     case TaskStreamFailure(error) =>
       log.error("error in task stream", error)
       val (instance, _) = taskQueue.get
+      sender() ! PoisonPill
       flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(instance.id, instance.flowDefinitionId)
 
     case other => log.warn(s"unhandled message: $other")

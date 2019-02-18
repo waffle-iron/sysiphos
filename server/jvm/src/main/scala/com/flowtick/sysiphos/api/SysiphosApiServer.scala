@@ -35,7 +35,6 @@ trait SysiphosApiServer extends SysiphosApi
   val log: Logger = LoggerFactory.getLogger(getClass)
 
   val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
-  val apiExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
 
   lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
 
@@ -46,10 +45,10 @@ trait SysiphosApiServer extends SysiphosApi
 
   StaticClusterContext.init(flowScheduleRepository, flowDefinitionRepository, flowInstanceRepository, flowTaskInstanceRepository, flowScheduleRepository)
 
-  implicit val executionContext: ExecutionContext
+  implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
   implicit val executorSystem: ActorSystem = ActorSystem(clusterName)
 
-  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext = new SysiphosApiContext(clusterContext)(apiExecutionContext, repositoryContext)
+  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext = new SysiphosApiContext(clusterContext)(executionContext, repositoryContext)
 
   def clusterContext: ClusterContext = StaticClusterContext.instance.get
 
@@ -115,7 +114,5 @@ trait SysiphosApiServer extends SysiphosApi
 }
 
 object SysiphosApiServerApp extends SysiphosApiServer with App {
-  implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
-
   startApiServer(clusterContext).unsafeRunSync()
 }

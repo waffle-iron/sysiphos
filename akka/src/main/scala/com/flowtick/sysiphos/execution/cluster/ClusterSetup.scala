@@ -11,9 +11,12 @@ import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.routing.RoundRobinPool
 import com.flowtick.sysiphos.config.Configuration
 
+import scala.concurrent.ExecutionContext
+
 final case class ClusterActors(executorSingleton: ActorRef, workerPool: ActorRef)
 
 trait ClusterSetup {
+
   def setupCluster(
     system: ActorSystem,
     clusterName: String,
@@ -58,7 +61,7 @@ trait ClusterSetup {
       maxInstancesPerNode = 2,
       useRoles = Set.empty[String])
 
-    val routeeProps = Props(new ClusterWorkerActor(flowExecutorActor = executorActorRef))
+    val routeeProps = Props(new ClusterWorkerActor(flowExecutorActor = executorActorRef, executionContext = ExecutionContext.Implicits.global))
     val clusterPoolProps = ClusterRouterPool(RoundRobinPool(10), clusterRouterPoolSettings).props(routeeProps)
 
     system.actorOf(clusterPoolProps)

@@ -88,7 +88,7 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
         exchange
     }
 
-    camelTask.to.filter(_.nonEmpty) match {
+    val finalExchange = camelTask.to.filter(_.nonEmpty) match {
       case None => exchange
 
       case Some(toEndpoints) =>
@@ -103,14 +103,13 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
         }
 
         camelContext.addRoutes(routeBuilder)
-
         camelContext.start()
-        val result = exchange
-        camelContext.stop()
 
+        val result = exchange
         result
     }
 
+    finalExchange
   }
 
   def evaluateExpression[T](
@@ -148,7 +147,7 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
           exchange.getOut.setBody(exchange.getOut.getBody(classOf[String]))
         }
         exchange
-      }
+      }.guarantee(IO(camelContext.stop()))
       contextValues <- {
         val expressionsValues: List[IO[FlowInstanceContextValue]] = camelTask
           .extract
