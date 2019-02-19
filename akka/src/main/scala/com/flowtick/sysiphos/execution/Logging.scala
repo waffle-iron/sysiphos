@@ -1,6 +1,5 @@
 package com.flowtick.sysiphos.execution
 
-import kamon.Kamon
 import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -13,7 +12,7 @@ object Logging {
   implicit class LogFuture[T](future: Future[T])(implicit executionContext: ExecutionContext) {
     def logFailed(msg: String): Future[T] = future.recoverWith {
       case error =>
-        Kamon.counter("future-failed").increment()
+        Monitoring.count("future-failed")
 
         LoggerFactory.getLogger(getClass).error(msg, error)
         Future.failed(error)

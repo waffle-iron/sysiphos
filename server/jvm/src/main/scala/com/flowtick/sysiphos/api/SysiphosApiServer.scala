@@ -9,7 +9,6 @@ import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrap
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
-import com.flowtick.sysiphos.execution.Monitoring.DataDogStatsDReporter
 import com.flowtick.sysiphos.execution._
 import com.flowtick.sysiphos.execution.cluster.ClusterSetup
 import com.flowtick.sysiphos.flow._
@@ -20,6 +19,7 @@ import io.finch.circe._
 import javax.sql.DataSource
 import kamon.Kamon
 import kamon.prometheus.PrometheusReporter
+import kamon.statsd.StatsDReporter
 import kamon.system.SystemMetrics
 import org.slf4j.{ Logger, LoggerFactory }
 
@@ -85,13 +85,18 @@ trait SysiphosApiServer extends SysiphosApi
       .flatMap(_ => DefaultSlickRepositoryMigrations.updateDatabase(dataSource(dbProfile)))
 
   def addStatsReporter(): Unit = {
+    SystemMetrics.startCollecting()
+
     if (Configuration.propOrEnv("stats.enabled", "false").toBoolean) {
-      SystemMetrics.startCollecting()
+      log.info("adding prometheus reporter...")
 
-      log.info("adding stats reporters...")
-
-      Kamon.addReporter(new DataDogStatsDReporter)
       Kamon.addReporter(new PrometheusReporter)
+    }
+
+    if (Configuration.propOrEnv("statsd.enabled", "false").toBoolean) {
+      log.info("adding statsd reporter...")
+
+      Kamon.addReporter(new StatsDReporter)
     }
   }
 

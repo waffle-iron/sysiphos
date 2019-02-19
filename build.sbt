@@ -1,7 +1,7 @@
 import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
-val scalaV = "2.12.7"
+val scalaV = "2.12.8"
 val finchV = "0.24.0"
 val circeV = "0.10.0"
 val slf4jV = "1.7.25"

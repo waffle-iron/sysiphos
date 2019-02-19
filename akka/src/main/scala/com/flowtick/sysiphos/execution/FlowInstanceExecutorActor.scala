@@ -1,7 +1,5 @@
 package com.flowtick.sysiphos.execution
 
-import java.util.concurrent.Executors
-
 import akka.NotUsed
 import akka.actor.{ Actor, ActorRef, ActorSystem, PoisonPill, Props }
 import akka.pattern.pipe
@@ -15,7 +13,6 @@ import com.flowtick.sysiphos.execution.FlowInstanceExecution._
 import com.flowtick.sysiphos.execution.FlowTaskExecution.TaskStreamFailure
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
-import kamon.Kamon
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -112,9 +109,9 @@ class FlowInstanceExecutorActor(
 
     case FlowInstanceExecution.WorkFailed(error, optionalTaskInstance) => optionalTaskInstance match {
       case Some(flowTaskInstance) =>
-        Kamon.counter("work-failed").refine(
-          ("definition", flowTaskInstance.flowDefinitionId),
-          ("task", flowTaskInstance.taskId)).increment()
+        Monitoring.count(
+          key = "work-failed",
+          tags = Map("definition" -> flowTaskInstance.flowDefinitionId, "task" -> flowTaskInstance.taskId))
 
         val taskFailedMessage = s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}"
 
@@ -135,9 +132,9 @@ class FlowInstanceExecutorActor(
     case FlowInstanceExecution.WorkDone(flowTaskInstance, addToContext) =>
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
-      Kamon.counter("work-done").refine(
-        ("definition", flowTaskInstance.flowDefinitionId),
-        ("task", flowTaskInstance.taskId)).increment()
+      Monitoring.count("work-done", Map(
+        "definition" -> flowTaskInstance.flowDefinitionId,
+        "task" -> flowTaskInstance.taskId))
 
       val doneTaskInstance = for {
         _ <- clusterContext.flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
@@ -150,9 +147,9 @@ class FlowInstanceExecutorActor(
         .map(TaskCompleted)
         .pipeTo(flowExecutorActor)
         .logFailed(s"unable to complete task ${flowTaskInstance.id}")
-        .foreach(_ => Kamon.counter("task-completed").refine(
-          ("definition", flowTaskInstance.flowDefinitionId),
-          ("task", flowTaskInstance.taskId)).increment())
+        .foreach(_ => Monitoring.count("task-completed", Map(
+          "definition" -> flowTaskInstance.flowDefinitionId,
+          "task" -> flowTaskInstance.taskId)))
 
     case TaskStreamFailure(error) =>
       log.error("error in task stream", error)
