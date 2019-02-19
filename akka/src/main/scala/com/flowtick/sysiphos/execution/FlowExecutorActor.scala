@@ -89,6 +89,7 @@ class FlowExecutorActor(
       Monitoring.count("instance-failed", Map("definition" -> flowDefinitionId))
 
       sender() ! PoisonPill
+
       for {
         _ <- flowInstanceRepository.setStatus(flowInstanceId, FlowInstanceStatus.Failed)
         _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)

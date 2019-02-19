@@ -9,7 +9,6 @@ import org.slf4j.{ Logger, LoggerFactory }
 import slick.jdbc.JdbcProfile
 
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Failure, Success }
 
 class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext)
   extends FlowTaskInstanceRepository with SlickRepositoryBase {
@@ -77,6 +76,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       .filterOptional(taskInstanceQuery.taskId)(taskId => _.taskId === taskId)
       .filterOptional(taskInstanceQuery.dueBefore)(dueBefore => _.nextDueDate < dueBefore)
       .filterOptional(taskInstanceQuery.status)(status => _.status.inSet(status.map(_.toString)))
+      .sortBy(taskInstance => (taskInstance.created.asc, taskInstance.id, taskInstance.retries.desc))
 
     taskInstanceQuery.limit.map(max => filtered.take(max)).getOrElse(filtered)
   }
