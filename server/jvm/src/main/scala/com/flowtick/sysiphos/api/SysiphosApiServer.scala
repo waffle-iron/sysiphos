@@ -3,14 +3,17 @@ package com.flowtick.sysiphos.api
 import java.util.concurrent.Executors
 
 import akka.actor.{ ActorSystem, Props }
+import cats.data.Reader
 import cats.effect._
 import cats.syntax.all._
+import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.config.Configuration
-import com.flowtick.sysiphos.core.RepositoryContext
+import com.flowtick.sysiphos.core.DefaultRepositoryContext
+import com.flowtick.sysiphos.execution.ClusterContext.ClusterContextProvider
 import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
 import com.flowtick.sysiphos.execution._
-import com.flowtick.sysiphos.execution.cluster.ClusterSetup
+import com.flowtick.sysiphos.execution.cluster.{ ClusterActors, ClusterSetup }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
@@ -48,11 +51,11 @@ trait SysiphosApiServer extends SysiphosApi
   implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
   implicit val executorSystem: ActorSystem = ActorSystem(clusterName)
 
-  def apiContext(repositoryContext: RepositoryContext): SysiphosApiContext = new SysiphosApiContext(clusterContext)(executionContext, repositoryContext)
+  def clusterContext: ClusterContextProvider = Reader(_ => StaticClusterContext.instance.get)
 
-  def clusterContext: ClusterContext = StaticClusterContext.instance.get
+  def startExecutorSystem(clusterContextProvider: ClusterContextProvider): IO[ClusterActors] = {
+    val clusterContext = clusterContextProvider.apply()
 
-  def startExecutorSystem(clusterContext: ClusterContext): Unit = {
     val executorActorProps = Props[FlowExecutorActor](new FlowExecutorActor(
       clusterContext.flowScheduleRepository,
       clusterContext.flowInstanceRepository,
@@ -61,18 +64,16 @@ trait SysiphosApiServer extends SysiphosApi
       clusterContext.flowScheduleStateStore,
       CronScheduler))
 
-    val clusterActors = setupCluster(executorSystem, clusterName, executorActorProps)
-
-    clusterActors.executorSingleton ! Init(clusterActors.workerPool)
+    setupCluster(executorSystem, executorActorProps, clusterName, clusterContextProvider)
   }
 
-  def bindServerToAddress: IO[ListeningServer] = IO {
+  def bindServerToAddress(context: ApiContext): IO[ListeningServer] = IO {
     val logo = scala.io.Source.fromInputStream(getClass.getClassLoader.getResourceAsStream("logo.txt")).getLines().mkString("\n")
     log.info(s"starting ...\n$logo")
 
     val address = s"$bindAddress:$httpPort"
 
-    val service = (api :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
+    val service = (api(context) :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
     val server = Http.server.serve(address, service)
 
     log.info(s"running at ${server.boundAddress.toString}")
@@ -100,13 +101,15 @@ trait SysiphosApiServer extends SysiphosApi
     }
   }
 
-  def startApiServer(clusterContext: ClusterContext): IO[Unit] = {
+  def startApiServer(clusterContext: ClusterContextProvider): IO[ClusterActors] = {
     addStatsReporter()
 
-    val startedServer = for {
+    val startedServer: IO[ClusterActors] = for {
       _ <- updateDatabase()
-      _ <- bindServerToAddress
-    } yield startExecutorSystem(clusterContext)
+      clusterActors <- startExecutorSystem(clusterContext)
+      _ <- bindServerToAddress(new SysiphosApiContext(clusterContext(), clusterActors)(executionContext, new DefaultRepositoryContext("api")))
+      _ <- IO(clusterActors.executorSingleton ! Init(clusterActors.workerPool))
+    } yield clusterActors
 
     startedServer.handleErrorWith { error =>
       IO(log.error("unable to start server", error)) *>

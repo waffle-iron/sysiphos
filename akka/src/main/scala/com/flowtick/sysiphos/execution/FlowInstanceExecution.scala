@@ -85,9 +85,12 @@ trait FlowInstanceExecution extends Logging with Clock {
 
   def setRunning(
     flowTaskInstanceRepository: FlowTaskInstanceRepository,
+    flowInstanceRepository: FlowInstanceRepository,
     execute: FlowTaskExecution.Execute,
     logger: Logger)(implicit repositoryContext: RepositoryContext): IO[FlowTaskExecution.Execute] = for {
     _ <- IO.fromFuture(IO(flowTaskInstanceRepository.setStartTime(execute.taskInstance.id, repositoryContext.epochSeconds)))
+
+    _ <- IO.fromFuture(IO(flowInstanceRepository.setStatus(execute.taskInstance.flowInstanceId, FlowInstanceStatus.Running)))
 
     runningTask <- if (execute.taskInstance.status != FlowTaskInstanceStatus.Running) {
       log.info(s"setting task ${execute.taskInstance.id} to running")
@@ -118,7 +121,8 @@ trait FlowInstanceExecution extends Logging with Clock {
 object FlowInstanceExecution {
   sealed trait FlowInstanceMessage
 
-  case class Execute(instance: FlowInstanceDetails, taskSelection: FlowTaskSelection) extends FlowInstanceMessage
+  case class Execute(flowInstanceId: String, flowDefinitionId: String, taskSelection: FlowTaskSelection) extends FlowInstanceMessage
+  case class Run(taskSelection: FlowTaskSelection) extends FlowInstanceMessage
 
   case class WorkDone(flowTaskInstance: FlowTaskInstance, addToContext: Seq[FlowInstanceContextValue] = Seq.empty) extends FlowInstanceMessage
   case class TaskCompleted(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage

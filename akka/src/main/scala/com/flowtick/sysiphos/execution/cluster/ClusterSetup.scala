@@ -9,7 +9,9 @@ import akka.cluster.singleton.{ ClusterSingletonManager, ClusterSingletonManager
 import akka.management.AkkaManagement
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.routing.RoundRobinPool
+import cats.effect.IO
 import com.flowtick.sysiphos.config.Configuration
+import com.flowtick.sysiphos.execution.ClusterContext.ClusterContextProvider
 
 import scala.concurrent.ExecutionContext
 
@@ -19,14 +21,15 @@ trait ClusterSetup {
 
   def setupCluster(
     system: ActorSystem,
+    executorActorProps: Props,
     clusterName: String,
-    executorActorProps: Props): ClusterActors = {
+    clusterContext: ClusterContextProvider): IO[ClusterActors] = IO {
     bootstrapCluster(system, clusterName)
 
     system.actorOf(Props[ClusterListener], name = "clusterListener")
 
     val executorActorRef: ActorRef = createExecutorSingleton(system, executorActorProps)
-    val workerPoolRef: ActorRef = createWorkerPool(system, executorActorRef)
+    val workerPoolRef: ActorRef = createWorkerPool(system, executorActorRef, clusterContext)
 
     ClusterActors(executorActorRef, workerPoolRef)
   }
@@ -54,14 +57,18 @@ trait ClusterSetup {
     }
   }
 
-  private def createWorkerPool(system: ActorSystem, executorActorRef: ActorRef): ActorRef = {
+  private def createWorkerPool(system: ActorSystem, executorActorRef: ActorRef, clusterContext: ClusterContextProvider): ActorRef = {
     val clusterRouterPoolSettings = ClusterRouterPoolSettings(
       totalInstances = 10,
       allowLocalRoutees = true,
       maxInstancesPerNode = 2,
       useRoles = Set.empty[String])
 
-    val routeeProps = Props(new ClusterWorkerActor(flowExecutorActor = executorActorRef, executionContext = ExecutionContext.Implicits.global))
+    val routeeProps = Props(new ClusterWorkerActor(
+      flowExecutorActor = executorActorRef,
+      executionContext = ExecutionContext.Implicits.global,
+      clusterContext = clusterContext))
+
     val clusterPoolProps = ClusterRouterPool(RoundRobinPool(10), clusterRouterPoolSettings).props(routeeProps)
 
     system.actorOf(clusterPoolProps)

@@ -7,6 +7,7 @@ import akka.stream.scaladsl.SourceQueueWithComplete
 import akka.testkit.{ TestKit, TestProbe }
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamInitialized }
+import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.{ ConsoleLogger, Logger }
@@ -102,6 +103,11 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
     (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
       .expects(flowTaskInstance.id, 1, *)
       .returning(Future.successful(Some(flowTaskInstance)))
+      .atLeastOnce()
+
+    (flowInstanceRepository.setStatus(_: String, _: FlowInstanceStatus)(_: RepositoryContext))
+      .expects(flowInstance.id, FlowInstanceStatus.Running, *)
+      .returning(Future.successful(Some(flowInstance)))
       .atLeastOnce()
 
     (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))

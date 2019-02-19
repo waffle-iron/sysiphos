@@ -1,5 +1,6 @@
 package com.flowtick.sysiphos.execution
 
+import cats.data.Reader
 import com.flowtick.sysiphos.flow.{ FlowDefinitionRepository, FlowInstanceRepository, FlowTaskInstanceRepository }
 import com.flowtick.sysiphos.scheduler.{ FlowScheduleRepository, FlowScheduleStateStore }
 
@@ -9,6 +10,10 @@ trait ClusterContext {
   def flowScheduleStateStore: FlowScheduleStateStore
   def flowDefinitionRepository: FlowDefinitionRepository
   def flowTaskInstanceRepository: FlowTaskInstanceRepository
+}
+
+object ClusterContext {
+  type ClusterContextProvider = Reader[Unit, ClusterContext]
 }
 
 final case class DefaultClusterContext(

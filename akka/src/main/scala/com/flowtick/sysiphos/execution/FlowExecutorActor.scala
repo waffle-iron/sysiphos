@@ -97,7 +97,7 @@ class FlowExecutorActor(
 
     case FlowInstanceExecution.TaskCompleted(taskInstance) =>
       log.info(s"task completed: ${taskInstance.id}")
-      executePending(taskInstance)
+      sender() ! FlowInstanceExecution.Run(PendingTasks)
 
     case FlowInstanceExecution.WorkPending(instanceId) =>
       log.info(s"work pending: $instanceId")
@@ -105,16 +105,9 @@ class FlowExecutorActor(
     case FlowInstanceExecution.RetryScheduled(taskInstance) =>
       log.info(s"retry scheduled: $taskInstance")
       Monitoring.count("retry-scheduled", Map("task" -> taskInstance.taskId))
-      executePending(taskInstance)
-  }
+      sender() ! FlowInstanceExecution.Run(PendingTasks)
 
-  def executePending(taskInstance: FlowTaskInstance): Future[FlowInstanceExecution.Execute] = {
-    flowInstanceRepository
-      .findById(taskInstance.flowInstanceId)
-      .flatMap {
-        case Some(instance) => Future.successful(FlowInstanceExecution.Execute(instance, PendingTasks))
-        case None => Future.failed(new IllegalStateException("unable to find task instance"))
-      }.pipeTo(sender())
+    case execute: FlowInstanceExecution.Execute => workerPool.foreach(_ ! execute)
   }
 
   def init: Future[Cancellable] = {
@@ -136,8 +129,8 @@ class FlowExecutorActor(
     running: FlowInstanceDetails,
     selectedTaskId: Option[String]): Future[Any] = workerPool.map { pool =>
     Future
-      .successful(FlowInstanceExecution.Execute(running, selectedTaskId.map(TaskId).getOrElse(PendingTasks)))
-      .pipeTo(pool)(sender())
+      .successful(FlowInstanceExecution.Execute(running.id, running.flowDefinitionId, selectedTaskId.map(TaskId).getOrElse(PendingTasks)))
+      .pipeTo(pool)
   }.getOrElse(Future.failed(new IllegalStateException(s"asked to execute $running, but there is no worker pool")))
 
 }

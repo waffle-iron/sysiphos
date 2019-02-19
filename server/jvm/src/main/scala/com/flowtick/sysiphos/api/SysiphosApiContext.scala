@@ -2,14 +2,18 @@ package com.flowtick.sysiphos.api
 
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
 import com.flowtick.sysiphos.core.RepositoryContext
-import com.flowtick.sysiphos.execution.ClusterContext
+import com.flowtick.sysiphos.execution.{ ClusterContext, FlowInstanceExecution, TaskId }
+import com.flowtick.sysiphos.execution.cluster.ClusterActors
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.Success
 
-class SysiphosApiContext(clusterContext: ClusterContext)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
+class SysiphosApiContext(
+  clusterContext: ClusterContext,
+  clusterActors: ClusterActors)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
   extends ApiContext {
   override def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]] =
     clusterContext.flowScheduleRepository.getFlowSchedules(None, flowId).map(_.filter(schedule => id.forall(_ == schedule.id)))
@@ -109,9 +113,14 @@ class SysiphosApiContext(clusterContext: ClusterContext)(implicit executionConte
     taskInstanceId: String,
     status: String,
     retries: Option[Int],
-    nextRetry: Option[Long]): Future[Option[FlowTaskInstanceDetails]] = {
-    clusterContext.flowTaskInstanceRepository.setStatus(taskInstanceId, FlowTaskInstanceStatus.withName(status), retries, nextRetry)
-  }
+    nextRetry: Option[Long]): Future[Option[FlowTaskInstanceDetails]] =
+    clusterContext
+      .flowTaskInstanceRepository
+      .setStatus(taskInstanceId, FlowTaskInstanceStatus.withName(status), retries, nextRetry)
+      .andThen {
+        case Success(Some(instance)) =>
+          clusterActors.executorSingleton ! FlowInstanceExecution.Execute(instance.flowInstanceId, instance.flowDefinitionId, TaskId(instance.taskId))
+      }
 
   override def deleteFlowDefinition(flowDefinitionId: String): Future[String] = for {
     schedules <- clusterContext.flowScheduleRepository.getFlowSchedules(None, flowId = Some(flowDefinitionId))

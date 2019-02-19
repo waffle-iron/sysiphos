@@ -18,26 +18,25 @@ import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Try
 
-class FlowInstanceExecutorActor(
+class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String)(
   clusterContext: ClusterContext,
   flowExecutorActor: ActorRef,
   logger: Logger)(implicit repositoryContext: RepositoryContext, implicit val executionContext: ExecutionContext)
   extends Actor with FlowInstanceExecution with FlowInstanceTaskStream {
   import Logging._
 
+  type QueueType = ((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)
+
   implicit val actorSystem: ActorSystem = context.system
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   val taskExecutorProps = Props(new FlowTaskExecutionActor(self, context.parent, logger))
-
-  type QueueType = ((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)
-
-  var taskQueue: Option[(FlowInstanceDetails, QueueType)] = None
+  var taskQueue: Option[QueueType] = None
 
   override def postStop(): Unit = {
     log.debug("shutting down task stream")
     taskQueue.foreach {
-      case (_, ((_, killSwitch), _)) =>
+      case ((_, killSwitch), _) =>
         Try(killSwitch.shutdown()).failed.foreach(error => log.warn(s"unable to shutdown task stream, ${error.getMessage}"))
     }
   }
@@ -46,7 +45,7 @@ class FlowInstanceExecutorActor(
     flowDefinition: FlowDefinition,
     taskSelection: FlowTaskSelection,
     currentInstances: Seq[FlowTaskInstanceDetails]): Future[Seq[Either[Throwable, FlowTask]]] = taskQueue.map {
-    case (_, ((queue, _), _)) =>
+    case ((queue, _), _) =>
       for {
         next <- Future.successful(nextFlowTasks(
           taskSelection,
@@ -65,44 +64,44 @@ class FlowInstanceExecutorActor(
   }.getOrElse(Future.failed(new IllegalStateException("task queue should be created before execution")))
 
   override def receive: PartialFunction[Any, Unit] = {
-    case FlowInstanceExecution.Execute(flowInstance, taskSelection) =>
-      log.info(s"executing ${flowInstance.flowDefinitionId} instance ${flowInstance.id}...")
+    case FlowInstanceExecution.Run(taskSelection) =>
+      log.info(s"executing $flowDefinitionId instance $flowInstanceId...")
 
       clusterContext.flowDefinitionRepository
-        .findById(flowInstance.flowDefinitionId)
+        .findById(flowDefinitionId)
         .flatMap {
           case Some(flowDefinitionDetails) => Future.successful(FlowDefinition.fromJson(flowDefinitionDetails.source.get))
-          case None => Future.failed(new IllegalStateException(s"unable to find flow definition ${flowInstance.flowDefinitionId}"))
+          case None => Future.failed(new IllegalStateException(s"unable to find flow definition ${flowDefinitionId}"))
         }.map {
           case Right(flowDefinition) =>
             val taskParallelism: Int = flowDefinition.taskParallelism.getOrElse(1)
 
             if (taskQueue.isEmpty) {
-              taskQueue = Some((flowInstance, createTaskStream(clusterContext.flowTaskInstanceRepository, clusterContext.flowInstanceRepository, self, flowExecutorActor)(
-                flowInstance.id,
-                flowInstance.flowDefinitionId,
+              taskQueue = Some(createTaskStream(clusterContext.flowTaskInstanceRepository, clusterContext.flowInstanceRepository, self, flowExecutorActor)(
+                flowInstanceId,
+                flowDefinitionId,
                 taskParallelism,
                 flowDefinition.taskRatePerSecond.getOrElse(1),
                 1.seconds,
-                logger)(repositoryContext).run))
+                logger)(repositoryContext).run)
             }
 
             (for {
-              currentInstances <- clusterContext.flowTaskInstanceRepository.find(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id)))
+              currentInstances <- clusterContext.flowTaskInstanceRepository.find(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstanceId)))
 
               enqueueResult <- enqueueNextTasks(flowDefinition, taskSelection, currentInstances).logSuccess(result => s"new in queue: $result")
 
               executionResult <- if (enqueueResult.exists(_.isRight) || currentInstances.exists(isPending)) {
-                Future.successful(WorkPending(flowInstance.id))
+                Future.successful(WorkPending(flowInstanceId))
               } else if (currentInstances.forall(_.status == FlowTaskInstanceStatus.Done)) {
-                Future.successful(Finished(flowInstance.id, flowInstance.flowDefinitionId))
+                Future.successful(Finished(flowInstanceId, flowDefinitionId))
               } else {
-                Future.successful(ExecutionFailed(new IllegalStateException("no task candidate found"), flowInstance.id, flowInstance.flowDefinitionId))
+                Future.successful(ExecutionFailed(new IllegalStateException("no task candidate found"), flowInstanceId, flowDefinitionId))
               }
 
             } yield executionResult)
               .logSuccess(executionResult => s"execution result $executionResult")
-              .logFailed(s"unable to execute ${flowInstance}").pipeTo(flowExecutorActor)
+              .logFailed(s"unable to execute $flowInstanceId").pipeTo(flowExecutorActor)
 
           case Left(error) => Future.failed(error)
         }
@@ -153,9 +152,8 @@ class FlowInstanceExecutorActor(
 
     case TaskStreamFailure(error) =>
       log.error("error in task stream", error)
-      val (instance, _) = taskQueue.get
       sender() ! PoisonPill
-      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(error, instance.id, instance.flowDefinitionId)
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(error, flowInstanceId, flowDefinitionId)
 
     case other => log.warn(s"unhandled message: $other")
   }

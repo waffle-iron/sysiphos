@@ -46,7 +46,6 @@ class FlowTaskExecutionActor(
 
         FlowInstanceExecution.WorkDone(taskInstance)
       }.handleErrorWith { error =>
-        taskLogger.appendLine(taskInstance.logId, s"error in command execution: ${error.getMessage}").unsafeRunSync()
         IO.pure(FlowInstanceExecution.WorkFailed(error, Some(taskInstance)))
       }.guarantee(IO(stream ! TaskAck)).unsafeToFuture().pipeTo(flowInstanceActor)
 
@@ -59,19 +58,16 @@ class FlowTaskExecutionActor(
         .unsafeToFuture()
         .logFailed(s"unable to execute task $camelTask")
         .map[FlowInstanceExecution.FlowInstanceMessage] {
-          case Left(error) =>
-            taskLogger.appendLine(taskInstance.logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
-            FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
+          case Left(error) => FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
 
           case Right((exchange, contextValuesFromExpressions)) =>
             val resultString = Try(exchange.getOut.getBody(classOf[String])).getOrElse(exchange.getOut.toString)
 
             taskLogger.appendLine(taskInstance.logId, s"camel exchange executed with result: $resultString").unsafeRunSync()
+
             FlowInstanceExecution.WorkDone(taskInstance, contextValuesFromExpressions)
         }.recoverWith {
-          case error =>
-            taskLogger.appendLine(taskInstance.logId, s"error in camel exchange: ${error.getMessage}").unsafeRunSync()
-            Future.successful(FlowInstanceExecution.WorkFailed(error, Some(taskInstance)))
+          case error => Future.successful(FlowInstanceExecution.WorkFailed(error, Some(taskInstance)))
         }.pipeTo(flowInstanceActor)
 
     case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _), taskInstance, contextValues) =>
@@ -83,8 +79,7 @@ class FlowTaskExecutionActor(
           taskLogger.appendLine(taskInstance.logId, s"created ${instanceContext.instance.flowDefinitionId} instance ${instanceContext.instance.id}").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
         case NewInstance(Left(error)) =>
-          taskLogger.appendLine(taskInstance.logId, s"😞 unable to trigger instance $flowDefinitionId: ${error.getMessage}").unsafeRunSync()
-          FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
+          FlowInstanceExecution.WorkFailed(new RuntimeException(s"😞 unable to trigger instance $flowDefinitionId", error), Some(taskInstance))
       }.pipeTo(flowInstanceActor).andThen {
         case _ => stream ! TaskAck
       }
@@ -109,8 +104,7 @@ class FlowTaskExecutionActor(
             taskLogger.appendLine(taskInstance.logId, s"created or updated ${definition.id}").unsafeRunSync()
             FlowInstanceExecution.WorkDone(taskInstance)
           case CreatedOrUpdatedDefinition(Left(error)) =>
-            taskLogger.appendLine(taskInstance.logId, s"😞 error while importing flow definition ${definitionImportTask.targetDefinitionId}").unsafeRunSync()
-            FlowInstanceExecution.WorkFailed(error, Some(taskInstance))
+            FlowInstanceExecution.WorkFailed(new RuntimeException(s"😞 error while importing flow definition ${definitionImportTask.targetDefinitionId}", error), Some(taskInstance))
         }.pipeTo(flowInstanceActor)
 
     case TaskStreamInitialized =>

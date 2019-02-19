@@ -22,6 +22,7 @@ import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 import sangria.parser.QueryParser
 import sangria.schema._
+import shapeless.{ :+:, CNil }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
@@ -150,8 +151,6 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
   import io.finch.circe._
   import io.finch.syntax._
 
-  def apiContext(repositoryContext: RepositoryContext): ApiContext
-
   implicit val executionContext: ExecutionContext
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
@@ -167,14 +166,14 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
     Output.payload(Json.obj("errors" -> Json.fromValues(Seq(errorJson))), status) // graphql like error format
   }
 
-  val apiEndpoint: Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
+  def apiEndpoint(apiContext: ApiContext): Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
     val result: Future[Output[Json]] = json.asObject.flatMap { queryObj =>
       val query: Option[String] = queryObj("query").flatMap(_.asString)
       val operationName: Option[String] = queryObj("operationName").flatMap(_.asString)
       val variables: Json = queryObj("variables").filter(!_.isNull).getOrElse(Json.obj())
 
       query.map(parseQuery).map {
-        case Success(document) => executeQuery(document, operationName, variables, apiContext(new DefaultRepositoryContext("api")))
+        case Success(document) => executeQuery(document, operationName, variables, apiContext)
         case Failure(parseError) => Future.failed(parseError)
       }
     }.getOrElse(Future.failed(new IllegalArgumentException("invalid json body")))
@@ -211,5 +210,5 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
     }
   }
 
-  val api = statusEndpoint :+: apiEndpoint
+  def api(context: ApiContext): Endpoint[String :+: Json :+: CNil] = statusEndpoint :+: apiEndpoint(context)
 }
