@@ -97,7 +97,7 @@ class FlowInstanceExecutorActor(
               } else if (currentInstances.forall(_.status == FlowTaskInstanceStatus.Done)) {
                 Future.successful(Finished(flowInstance.id, flowInstance.flowDefinitionId))
               } else {
-                Future.successful(ExecutionFailed(flowInstance.id, flowInstance.flowDefinitionId))
+                Future.successful(ExecutionFailed(new IllegalStateException("no task candidate found"), flowInstance.id, flowInstance.flowDefinitionId))
               }
 
             } yield executionResult)
@@ -155,17 +155,18 @@ class FlowInstanceExecutorActor(
       log.error("error in task stream", error)
       val (instance, _) = taskQueue.get
       sender() ! PoisonPill
-      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(instance.id, instance.flowDefinitionId)
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(error, instance.id, instance.flowDefinitionId)
 
     case other => log.warn(s"unhandled message: $other")
   }
 
   private def handleFailedTask(flowTaskInstance: FlowTaskInstance, error: Throwable): Future[FlowInstanceMessage] =
     if (flowTaskInstance.retries == 0) {
-      log.error(s"retries exceeded for $flowTaskInstance, failed execution", error)
+      val message = s"retries exceeded for $flowTaskInstance"
+      log.error(message, error)
       clusterContext.flowTaskInstanceRepository
         .setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, None, None)
-        .map(_ => FlowInstanceExecution.ExecutionFailed(flowTaskInstance.flowInstanceId, flowTaskInstance.flowDefinitionId))
+        .map(_ => FlowInstanceExecution.ExecutionFailed(new RuntimeException(message, error), flowTaskInstance.flowInstanceId, flowTaskInstance.flowDefinitionId))
     } else {
       val dueDate = repositoryContext.epochSeconds + flowTaskInstance.retryDelay
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")

@@ -271,7 +271,10 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
 
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(taskInstanceWithoutRetries))
 
-    flowExecutorProbe.expectMsg(ExecutionFailed(flowInstance.id, flowDefinition.id))
+    flowExecutorProbe.fishForMessage() {
+      case ExecutionFailed(_, flowInstanceId, flowDefinitionId) =>
+        flowInstance.id == flowInstanceId && flowDefinition.id == flowDefinitionId
+    }
   }
 
   it should "throttle task execution" in new InstanceExecutorSetup(

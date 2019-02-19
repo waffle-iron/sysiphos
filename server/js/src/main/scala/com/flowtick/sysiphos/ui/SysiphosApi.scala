@@ -238,7 +238,7 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
       """
          |query($instanceId: String!) {
          |  instances(instanceIds: [$instanceId]) {
-         |    id, flowDefinitionId, creationTime, startTime, endTime, status
+         |    id, flowDefinitionId, creationTime, startTime, endTime, status, error
          |  },
          |  contextValues(flowInstanceId: $instanceId) {
          |    key, value

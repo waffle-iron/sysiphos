@@ -61,7 +61,23 @@ class SlickFlowInstanceRepositorySpec extends SlickSpec {
 
     result should be(
       Some(newInstance.instance.copy(startTime = Some(42), endTime = Some(43), status = FlowInstanceStatus.Done)))
+  }
 
+  it should "update query" in new RepositoryContext {
+    override def currentUser: String = "test-user"
+    override def epochSeconds: Long = 0
+
+    val instanceRepository = createTestRepository
+
+    val newInstance: FlowInstanceContext =
+      instanceRepository.createFlowInstance("some-definition", Seq(FlowInstanceContextValue("foo", "bar")), FlowInstanceStatus.Scheduled)(this).futureValue
+    val query = FlowInstanceQuery(instanceIds = Some(Seq(newInstance.instance.id)))
+
+    newInstance.instance.error should be(None)
+
+    instanceRepository.update(query, FlowInstanceStatus.Failed, Some(new RuntimeException("error")))(this).futureValue
+
+    instanceRepository.findById(newInstance.instance.id)(this).futureValue.get.error should be(defined)
   }
 
   it should "add context values" in new RepositoryContext {

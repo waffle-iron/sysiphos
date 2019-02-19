@@ -156,7 +156,7 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
 
   val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
 
-  def stackTrace(throwable: Throwable): String = {
+  private def stackTrace(throwable: Throwable): String = {
     val sw = new StringWriter()
     throwable.printStackTrace(new PrintWriter(sw))
     sw.toString

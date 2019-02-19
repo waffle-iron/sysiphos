@@ -85,13 +85,13 @@ class FlowExecutorActor(
         _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
 
-    case FlowInstanceExecution.ExecutionFailed(flowInstanceId, flowDefinitionId) =>
+    case FlowInstanceExecution.ExecutionFailed(reason, flowInstanceId, flowDefinitionId) =>
       Monitoring.count("instance-failed", Map("definition" -> flowDefinitionId))
 
       sender() ! PoisonPill
 
       for {
-        _ <- flowInstanceRepository.setStatus(flowInstanceId, FlowInstanceStatus.Failed)
+        _ <- flowInstanceRepository.update(FlowInstanceQuery(instanceIds = Some(Seq(flowInstanceId))), FlowInstanceStatus.Failed, Some(reason))
         _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
 
@@ -124,7 +124,7 @@ class FlowExecutorActor(
     val runningTasks = FlowTaskInstanceQuery(status = Some(Seq(FlowTaskInstanceStatus.Running)))
 
     for {
-      _ <- flowInstanceRepository.update(runningInstances, FlowInstanceStatus.Triggered)
+      _ <- flowInstanceRepository.update(runningInstances, FlowInstanceStatus.Triggered, None)
       _ <- flowTaskInstanceRepository.update(runningTasks, FlowTaskInstanceStatus.Retry, None, None)
     } yield {
       log.info("initializing scheduler...")

@@ -68,6 +68,20 @@ class ShowInstanceComponent(
               <p class="list-group-item-text">{ FlowInstanceStatusHelper.instanceStatusLabel(instanceOverview.instance.status).bind }</p>
             </li>
             <li class="list-group-item">
+              <p class="list-group-item-heading"><strong>Error</strong></p>
+              <p class="list-group-item-text">
+                {
+                  instanceOverview.instance.error match {
+                    case Some(error) =>
+                      <code style="max-height:200px;display:block;overflow:auto;">
+                        { error.trim }
+                      </code>
+                    case None => <span>N/A</span>
+                  }
+                }
+              </p>
+            </li>
+            <li class="list-group-item">
               <p class="list-group-item-heading"><strong>Creation Time</strong></p>
               <p class="list-group-item-text">{ formatDate(instanceOverview.instance.creationTime) }</p>
             </li>

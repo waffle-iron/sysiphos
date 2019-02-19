@@ -32,7 +32,8 @@ final case class FlowInstanceDetails(
   creationTime: Long,
   startTime: Option[Long],
   endTime: Option[Long],
-  status: FlowInstanceStatus.FlowInstanceStatus) extends FlowInstance
+  status: FlowInstanceStatus.FlowInstanceStatus,
+  error: Option[String] = None) extends FlowInstance
 
 final case class FlowInstanceContext(instance: FlowInstanceDetails, context: Seq[FlowInstanceContextValue])
 

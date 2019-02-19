@@ -6,7 +6,7 @@ import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import scala.concurrent.Future
 
 final case class FlowInstanceQuery(
-  flowDefinitionId: Option[String],
+  flowDefinitionId: Option[String] = None,
   instanceIds: Option[Seq[String]] = None,
   status: Option[Seq[FlowInstanceStatus]] = None,
   createdGreaterThan: Option[Long] = None,
@@ -22,7 +22,7 @@ trait FlowInstanceRepository {
   def findContext(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceContext]]
   def getContextValues(id: String)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceContextValue]]
   def setStatus(id: String, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]]
-  def update(query: FlowInstanceQuery, status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit]
+  def update(query: FlowInstanceQuery, status: FlowInstanceStatus.FlowInstanceStatus, error: Option[Throwable])(implicit repositoryContext: RepositoryContext): Future[Unit]
   def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]]
   def setEndTime(flowInstanceId: String, endTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]]
   def getFlowInstances(query: FlowInstanceQuery)(implicit repositoryContext: RepositoryContext): Future[Seq[FlowInstanceDetails]]

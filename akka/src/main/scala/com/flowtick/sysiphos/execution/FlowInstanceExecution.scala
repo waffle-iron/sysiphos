@@ -126,6 +126,6 @@ object FlowInstanceExecution {
   case class RetryScheduled(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
 
   case class WorkPending(flowInstanceId: String) extends FlowInstanceMessage
-  case class ExecutionFailed(flowInstanceId: String, flowDefinitionId: String) extends FlowInstanceMessage
+  case class ExecutionFailed(reason: Throwable, flowInstanceId: String, flowDefinitionId: String) extends FlowInstanceMessage
   case class Finished(flowInstanceId: String, flowDefinitionId: String) extends FlowInstanceMessage
 }

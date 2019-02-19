@@ -119,4 +119,18 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="8" author="sysiphos">
+        <preConditions>
+            <not>
+                <columnExists tableName="_FLOW_INSTANCE" columnName="_ERROR"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="_FLOW_INSTANCE">
+            <column name="_ERROR" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

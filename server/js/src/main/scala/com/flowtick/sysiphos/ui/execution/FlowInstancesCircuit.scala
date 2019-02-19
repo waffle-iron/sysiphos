@@ -1,6 +1,6 @@
 package com.flowtick.sysiphos.ui.execution
 
-import com.flowtick.sysiphos.flow.{ FlowInstance, FlowInstanceQuery }
+import com.flowtick.sysiphos.flow.{ FlowInstanceDetails, FlowInstanceQuery }
 import com.flowtick.sysiphos.ui.SysiphosApi
 import com.flowtick.sysiphos.ui.util.DateSupport
 import diode.ActionResult.{ EffectOnly, ModelUpdate }
@@ -9,10 +9,10 @@ import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-final case class InstancesModel(instances: Seq[FlowInstance])
+final case class InstancesModel(instances: Seq[FlowInstanceDetails])
 
 final case class LoadInstances(query: FlowInstanceQuery) extends Action
-final case class FoundInstances(instances: Seq[FlowInstance]) extends Action
+final case class FoundInstances(instances: Seq[FlowInstanceDetails]) extends Action
 final case class DeleteInstances(flowInstanceId: String) extends Action
 
 class FlowInstancesCircuit(api: SysiphosApi) extends Circuit[InstancesModel] with DateSupport {

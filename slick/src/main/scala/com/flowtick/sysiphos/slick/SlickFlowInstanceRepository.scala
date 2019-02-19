@@ -1,5 +1,7 @@
 package com.flowtick.sysiphos.slick
 
+import java.io.{ PrintWriter, StringWriter }
+
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow._
@@ -19,7 +21,8 @@ final case class SlickFlowInstance(
   creator: String,
   status: String,
   startTime: Option[Long] = None,
-  endTime: Option[Long] = None)
+  endTime: Option[Long] = None,
+  error: Option[String] = None)
 
 class SlickFlowInstanceRepository(
   dataSource: DataSource,
@@ -41,8 +44,9 @@ class SlickFlowInstanceRepository(
     def status = column[String]("_STATUS")
     def startTime = column[Option[Long]]("_START_TIME")
     def endTime = column[Option[Long]]("_END_TIME")
+    def error = column[Option[String]]("_ERROR")
 
-    def * = (id, flowDefinitionId, created, version, updated, creator, status, startTime, endTime) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
+    def * = (id, flowDefinitionId, created, version, updated, creator, status, startTime, endTime, error) <> (SlickFlowInstance.tupled, SlickFlowInstance.unapply)
   }
 
   case class SysiphosFlowInstanceContext(
@@ -72,7 +76,8 @@ class SlickFlowInstanceRepository(
       instance.created,
       instance.startTime,
       instance.endTime,
-      FlowInstanceStatus.withName(instance.status))
+      FlowInstanceStatus.withName(instance.status),
+      error = instance.error)
   }
 
   private def createQuery(query: FlowInstanceQuery) = {
@@ -143,12 +148,23 @@ class SlickFlowInstanceRepository(
 
   override def update(
     query: FlowInstanceQuery,
-    status: FlowInstanceStatus.FlowInstanceStatus)(implicit repositoryContext: RepositoryContext): Future[Unit] = {
-    val columnsForUpdates = createQuery(query)
+    status: FlowInstanceStatus.FlowInstanceStatus,
+    error: Option[Throwable])(implicit repositoryContext: RepositoryContext): Future[Unit] = {
+    val statusUpdate = createQuery(query)
       .map { instance => instance.status }
       .update(status.toString)
 
-    db.run(DBIO.seq(columnsForUpdates).transactionally)
+    def stackTrace(throwable: Throwable): String = {
+      val sw = new StringWriter()
+      throwable.printStackTrace(new PrintWriter(sw))
+      sw.toString
+    }
+
+    val errorUpdate = error.map(throwable => createQuery(query)
+      .map { instance => instance.error }
+      .update(Some(stackTrace(throwable))))
+
+    db.run(DBIO.seq(statusUpdate) >> DBIO.sequenceOption(errorUpdate).transactionally).map(_ => ())
   }
 
   override def setStartTime(flowInstanceId: String, startTime: Long)(implicit repositoryContext: RepositoryContext): Future[Option[FlowInstanceDetails]] = {
