@@ -9,6 +9,7 @@ import org.slf4j.{ Logger, LoggerFactory }
 import slick.jdbc.JdbcProfile
 
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{ Failure, Success }
 
 class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profile: JdbcProfile, executionContext: ExecutionContext)
   extends FlowTaskInstanceRepository with SlickRepositoryBase {

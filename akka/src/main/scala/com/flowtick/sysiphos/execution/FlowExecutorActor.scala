@@ -4,6 +4,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ Actor, ActorRef, Cancellable, PoisonPill }
 import akka.pattern.pipe
+import cats.effect.IO
+import cats.syntax.all._
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.FlowExecutorActor.{ CreatedOrUpdatedDefinition, ImportDefinition, NewInstance, RequestInstance }
@@ -44,8 +46,14 @@ class FlowExecutorActor(
       workerPool = Some(pool)
       init
     case FlowExecutorActor.Tick =>
-      executeScheduled()
-      executeRetries()
+      log.debug("tick.")
+
+      (for {
+        scheduledInstances <- executeScheduled.handleErrorWith(error => IO(log.error("unable to schedule instances", error)) *> IO(List.empty))
+        retriedInstances <- executeRetries.handleErrorWith(error => IO(log.error("unable to retry instances", error)) *> IO(List.empty))
+        _ <- if (retriedInstances.nonEmpty) IO(log.info(s"retry instances: $retriedInstances")) else IO.unit
+        _ <- if (scheduledInstances.nonEmpty) IO(log.info(s"scheduled instances: $scheduledInstances")) else IO.unit
+      } yield ()).unsafeToFuture()
 
     case RequestInstance(flowDefinitionId, instanceContext) =>
       flowDefinitionRepository.findById(flowDefinitionId).flatMap {

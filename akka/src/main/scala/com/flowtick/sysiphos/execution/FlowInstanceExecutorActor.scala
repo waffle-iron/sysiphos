@@ -56,7 +56,7 @@ class FlowInstanceExecutorActor(
         enqueued <- Future.sequence(next.map { flowTask =>
           queue.offer(flowTask).flatMap[Either[Throwable, FlowTask]] {
             case Enqueued => Future.successful(Right(flowTask))
-            case other => Future.successful(Left(new RuntimeException(s"unable to qneue $flowTask, $other")))
+            case other => Future.successful(Left(new RuntimeException(s"unable to queue $flowTask, $other")))
           }.recoverWith {
             case error => Future.successful(Left(error))
           }

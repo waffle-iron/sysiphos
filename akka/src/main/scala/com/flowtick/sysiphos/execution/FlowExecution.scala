@@ -3,6 +3,7 @@ package com.flowtick.sysiphos.execution
 import cats.data.{ EitherT, OptionT }
 import cats.instances.future._
 import cats.instances.list._
+import cats.syntax.parallel._
 import cats.syntax.traverse._
 import com.flowtick.sysiphos.core.{ Clock, RepositoryContext }
 import com.flowtick.sysiphos.flow._
@@ -11,7 +12,8 @@ import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, F
 import scala.concurrent.{ ExecutionContext, Future }
 import Logging._
 
-import cats.effect.IO
+import cats.effect._
+import cats.effect.IO._
 import com.flowtick.sysiphos.config.Configuration
 
 trait FlowExecution extends Logging with Clock {
@@ -26,32 +28,34 @@ trait FlowExecution extends Logging with Clock {
 
   implicit val repositoryContext: RepositoryContext
   implicit val executionContext: ExecutionContext
+  implicit val contextShift = cats.effect.IO.contextShift(executionContext)
 
   def createFlowInstance(flowSchedule: FlowSchedule): Future[FlowInstanceContext] = {
     log.debug(s"creating instance for $flowSchedule.")
     flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Seq.empty, FlowInstanceStatus.Scheduled)
   }
 
-  def dueTaskRetries(now: Long): Future[Seq[(Option[FlowInstanceContext], String)]] = {
+  def dueTaskRetries(now: Long): Future[Seq[(FlowInstanceContext, FlowTaskInstanceDetails)]] = {
     val taskQuery = FlowTaskInstanceQuery(
       dueBefore = Some(now),
       status = Some(Seq(FlowTaskInstanceStatus.Retry)),
       limit = Some(retryBatchSize))
 
-    def findInstance(task: FlowTaskInstanceDetails) = {
+    def findInstance(taskInstance: FlowTaskInstanceDetails): Future[Seq[(FlowInstanceContext, FlowTaskInstanceDetails)]] = {
       val query = FlowInstanceQuery(
-        flowDefinitionId = Some(task.flowDefinitionId),
-        instanceIds = Some(Seq(task.flowInstanceId)),
+        flowDefinitionId = Some(taskInstance.flowDefinitionId),
+        instanceIds = Some(Seq(taskInstance.flowInstanceId)),
         status = Some(Seq(FlowInstanceStatus.Running)))
 
       flowInstanceRepository
         .findContext(query)
-        .map(_.map(context => (Some(context), task.id)))
+        .map(_.map(context => (context, taskInstance)))
     }
 
-    flowTaskInstanceRepository.find(taskQuery).flatMap { tasks =>
-      Future.sequence(tasks.map(findInstance)).map(_.flatten)
-    }.logFailed(s"unable to check for retries")
+    flowTaskInstanceRepository
+      .find(taskQuery)
+      .flatMap { tasks => Future.sequence(tasks.map(findInstance)).map(_.flatten) }
+      .logFailed(s"unable to check for retries")
   }
 
   def manuallyTriggeredInstances: Future[Option[Seq[FlowInstanceContext]]] =
@@ -62,9 +66,7 @@ trait FlowExecution extends Logging with Clock {
       createdGreaterThan = None)).map(Option.apply)
 
   def dueScheduledFlowInstances(now: Long): Future[Option[Seq[FlowInstanceContext]]] = {
-    log.debug("tick.")
-    val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository
-      .getFlowSchedules(enabled = Some(true), None)
+    val futureEnabledSchedules: Future[Seq[FlowSchedule]] = flowScheduleRepository.getFlowSchedules(enabled = Some(true), None)
 
     for {
       schedules: Seq[FlowSchedule] <- futureEnabledSchedules
@@ -181,39 +183,41 @@ trait FlowExecution extends Logging with Clock {
     running: FlowInstanceDetails,
     selectedTaskId: Option[String]): Future[Any]
 
-  def executeScheduled(): Unit = {
-    val taskInstancesFuture: Future[Option[Seq[FlowInstanceContext]]] = for {
-      manuallyTriggered <- manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")
-      newTaskInstances <- dueScheduledFlowInstances(currentTime.toEpochSecond).logFailed("unable to get scheduled flow instance")
-    } yield Some(newTaskInstances.getOrElse(Seq.empty) ++ manuallyTriggered.getOrElse(Seq.empty))
+  def executeScheduled: IO[List[FlowInstance]] = {
+    val taskInstancesFuture: IO[Seq[FlowInstanceContext]] = for {
+      manuallyTriggered <- IO.fromFuture(IO(manuallyTriggeredInstances.logFailed("unable to get manually triggered instances")))
+      newTaskInstances <- IO.fromFuture(IO(dueScheduledFlowInstances(currentTime.toEpochSecond).logFailed("unable to get scheduled flow instance")))
+    } yield newTaskInstances.getOrElse(Seq.empty) ++ manuallyTriggered.getOrElse(Seq.empty)
 
     for {
-      instances: Option[Seq[FlowInstanceContext]] <- taskInstancesFuture
-      newInstances <- Future.successful(instances.getOrElse(Seq.empty).groupBy(_.instance.flowDefinitionId).toSeq.map {
+      instances <- taskInstancesFuture
+      newInstances <- instances.groupBy(_.instance.flowDefinitionId).toList.map {
         case (flowDefinitionId, triggeredInstances) =>
-          val flowDefinitionFuture: Future[Option[FlowDefinitionDetails]] = flowDefinitionRepository.findById(flowDefinitionId)
+          val flowDefinitionFuture: IO[Option[FlowDefinitionDetails]] = IO.fromFuture(IO(flowDefinitionRepository.findById(flowDefinitionId)))
 
-          (for {
-            flowDefinitionOrError: Either[Exception, FlowDefinition] <- OptionT(flowDefinitionFuture)
-              .getOrElseF(Future.failed(new IllegalStateException("flow definition not found")))
+          for {
+            flowDefinitionOrError <- OptionT(flowDefinitionFuture)
+              .getOrElseF(IO.raiseError(new IllegalStateException("flow definition not found")))
               .map(FlowDefinition.apply)
+
             flowDefinition <- flowDefinitionOrError match {
-              case Right(flowDefinition) => Future.successful(flowDefinition)
-              case Left(error) => Future.failed(new IllegalStateException("unable to parse flow definition", error))
+              case Right(flowDefinition) => IO.pure(flowDefinition)
+              case Left(error) => IO.raiseError(new IllegalStateException("unable to parse flow definition", error))
             }
-            latestTriggered <- latestOnly(flowDefinition, triggeredInstances)
-            running <- executeInstances(flowDefinition, latestTriggered)
-          } yield running): Future[Seq[FlowInstance]]
-      })
-    } yield newInstances
+
+            latestTriggered <- IO.fromFuture(IO(latestOnly(flowDefinition, triggeredInstances)))
+
+            running <- IO.fromFuture(IO(executeInstances(flowDefinition, latestTriggered)))
+          } yield running.toList
+      }.parSequence
+    } yield newInstances.flatten
   }
 
-  def executeRetries(): Unit = {
-    dueTaskRetries(currentTime.toEpochSecond).logFailed("unable to get due tasks").foreach { dueTasks =>
-      dueTasks.foreach {
-        case (Some(instance), taskId) => executeInstance(instance, Some(taskId))
-        case _ =>
-      }
-    }
-  }
+  def executeRetries: IO[List[FlowInstance]] = for {
+    tasks <- IO.fromFuture(IO(dueTaskRetries(currentTime.toEpochSecond)
+      .logFailed("unable to get due tasks")))
+    instances <- tasks.toList.map {
+      case (flowInstanceContext, taskInstance) => IO.fromFuture(IO(executeInstance(flowInstanceContext, Some(taskInstance.taskId))))
+    }.parSequence
+  } yield instances
 }
