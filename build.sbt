@@ -103,7 +103,6 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "io.kamon" %% "kamon-prometheus" % "1.0.0",
     libraryDependencies += "io.kamon" %% "kamon-logback" % "1.0.0",
     libraryDependencies += "io.kamon" %% "kamon-system-metrics" % "1.0.0",
-    libraryDependencies += "com.datadoghq" % "java-dogstatsd-client" % "2.6.1",
     libraryDependencies += "org.apache.camel" % "camel-core" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-http4" % camelV,
     libraryDependencies += "org.apache.camel" % "camel-jsonpath" % camelV,
