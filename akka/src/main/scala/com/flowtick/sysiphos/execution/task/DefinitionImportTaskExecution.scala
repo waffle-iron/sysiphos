@@ -37,7 +37,7 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
       })
     }
 
-    def replaceValuesInCamelTasks(camelTask: CamelTask, taskConfig: TaskConfiguration, extraProps: Map[LogId, String]): CamelTask = {
+    def replaceValuesInCamelTasks(camelTask: CamelTask, taskConfig: TaskConfiguration, extraProps: Map[String, String]): CamelTask = {
       val children = camelTask.children.map(_.flatMap { child =>
         child match {
           case childrenCamel: CamelTask => Some(replaceValuesInCamelTasks(childrenCamel, taskConfig, extraProps))
@@ -51,9 +51,10 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
     }
 
     val tasks: IO[Seq[FlowTask]] = IO(taskConfigs.map { taskConfig =>
+      val extraProps: Map[String, String] = Map("businessKey" -> taskConfig.businessKey)
+
       taskTemplate match {
         case camelTask: CamelTask =>
-          val extraProps = Map("businessKey" -> taskConfig.businessKey)
           replaceValuesInCamelTasks(camelTask, taskConfig, extraProps)
 
         case trigger: TriggerFlowTask =>
@@ -61,12 +62,14 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
             case Some(contextValues) => Some(contextValues.map(contextValue => {
               FlowInstanceContextValue(
                 key = contextValue.key,
-                value = replaceContextInTemplate(contextValue.value, taskConfig.contextValues).getOrElse(contextValue.value))
+                value = replaceContextInTemplate(contextValue.value, taskConfig.contextValues, extraProps).getOrElse(contextValue.value))
             }))
             case None => None
           }
 
-          trigger.copy(context = replacedContextValues)
+          trigger.copy(
+            id = replaceContextInTemplate(trigger.id, taskConfig.contextValues, extraProps).get,
+            context = replacedContextValues)
       }
     })
 
