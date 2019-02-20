@@ -70,11 +70,11 @@ class FlowTaskExecutionActor(
           case error => Future.successful(FlowInstanceExecution.WorkFailed(error, Some(taskInstance)))
         }.pipeTo(flowInstanceActor)
 
-    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _), taskInstance, contextValues) =>
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _, triggerContext), taskInstance, contextValues) =>
       log.info(s"executing task with id $id")
       val stream = context.sender()
 
-      ask(flowExecutorActor, RequestInstance(flowDefinitionId, contextValues))(Timeout(30, TimeUnit.SECONDS)).map {
+      ask(flowExecutorActor, RequestInstance(flowDefinitionId, contextValues ++ triggerContext.getOrElse(Seq.empty)))(Timeout(30, TimeUnit.SECONDS)).map {
         case NewInstance(Right(instanceContext)) =>
           taskLogger.appendLine(taskInstance.logId, s"created ${instanceContext.instance.flowDefinitionId} instance ${instanceContext.instance.id}").unsafeRunSync()
           FlowInstanceExecution.WorkDone(taskInstance)
