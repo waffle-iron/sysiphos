@@ -70,8 +70,7 @@ class SysiphosApiContext(
     expression.map { expressionValue =>
       Cron(expressionValue).fold(
         Future.failed(_),
-        Future.successful(_).flatMap(_ => update)
-      )
+        Future.successful(_).flatMap(_ => update))
     }.getOrElse(update)
   }
 
