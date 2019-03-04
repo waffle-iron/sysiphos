@@ -8,6 +8,7 @@ import com.flowtick.sysiphos.ui.vendor.ToastrSupport._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{ Failure, Success }
 
 case class SchedulesModel(schedules: Seq[FlowScheduleDetails], flowId: Option[String])
 
@@ -41,7 +42,12 @@ class SchedulesCircuit(api: SysiphosApi) extends Circuit[SchedulesModel] {
           Some(EffectOnly(toggleFuture))
 
         case SetExpression(scheduleId, expression) =>
-          val setFuture = Effect(setExpression(scheduleId, expression).map(_ => LoadSchedules(model.flowId)))
+          val followUpAction = LoadSchedules(model.flowId)
+          val setFuture = Effect(
+            setExpression(scheduleId, expression).transformWith {
+              case Success(_) => Future.successful(followUpAction)
+              case Failure(error) => Future(dispatch(followUpAction)).flatMap(_ => Future.failed(error))
+            })
           Some(EffectOnly(setFuture))
 
         case CreateSchedule(flowId, expression) =>

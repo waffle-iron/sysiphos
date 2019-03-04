@@ -5,8 +5,8 @@ import java.io.File
 import com.flowtick.sysiphos.flow.FlowDefinition.ItemSpec
 import com.flowtick.sysiphos.flow.FlowInstanceContextValue
 import com.flowtick.sysiphos.logging.ConsoleLogger
-import com.flowtick.sysiphos.task.{CamelTask, DefinitionImportTask, TriggerFlowTask}
-import org.scalatest.{FlatSpec, Matchers}
+import com.flowtick.sysiphos.task.{ CamelTask, DefinitionImportTask, TriggerFlowTask }
+import org.scalatest.{ FlatSpec, Matchers }
 
 class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTaskExecution with Matchers {
   val testImportFile = new File(getClass.getClassLoader.getResource("test-import-context.json").getFile)
@@ -56,8 +56,7 @@ class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTa
         flowDefinitionId = "some-flow",
         children = None,
         context = Some(Seq(
-        FlowInstanceContextValue("foo", "${businessKey}"),
-      ))))
+          FlowInstanceContextValue("foo", "${businessKey}")))))
 
     val flowDefinition =
       getFlowDefinition(definitionImportTask, Seq.empty, "test")(new ConsoleLogger).unsafeRunSync()
@@ -68,14 +67,12 @@ class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTa
         flowDefinitionId = "some-flow",
         children = None,
         context = Some(Seq(
-          FlowInstanceContextValue("foo", "key1"),
-        ))),
+          FlowInstanceContextValue("foo", "key1")))),
       TriggerFlowTask(
         "trigger-key2",
         flowDefinitionId = "some-flow",
         children = None,
         context = Some(Seq(
-          FlowInstanceContextValue("foo", "key2"),
-        )))))
+          FlowInstanceContextValue("foo", "key2"))))))
   }
 }

@@ -2,8 +2,8 @@ import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
 val scalaV = "2.12.8"
-val finchV = "0.24.0"
-val circeV = "0.10.0"
+val finchV = "0.27.0"
+val circeV = "0.11.1"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
 val blobStoreV = "0.2.2"
@@ -66,8 +66,8 @@ lazy val core = crossProject.in(file("core")).
   settings(
     name := "sysiphos-core",
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
-    libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0",
-    libraryDependencies += "org.typelevel" %% "cats-effect" % "1.0.0",
+    libraryDependencies += "org.typelevel" %% "cats-core" % "1.6.0",
+    libraryDependencies += "org.typelevel" %% "cats-effect" % "1.2.0",
     libraryDependencies ++= Seq(
       "io.circe" %%% "circe-core",
       "io.circe" %%% "circe-generic",
@@ -93,7 +93,7 @@ lazy val akka = project.in(file("akka")).
     libraryDependencies += "com.lightbend.akka.discovery" %% "akka-discovery-consul" % "0.20.0",
     libraryDependencies += "com.twitter" %% "chill-akka" % "0.9.3",
     libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % akkaV % Test,
-    libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.4.2",
+    libraryDependencies += "com.github.alonsodomin.cron4s" %% "cron4s-core" % "0.5.0",
     libraryDependencies += "org.freemarker" % "freemarker" % "2.3.28",
     libraryDependencies += "org.slf4j" % "slf4j-api" % slf4jV,
     libraryDependencies += "org.typelevel" %% "cats-core" % "1.4.0",

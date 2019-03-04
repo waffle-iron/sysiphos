@@ -71,7 +71,7 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
 
     (flowScheduleRepository.getFlowSchedules(_: Option[Boolean], _: Option[String])(_: RepositoryContext)).expects(*, *, *).returning(futureSchedules)
     (flowInstanceRepository.createFlowInstance(_: String, _: Seq[FlowInstanceContextValue], _: FlowInstanceStatus.FlowInstanceStatus)(_: RepositoryContext)).expects("flow-id", Seq.empty[FlowInstanceContextValue], FlowInstanceStatus.Scheduled, *).returning(Future.successful(testInstance))
-    (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Some(1))
+    (flowScheduler.nextOccurrence _).expects(testSchedule, 0).returning(Right(1))
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext)).expects(testSchedule.id, 1, *).returning(Future.successful(()))
 
     dueScheduledFlowInstances(now = 0).futureValue
@@ -118,8 +118,8 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
   it should "return new instances when applying the schedule" in {
     val backFillEnabled = testSchedule.copy(backFill = Some(true))
 
-    (flowScheduler.nextOccurrence _).expects(backFillEnabled, 1).returning(Some(2))
-    (flowScheduler.missedOccurrences _).expects(backFillEnabled, 1).returning(Seq.empty)
+    (flowScheduler.nextOccurrence _).expects(backFillEnabled, 1).returning(Right(2))
+    (flowScheduler.missedOccurrences _).expects(backFillEnabled, 1).returning(Right(List.empty))
 
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext))
       .expects(backFillEnabled.id, 2, *)
@@ -133,7 +133,7 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
   }
 
   it should "return missed occurrences only when back fill is enabled" in {
-    (flowScheduler.nextOccurrence _).expects(testSchedule, 1).returning(Some(2))
+    (flowScheduler.nextOccurrence _).expects(testSchedule, 1).returning(Right(2))
 
     (flowScheduleStateStore.setDueDate(_: String, _: Long)(_: RepositoryContext))
       .expects(*, *, *)

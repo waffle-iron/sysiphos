@@ -5,6 +5,7 @@ import cats.instances.future._
 import cats.instances.list._
 import cats.syntax.parallel._
 import cats.syntax.traverse._
+import cats.syntax.apply._
 import com.flowtick.sysiphos.core.{ Clock, RepositoryContext }
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduleRepository, FlowScheduleStateStore, FlowScheduler }
@@ -77,24 +78,23 @@ trait FlowExecution extends Logging with Clock {
   def applySchedule(schedule: FlowSchedule, now: Long): Future[Option[Seq[FlowInstanceContext]]] = {
     val dueInstances: IO[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now)) {
       IO
-        .pure(flowScheduler.nextOccurrence(schedule, now))
-        .flatMap {
-          case Some(nextDue) => setNextDueDate(schedule, nextDue).map(_ => Some(nextDue))
-          case None => IO.pure(None)
-        }
-        .flatMap {
-          case Some(_) => IO.fromFuture(IO(createFlowInstance(schedule).map(Seq(_)).map(Option.apply)))
-          case None => IO.pure(None)
-        }
+        .fromEither(flowScheduler.nextOccurrence(schedule, now))
+        .flatMap(nextDue => setNextDueDate(schedule, nextDue))
+        .*>(IO.fromFuture(IO(createFlowInstance(schedule).map(Seq(_)).map(Option.apply))))
     } else IO.pure(None)
 
     val missedInstances: IO[Option[Seq[FlowInstanceContext]]] = if (isDue(schedule, now) && schedule.backFill.getOrElse(false)) {
-      flowScheduler
-        .missedOccurrences(schedule, now)
-        .map { _ => IO.fromFuture(IO(createFlowInstance(schedule))) }
-        .toList
-        .sequence
-        .map(Option.apply)
+      IO.fromEither(flowScheduler.missedOccurrences(schedule, now))
+        .flatMap { missed =>
+          {
+            val sequenced: IO[List[FlowInstanceContext]] = missed
+              .map { _ => IO.fromFuture(IO(createFlowInstance(schedule))) }
+              .sequence
+
+            sequenced.map(Option.apply)
+          }
+        }
+
     } else IO.pure(None)
 
     val potentialInstances: IO[Option[Seq[FlowInstanceContext]]] = for {

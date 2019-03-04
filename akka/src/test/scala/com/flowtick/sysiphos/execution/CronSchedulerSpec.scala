@@ -19,7 +19,7 @@ class CronSchedulerSpec extends FlatSpec with Matchers {
 
   "Cron Scheduler" should "give next occurrence for cron schedule" in {
     val next = CronScheduler.nextOccurrence(testSchedule, 0)
-    next should be(Some(60))
+    next should be(Right(60))
   }
 
   it should "return all occurrences between to old schedule and now" in {
@@ -27,7 +27,7 @@ class CronSchedulerSpec extends FlatSpec with Matchers {
 
     val now = 190
     val nextBackFill = CronScheduler.missedOccurrences(dueSchedule.copy(backFill = Some(true)), now)
-    nextBackFill should be(Seq(120, 180))
+    nextBackFill should be(Right(Seq(120, 180)))
   }
 
 }

@@ -1,33 +1,47 @@
 package com.flowtick.sysiphos.execution
 
+import cats.effect.IO
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduler }
 import cron4s.Cron
 import cron4s.lib.javatime._
 import com.flowtick.sysiphos._
 import com.flowtick.sysiphos.core.Clock
-import fs2.Pure
+import fs2._
 
 object CronScheduler extends FlowScheduler with Logging with Clock {
 
-  override def nextOccurrence(schedule: FlowSchedule, now: Long): Option[Long] = {
-    schedule.expression
-      .flatMap(Cron(_).toOption)
-      .flatMap(_.next(fromEpochSeconds(now)))
-      .map(_.toEpochSecond)
-  }
+  override def nextOccurrence(schedule: FlowSchedule, now: Long): Either[Throwable, Long] = for {
+    cronExpr <- schedule
+      .expression
+      .map(Cron(_))
+      .getOrElse(Left(new IllegalArgumentException("no schedule defined")))
 
-  def missedOccurrences(schedule: FlowSchedule, now: Long): Seq[Long] = {
-    def nextDates(dueDate: Long): fs2.Stream[Pure, Long] = nextOccurrence(schedule, dueDate).map { first =>
-      fs2.Stream.unfold(first)(previous => {
-        nextOccurrence(schedule, previous).flatMap(next => Some(previous, next))
+    nextDue <- cronExpr
+      .next(fromEpochSeconds(now))
+      .map(nextDate => Right(nextDate.toEpochSecond))
+      .getOrElse(Left(new IllegalStateException(s"no next date for cron expression $cronExpr")))
+  } yield nextDue
+
+  def missedOccurrences(schedule: FlowSchedule, now: Long): Either[Throwable, List[Long]] = {
+    def nextDates(dueDate: Long): fs2.Stream[Pure, Either[Throwable, Long]] =
+      fs2.Stream.unfold(nextOccurrence(schedule, dueDate))(previous => {
+        Some(previous, previous.flatMap(nextOccurrence(schedule, _)))
       })
-    }.getOrElse(fs2.Stream.empty)
 
-    schedule.nextDueDate
+    val next: fs2.Stream[IO, Long] = schedule.nextDueDate
       .map(nextDates)
       .getOrElse(fs2.Stream.empty)
-      .takeWhile(_ < now)
-      .compile.toList
+      .takeWhile {
+        case Right(epoch) => epoch < now
+        case Left(_) => false
+      }
+      .covary[IO]
+      .flatMap {
+        case Right(epoch) => fs2.Stream.emit(epoch)
+        case Left(error) => fs2.Stream.raiseError[IO](error).covaryOutput[Long]
+      }
+
+    next.compile.toList.attempt.unsafeRunSync()
   }
 
 }

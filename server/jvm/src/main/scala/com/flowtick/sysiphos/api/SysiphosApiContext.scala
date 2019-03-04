@@ -7,6 +7,7 @@ import com.flowtick.sysiphos.execution.cluster.ClusterActors
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
+import cron4s.Cron
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.Success
@@ -64,7 +65,14 @@ class SysiphosApiContext(
     expression: Option[String],
     enabled: Option[Boolean],
     backFill: Option[Boolean]): Future[FlowScheduleDetails] = {
-    clusterContext.flowScheduleRepository.updateFlowSchedule(id, expression, enabled, backFill)
+    def update = clusterContext.flowScheduleRepository.updateFlowSchedule(id, expression, enabled, backFill)
+
+    expression.map { expressionValue =>
+      Cron(expressionValue).fold(
+        Future.failed(_),
+        Future.successful(_).flatMap(_ => update)
+      )
+    }.getOrElse(update)
   }
 
   override def instances(
