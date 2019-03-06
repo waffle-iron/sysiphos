@@ -6,7 +6,7 @@ import cats.effect.IO
 import com.flowtick.sysiphos.execution.WireMockSupport
 import com.flowtick.sysiphos.flow.FlowDefinition.ExtractSpec
 import com.flowtick.sysiphos.flow.{ FlowInstanceContext, FlowInstanceContextValue, FlowInstanceDetails, FlowInstanceStatus }
-import com.flowtick.sysiphos.logging.ConsoleLogger
+import com.flowtick.sysiphos.logging.{ ConsoleLogger }
 import com.flowtick.sysiphos.task.{ CamelTask, RegistryEntry }
 import com.github.tomakehurst.wiremock.client.WireMock.{ aResponse, equalTo, post, urlEqualTo }
 import org.apache.camel.Exchange
@@ -110,6 +110,26 @@ class CamelTaskExecutionSpec extends FlatSpec with CamelTaskExecution with Match
     }).unsafeRunSync()
 
     result should be("Some post response")
+  }
+
+  it should "return error body on error in HTTP request" in new WireMockSupport {
+    import com.github.tomakehurst.wiremock.client.WireMock._
+    val result: Any = withWireMock(server => IO.delay {
+      server.stubFor(post(urlEqualTo("/post-test"))
+        .withRequestBody(equalTo("body bar"))
+        .willReturn(aResponse()
+          .withStatus(500)
+          .withBody("Some error response")))
+    }.flatMap { _ =>
+      executeExchange(CamelTask(
+        id = "camel-task",
+        uri = s"http4://localhost:${server.port}/post-test",
+        bodyTemplate = Some("body ${foo}"),
+        headers = Some(Map("bar" -> "baz")),
+        children = None), flowInstance.context, "test")(taskLogger = new ConsoleLogger).map(_._1.getOut.getBody)
+    }).handleErrorWith { error =>
+      IO(error.getMessage.contains("Some error response") should be(true))
+    }.unsafeRunSync()
   }
 
   it should "extract a value from a HTTP response with JsonPath" in new WireMockSupport {

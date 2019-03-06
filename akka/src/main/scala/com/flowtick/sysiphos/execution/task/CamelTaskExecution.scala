@@ -14,6 +14,7 @@ import com.flowtick.sysiphos.logging.Logger.LogId
 import com.flowtick.sysiphos.task.CamelTask
 import org.apache.camel.{ CamelContext, Exchange, ExchangePattern, Processor }
 import org.apache.camel.builder.RouteBuilder
+import org.apache.camel.http.common.HttpOperationFailedException
 import org.apache.camel.impl.{ DefaultCamelContext, SimpleRegistry }
 import org.apache.camel.jsonpath.JsonPathExpression
 import org.apache.camel.language.simple.SimpleLanguage
@@ -75,7 +76,6 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
           }
         })
 
-        Option(exchange.getException).foreach(throw _)
         exchange
 
       case "consumer" =>
@@ -84,7 +84,6 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
         val exchange = consumer.receive(camelTask.receiveUri.getOrElse(camelTask.uri))
         exchange.setOut(exchange.getIn)
 
-        Option(exchange.getException).foreach(throw _)
         exchange
     }
 
@@ -142,18 +141,25 @@ trait CamelTaskExecution extends FlowTaskExecution with Logging {
     for {
       camelContext <- createCamelContext(camelTask)
       result <- createExchange(camelTask, context, logId)(taskLogger)
-      exchange <- IO(result(camelContext)).map { exchange =>
-        if (camelTask.convertStreamToString.getOrElse(true) && exchange.getOut.getBody.isInstanceOf[InputStream]) {
+      exchange <- IO(result(camelContext))
+      processed <- {
+        if (exchange.isFailed) {
+          Option(exchange.getException)
+            .map {
+              case httpError: HttpOperationFailedException => IO.raiseError(new RuntimeException(s"http exchange failed, ${httpError.getMessage}, ${httpError.getResponseBody}, ${httpError.getResponseHeaders}"))
+              case other: Exception => IO.raiseError(new RuntimeException(s"exchange failed: $exchange", other))
+            }.getOrElse(IO.raiseError(new IllegalStateException("exchange failed without exception")))
+        } else if (camelTask.convertStreamToString.getOrElse(true) && exchange.getOut.getBody.isInstanceOf[InputStream]) {
           exchange.getOut.setBody(exchange.getOut.getBody(classOf[String]))
-        }
-        exchange
+          IO(exchange)
+        } else IO(exchange)
       }.guarantee(IO(camelContext.stop()))
       contextValues <- {
         val expressionsValues: List[IO[FlowInstanceContextValue]] = camelTask
           .extract
           .getOrElse(Seq.empty)
           .map { extract =>
-            evaluateExpression[String](extract, exchange).map(FlowInstanceContextValue(extract.name, _))
+            evaluateExpression[String](extract, processed).map(FlowInstanceContextValue(extract.name, _))
           }.toList
 
         Traverse[List].sequence(expressionsValues)
