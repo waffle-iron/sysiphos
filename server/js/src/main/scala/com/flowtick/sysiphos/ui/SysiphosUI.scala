@@ -58,10 +58,12 @@ object SysiphosUI extends App with Layout {
   def runComponent(id: String) = new RunFlowComponent(id)(new FlowCircuit(api))
   def createFlowComponent = new CreateFlowComponent(new FlowCircuit(api))
   def logComponent(logId: String) = new LogComponent(logId, new LogCircuit(api))
+  def versionComponent = new VersionComponent(new VersionCircuit(api))
   def notFound = new NotFound
 
   val routes: Routing[Binding[Div]] =
     page[Binding[Div]]("/flows", _ => flowsComponent)
+      .page("/version", _ => versionComponent)
       .page("/flow/new", _ => createFlowComponent)
       .page("/flow/run/:id", ctx => ctx.pathParams.get("id").map(id => runComponent(id)).getOrElse(notFound))
       .page("/flow/show/:id", ctx => ctx.pathParams.get("id").map(id => flowComponent(id)).getOrElse(notFound))

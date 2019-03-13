@@ -43,7 +43,7 @@ case class ExpressionResult(expression: String)
 case class DueDateResult(setDueDate: Boolean)
 case class UpdateFlowScheduleResponse[T](updateFlowSchedule: T)
 case class LogResult(log: String)
-
+case class VersionResult(version: String)
 case class GraphQLResponse[T](data: T)
 
 case class ErrorMessage(message: String)
@@ -89,6 +89,8 @@ trait SysiphosApi {
   def createInstance(flowDefinitionId: String, contextValues: Seq[FlowInstanceContextValue]): Future[String]
 
   def deleteInstance(flowInstanceId: String): Future[String]
+
+  def getVersion: Future[String]
 
 }
 
@@ -308,5 +310,10 @@ class SysiphosApiClient(progressBar: ProgressBar)(implicit executionContext: Exe
   override def setDueDate(scheduleId: String, epoch: Long): Future[Boolean] = {
     val queryString = s"""mutation { setDueDate(flowScheduleId: "$scheduleId", dueDate: $epoch) }"""
     query[DueDateResult](queryString).map(_.data.setDueDate)
+  }
+
+  override def getVersion: Future[String] = {
+    val queryString = """query { version } """
+    query[VersionResult](queryString).map(_.data.version)
   }
 }

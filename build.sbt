@@ -153,7 +153,12 @@ lazy val server = crossProject.in(file("server")).
 
 val updateUi = taskKey[Unit]("copy ui resources to class dir")
 
-lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent).settings(
+lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent, GitVersioning, BuildInfoPlugin).
+  settings(
+  git.useGitDescribe := true,
+  version := git.gitHeadCommit.value.getOrElse("0.1"),
+  buildInfoKeys := Seq[BuildInfoKey](name, version),
+  buildInfoPackage := "com.flowtick.sysiphos",
   libraryDependencies ++= Seq(
     "com.github.finagle" %% "finch-core" % finchV,
     "com.github.finagle" %% "finch-circe" % finchV,

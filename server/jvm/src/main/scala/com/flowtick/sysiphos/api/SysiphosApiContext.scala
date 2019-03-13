@@ -138,4 +138,6 @@ class SysiphosApiContext(
   override def contextValues(flowInstanceId: String): Future[Seq[FlowInstanceContextValue]] = {
     clusterContext.flowInstanceRepository.getContextValues(flowInstanceId)
   }
+
+  override def version: Future[String] = Future.successful(com.flowtick.sysiphos.BuildInfo.version)
 }
