@@ -3,7 +3,6 @@ package com.flowtick.sysiphos.logging
 import java.io.File
 import java.nio.file.Paths
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.Executors
 
 import cats.effect.{ ContextShift, IO }
 import com.amazonaws.auth.{ AWSCredentialsProviderChain, AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain }
@@ -94,7 +93,7 @@ object Logger {
   type LogId = String
   type LogStream = fs2.Stream[IO, String]
 
-  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
+  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.Implicits.global
   private[logging] implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(logExecutionContext)
 
   private def baseDirDefault: LogId = sys.props.get("java.io.tmpdir").map(_ + s"${File.separatorChar}sysiphos").getOrElse(s"${File.separatorChar}tmp")
@@ -107,7 +106,7 @@ object Logger {
 
   private def streamChunkSize: Int = propOrEnv("logger.stream.chunkSize", "100").toInt
 
-  def defaultLogger: Logger = propOrEnv("logger.impl", "file-direct").toLowerCase match {
+  lazy val defaultLogger: Logger = propOrEnv("logger.impl", "file-direct").toLowerCase match {
     case "file-direct" =>
       new FileLogger(new File(baseDirPath))(logExecutionContext)
 

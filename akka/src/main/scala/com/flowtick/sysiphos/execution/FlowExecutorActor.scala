@@ -118,7 +118,7 @@ class FlowExecutorActor(
 
     for {
       _ <- flowInstanceRepository.update(runningInstances, FlowInstanceStatus.Triggered, None)
-      _ <- flowTaskInstanceRepository.update(runningTasks, FlowTaskInstanceStatus.Retry, None, None)
+      _ <- flowTaskInstanceRepository.update(runningTasks, FlowTaskInstanceStatus.Retry, None, Some(0))
     } yield {
       log.info("initializing scheduler...")
       context.system.scheduler.schedule(initialDelay, tickInterval, self, FlowExecutorActor.Tick)(context.system.dispatcher)
