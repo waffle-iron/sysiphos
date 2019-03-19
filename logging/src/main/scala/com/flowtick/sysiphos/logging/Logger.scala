@@ -125,8 +125,8 @@ object Logger {
 
       val s3: AmazonS3 = AmazonS3ClientBuilder
         .standard()
-        .withCredentials(awsCredentials)
         .withRegion(s3Region)
+        .withCredentials(awsCredentials)
         .build()
 
       val s3Store: Store[IO] = S3Store[IO](s3, blockingExecutionContext = logExecutionContext)

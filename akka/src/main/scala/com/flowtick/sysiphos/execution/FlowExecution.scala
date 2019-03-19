@@ -27,22 +27,22 @@ trait FlowExecution extends Logging with Clock {
 
   def retryBatchSize: Int = Configuration.propOrEnv("retry.batch.size").map(_.toInt).getOrElse(20)
 
-  implicit val repositoryContext: RepositoryContext
-  implicit val executionContext: ExecutionContext
-  implicit val contextShift = cats.effect.IO.contextShift(executionContext)
+  implicit def repositoryContext: RepositoryContext
+  implicit def executionContext: ExecutionContext
+  implicit def contextShift = cats.effect.IO.contextShift(executionContext)
 
   def createFlowInstance(flowSchedule: FlowSchedule): Future[FlowInstanceContext] = {
     log.debug(s"creating instance for $flowSchedule.")
     flowInstanceRepository.createFlowInstance(flowSchedule.flowDefinitionId, Seq.empty, FlowInstanceStatus.Scheduled)
   }
 
-  def dueTaskRetries(now: Long): Future[Seq[(FlowInstanceContext, FlowTaskInstanceDetails)]] = {
+  def dueTaskRetries(now: Long): Future[List[(Option[FlowInstanceContext], FlowTaskInstanceDetails)]] = {
     val taskQuery = FlowTaskInstanceQuery(
       dueBefore = Some(now),
       status = Some(Seq(FlowTaskInstanceStatus.Retry)),
       limit = Some(retryBatchSize))
 
-    def findInstance(taskInstance: FlowTaskInstanceDetails): Future[Seq[(FlowInstanceContext, FlowTaskInstanceDetails)]] = {
+    def findInstance(taskInstance: FlowTaskInstanceDetails): Future[List[(Option[FlowInstanceContext], FlowTaskInstanceDetails)]] = {
       val query = FlowInstanceQuery(
         flowDefinitionId = Some(taskInstance.flowDefinitionId),
         instanceIds = Some(Seq(taskInstance.flowInstanceId)),
@@ -50,12 +50,19 @@ trait FlowExecution extends Logging with Clock {
 
       flowInstanceRepository
         .findContext(query)
-        .map(_.map(context => (context, taskInstance)))
+        .map {
+          case Nil => List((None, taskInstance))
+          case Seq(instance) => List((Some(instance), taskInstance))
+        }
     }
 
     flowTaskInstanceRepository
       .find(taskQuery)
-      .flatMap { tasks => Future.sequence(tasks.map(findInstance)).map(_.flatten) }
+      .flatMap(tasks => {
+        log.debug("tasks in retry: {}", tasks)
+        Future.sequence(tasks.map(findInstance)).map(_.flatten.toList)
+      })
+      .logSuccess(instancesInRetry => s"instances in retry: $instancesInRetry")
       .logFailed(s"unable to check for retries")
   }
 
@@ -213,11 +220,15 @@ trait FlowExecution extends Logging with Clock {
     } yield newInstances.flatten
   }
 
-  def executeRetries: IO[List[FlowInstance]] = for {
-    tasks <- IO.fromFuture(IO(dueTaskRetries(currentTime.toEpochSecond)
+  def executeRetries(now: Long): IO[List[Either[Unit, FlowInstance]]] = for {
+    tasks <- IO.fromFuture(IO(dueTaskRetries(now)
       .logFailed("unable to get due tasks")))
-    instances <- tasks.toList.map {
-      case (flowInstanceContext, taskInstance) => IO.fromFuture(IO(executeInstance(flowInstanceContext, Some(taskInstance.taskId))))
+    instances <- tasks.map {
+      case (Some(flowInstanceContext), taskInstance) => IO.fromFuture(
+        IO(executeInstance(flowInstanceContext, Some(taskInstance.taskId)))).map(Right.apply)
+
+      case (None, taskInstance) => IO.fromFuture(
+        IO(flowTaskInstanceRepository.setStatus(taskInstance.id, FlowTaskInstanceStatus.Failed, Some(0), None).logSuccess(res => s"found $res").map(_ => Left()).logFailed("error")))
     }.parSequence
   } yield instances
 }

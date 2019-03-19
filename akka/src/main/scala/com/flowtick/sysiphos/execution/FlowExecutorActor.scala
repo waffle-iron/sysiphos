@@ -50,7 +50,7 @@ class FlowExecutorActor(
 
       (for {
         scheduledInstances <- executeScheduled.handleErrorWith(error => IO(log.error("unable to schedule instances", error)) *> IO(List.empty))
-        retriedInstances <- executeRetries.handleErrorWith(error => IO(log.error("unable to retry instances", error)) *> IO(List.empty))
+        retriedInstances <- executeRetries(currentTime.toEpochSecond).handleErrorWith(error => IO(log.error("unable to retry instances", error)) *> IO(List.empty))
         _ <- if (retriedInstances.nonEmpty) IO(log.info(s"retry instances: $retriedInstances")) else IO.unit
         _ <- if (scheduledInstances.nonEmpty) IO(log.info(s"scheduled instances: $scheduledInstances")) else IO.unit
       } yield ()).unsafeToFuture()

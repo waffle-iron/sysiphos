@@ -146,6 +146,43 @@ class FlowExecutionSpec extends FlatSpec with FlowExecution with Matchers with M
     applySchedule(testSchedule, 1).futureValue should be(Some(Seq(newInstance)))
   }
 
+  it should "set status to failed if instance can not be found during retry" in {
+    val retryQuery = FlowTaskInstanceQuery(
+      dueBefore = Some(0),
+      status = Some(Seq(FlowTaskInstanceStatus.Retry)),
+      limit = Some(retryBatchSize))
+
+    lazy val flowTaskInstanceInRetry = FlowTaskInstanceDetails(
+      id = "task-instance-id",
+      flowInstanceId = "flowInstanceId",
+      flowDefinitionId = "flowDefinitionId",
+      taskId = "task-id",
+      creationTime = 1l,
+      startTime = None,
+      endTime = None,
+      retries = 0,
+      status = FlowTaskInstanceStatus.Retry,
+      retryDelay = 10,
+      nextDueDate = Some(52),
+      logId = "log-id")
+
+    (flowTaskInstanceRepository.find(_: FlowTaskInstanceQuery)(_: RepositoryContext)).expects(retryQuery, *).returning(
+      Future.successful(Seq(flowTaskInstanceInRetry)))
+
+    val query = FlowInstanceQuery(
+      flowDefinitionId = Some(flowTaskInstanceInRetry.flowDefinitionId),
+      instanceIds = Some(Seq(flowTaskInstanceInRetry.flowInstanceId)),
+      status = Some(Seq(FlowInstanceStatus.Running)))
+
+    (flowInstanceRepository.findContext(_: FlowInstanceQuery)(_: RepositoryContext)).expects(query, *).returning(Future.successful(Seq.empty))
+
+    (flowTaskInstanceRepository.setStatus(_: String, _: FlowTaskInstanceStatus.FlowTaskInstanceStatus, _: Option[Int], _: Option[Long])(_: RepositoryContext))
+      .expects(*, FlowTaskInstanceStatus.Failed, *, *, *)
+      .returning(Future.successful(None))
+
+    executeRetries(0).unsafeRunSync()
+  }
+
   override def executeInstance(instance: FlowInstanceContext, selectedTaskId: Option[String]): Future[FlowInstance] =
     Future.successful(instance.instance)
 
