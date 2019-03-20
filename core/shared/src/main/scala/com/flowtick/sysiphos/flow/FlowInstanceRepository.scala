@@ -14,6 +14,10 @@ final case class FlowInstanceQuery(
   offset: Option[Int] = None,
   limit: Option[Int] = None)
 
+object FlowInstanceQuery {
+  def byId(flowInstanceId: String) = FlowInstanceQuery.apply(None, instanceIds = Some(Seq(flowInstanceId)))
+}
+
 final case class InstanceCount(flowDefinitionId: String, status: String, count: Int)
 final case class FlowDefinitionSummary(id: String, counts: Seq[InstanceCount])
 

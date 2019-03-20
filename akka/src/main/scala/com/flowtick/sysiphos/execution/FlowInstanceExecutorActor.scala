@@ -7,6 +7,7 @@ import akka.stream.{ ActorMaterializer, UniqueKillSwitch }
 import akka.stream.QueueOfferResult.Enqueued
 import akka.stream.scaladsl.SourceQueueWithComplete
 import cats.data.OptionT
+import cats.effect.{ ContextShift, IO, Timer }
 import cats.instances.future._
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
@@ -29,6 +30,8 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
 
   implicit val actorSystem: ActorSystem = context.system
   implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
+  implicit val cs: ContextShift[IO] = cats.effect.IO.contextShift(executionContext)
 
   val taskExecutorProps = Props(new FlowTaskExecutionActor(self, context.parent, logger))
   var taskQueue: Option[QueueType] = None
@@ -83,7 +86,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
                 taskParallelism,
                 flowDefinition.taskRatePerSecond.getOrElse(1),
                 1.seconds,
-                logger)(repositoryContext).run)
+                logger)(repositoryContext, timer, cs).run)
             }
 
             (for {

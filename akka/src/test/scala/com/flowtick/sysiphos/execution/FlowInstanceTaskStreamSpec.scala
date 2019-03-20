@@ -5,6 +5,7 @@ import akka.actor.{ ActorRef, ActorSystem }
 import akka.stream.{ ActorMaterializer, UniqueKillSwitch }
 import akka.stream.scaladsl.SourceQueueWithComplete
 import akka.testkit.{ TestKit, TestProbe }
+import cats.effect.{ ContextShift, IO, Timer }
 import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
 import com.flowtick.sysiphos.execution.FlowTaskExecution.{ TaskAck, TaskStreamInitialized }
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
@@ -27,10 +28,12 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
   with ScalaFutures
   with MockFactory {
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
-
   override implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   override implicit val actorSystem: ActorSystem = system
+
+  implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
+  implicit val cs: ContextShift[IO] = cats.effect.IO.contextShift(executionContext)
+  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
 
   val flowInstanceRepository: FlowInstanceRepository = mock[FlowInstanceRepository]
   val flowTaskInstanceRepository: FlowTaskInstanceRepository = mock[FlowTaskInstanceRepository]
@@ -56,7 +59,7 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
     taskParallelism = 1,
     taskRate = 1,
     taskRateDuration = 1.seconds,
-    new ConsoleLogger)(repositoryContext).run
+    new ConsoleLogger)(repositoryContext, timer, cs).run
 
   "Flow Instance task stream" should "create instance with context from repository" in new DefaultRepositoryContext("test") {
     override def epochSeconds: Long = 1

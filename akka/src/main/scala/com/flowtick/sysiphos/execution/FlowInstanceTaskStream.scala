@@ -7,7 +7,8 @@ import akka.actor.{ ActorRef, ActorSystem, PoisonPill, Props }
 import akka.stream.scaladsl.{ Keep, RunnableGraph, Sink, Source, SourceQueueWithComplete }
 import akka.stream.{ KillSwitches, UniqueKillSwitch }
 import cats.data.OptionT
-import cats.effect.IO
+import cats.effect.{ ContextShift, IO, Timer }
+import cats.syntax.all._
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.Logging._
 import com.flowtick.sysiphos.flow._
@@ -15,6 +16,7 @@ import com.flowtick.sysiphos.logging.Logger
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
 
@@ -47,7 +49,7 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
     taskParallelism: Int,
     taskRate: Int,
     taskRateDuration: FiniteDuration,
-    logger: Logger)(implicit repositoryContext: RepositoryContext): RunnableGraph[((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)] =
+    logger: Logger)(implicit repositoryContext: RepositoryContext, timer: Timer[IO], cs: ContextShift[IO]): RunnableGraph[((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)] =
     Source
       .queue[FlowTask](0, akka.stream.OverflowStrategy.backpressure)
       .throttle(taskRate, taskRateDuration)
@@ -64,7 +66,15 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
       })
       .filter(execute => isRunnable(execute.taskInstance))
       .filter(execute => execute.taskInstance.nextDueDate.forall(fromEpochSeconds(_).isBefore(currentTime)))
-      .mapAsync(parallelism = taskParallelism)(setRunning(flowTaskInstanceRepository, flowInstanceRepository, _, logger).unsafeToFuture().logFailed("unable to set running"))
+      .mapAsync(parallelism = taskParallelism)((execute: FlowTaskExecution.Execute) => setRunning(flowTaskInstanceRepository, flowInstanceRepository, execute, logger)
+        .timeout(5.seconds)
+        .handleErrorWith(error => {
+          IO.fromFuture(IO(flowTaskInstanceRepository.setStatus(execute.taskInstance.id, FlowTaskInstanceStatus.Failed, Some(0), None)(repositoryContext))) *>
+            IO.fromFuture(IO(flowInstanceRepository.update(FlowInstanceQuery.byId(execute.taskInstance.flowInstanceId), FlowInstanceStatus.Failed, Some(error)))) *>
+            IO.raiseError[FlowTaskExecution.Execute](error)
+        })
+        .unsafeToFuture()
+        .logFailed("unable to set running"))
       .wireTap(execute => log.debug(s"passing from stream to actor $execute"))
       .toMat(taskStreamSink(taskActorPool(flowInstanceActor, flowExecutorActor, taskParallelism, logger)))(Keep.both)
 

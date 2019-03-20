@@ -10,12 +10,16 @@ import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import cron4s.Cron
 
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration._
 import scala.util.Success
 
 class SysiphosApiContext(
   clusterContext: ClusterContext,
   clusterActors: ClusterActors)(implicit executionContext: ExecutionContext, repositoryContext: RepositoryContext)
   extends ApiContext {
+  implicit val cs = cats.effect.IO.contextShift(executionContext)
+  implicit val timer = cats.effect.IO.timer(executionContext)
+
   override def schedules(id: Option[String], flowId: Option[String]): Future[Seq[FlowScheduleDetails]] =
     clusterContext.flowScheduleRepository.getFlowSchedules(None, flowId).map(_.filter(schedule => id.forall(_ == schedule.id)))
 
@@ -109,8 +113,13 @@ class SysiphosApiContext(
       }
   }
 
-  override def log(logId: String): Future[String] = Future(
-    Logger.defaultLogger.getLog(logId).compile.toList.unsafeRunSync().mkString("\n"))
+  override def log(logId: String): Future[String] =
+    Logger.defaultLogger.getLog(logId)
+      .compile
+      .toList
+      .timeout(5.seconds)
+      .unsafeToFuture()
+      .map(_.mkString("\n"))
 
   override def deleteInstance(flowInstanceId: String): Future[String] = {
     clusterContext.flowInstanceRepository.deleteFlowInstance(flowInstanceId)
