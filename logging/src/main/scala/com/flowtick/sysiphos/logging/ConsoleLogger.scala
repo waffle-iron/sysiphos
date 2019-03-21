@@ -15,4 +15,6 @@ class ConsoleLogger extends Logger {
   override protected def sink(logId: LogId): Sink[IO, Byte] = in => {
     in.through(fs2.text.utf8Decode).evalMap(line => IO(logger.info(line)))
   }
+
+  override def deleteLog(logId: LogId): IO[Unit] = IO.raiseError(new UnsupportedOperationException("cant remove any log from the console logger"))
 }

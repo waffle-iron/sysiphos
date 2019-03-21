@@ -1,13 +1,13 @@
 package com.flowtick.sysiphos.api
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{ Executors, TimeUnit }
 
 import akka.actor.{ ActorSystem, Props }
 import cats.data.Reader
 import cats.effect._
 import cats.syntax.all._
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
-import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, TwitterBootstrapResources, UIResources }
+import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, HealthCheck, TwitterBootstrapResources, UIResources }
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.core.DefaultRepositoryContext
 import com.flowtick.sysiphos.execution.ClusterContext.ClusterContextProvider
@@ -15,6 +15,7 @@ import com.flowtick.sysiphos.execution.FlowExecutorActor.Init
 import com.flowtick.sysiphos.execution._
 import com.flowtick.sysiphos.execution.cluster.{ ClusterActors, ClusterSetup }
 import com.flowtick.sysiphos.flow._
+import com.flowtick.sysiphos.logging
 import com.flowtick.sysiphos.slick._
 import com.twitter.finagle.{ Http, ListeningServer }
 import io.finch.Application
@@ -27,13 +28,15 @@ import kamon.system.SystemMetrics
 import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
 trait SysiphosApiServer extends SysiphosApi
   with SysiphosApiServerConfig
   with ClusterSetup
   with GraphIQLResources
   with TwitterBootstrapResources
-  with UIResources {
+  with UIResources
+  with HealthCheck {
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
@@ -48,8 +51,8 @@ trait SysiphosApiServer extends SysiphosApi
 
   StaticClusterContext.init(flowScheduleRepository, flowDefinitionRepository, flowInstanceRepository, flowTaskInstanceRepository, flowScheduleRepository)
 
-  implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
-  implicit val executorSystem: ActorSystem = ActorSystem(clusterName)
+  implicit lazy val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
+  implicit lazy val executorSystem: ActorSystem = ActorSystem(clusterName)
 
   def clusterContext: ClusterContextProvider = Reader(_ => StaticClusterContext.instance.get)
 
@@ -73,8 +76,13 @@ trait SysiphosApiServer extends SysiphosApi
 
     val address = s"$bindAddress:$httpPort"
 
-    val service = (api(context) :+: graphiqlResources :+: bootstrapResources :+: uiResources).toServiceAs[Application.Json]
-    val server = Http.server.serve(address, service)
+    val service = api(context) :+:
+      healthEndpoint(repositoryDataSource, logging.Logger.defaultLogger) :+:
+      graphiqlResources :+:
+      bootstrapResources :+:
+      uiResources
+
+    val server = Http.server.serve(address, service.toServiceAs[Application.Json])
 
     log.info(s"running at ${server.boundAddress.toString}")
 
@@ -104,8 +112,12 @@ trait SysiphosApiServer extends SysiphosApi
   def startApiServer(clusterContext: ClusterContextProvider): IO[ClusterActors] = {
     addStatsReporter()
 
+    val logger = logging.Logger.defaultLogger
+
     val startedServer: IO[ClusterActors] = for {
       _ <- updateDatabase()
+      _ <- logger.deleteLog(healthCheckLogId).timeout(Duration(5, TimeUnit.SECONDS))
+      _ <- logger.appendLine(healthCheckLogId, "starting sysiphos server...")
       clusterActors <- startExecutorSystem(clusterContext)
       _ <- bindServerToAddress(new SysiphosApiContext(clusterContext(), clusterActors)(executionContext, new DefaultRepositoryContext("api")))
       _ <- IO(clusterActors.executorSingleton ! Init(clusterActors.workerPool))

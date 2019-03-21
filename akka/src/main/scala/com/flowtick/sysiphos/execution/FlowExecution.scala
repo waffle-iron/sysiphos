@@ -62,7 +62,6 @@ trait FlowExecution extends Logging with Clock {
         log.debug("tasks in retry: {}", tasks)
         Future.sequence(tasks.map(findInstance)).map(_.flatten.toList)
       })
-      .logSuccess(instancesInRetry => s"instances in retry: $instancesInRetry")
       .logFailed(s"unable to check for retries")
   }
 

@@ -3,13 +3,9 @@ package com.flowtick.sysiphos.api
 import java.io.{ PrintWriter, StringWriter }
 
 import com.flowtick.sysiphos.api.SysiphosApi.ApiContext
-import com.flowtick.sysiphos.api.resources.{ GraphIQLResources, UIResources }
-import com.flowtick.sysiphos.core.{ DefaultRepositoryContext, RepositoryContext }
-import com.flowtick.sysiphos.execution.Logging
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow.FlowTaskInstanceStatus.FlowTaskInstanceStatus
 import com.flowtick.sysiphos.flow._
-import com.flowtick.sysiphos.logging.Logger
 import com.flowtick.sysiphos.scheduler.FlowScheduleDetails
 import com.twitter.finagle.http.Status
 import io.circe.Json
@@ -22,7 +18,6 @@ import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 import sangria.parser.QueryParser
 import sangria.schema._
-import shapeless.{ :+:, CNil }
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
@@ -149,14 +144,12 @@ object SysiphosApi {
   val schema = Schema(QueryType, Some(MutationType))
 }
 
-trait SysiphosApi extends GraphIQLResources with UIResources {
+trait SysiphosApi {
   import io.finch._
   import io.finch.circe._
   import io.finch.syntax._
 
   implicit val executionContext: ExecutionContext
-
-  val statusEndpoint: Endpoint[String] = get("status") { Ok("OK") }
 
   private def stackTrace(throwable: Throwable): String = {
     val sw = new StringWriter()
@@ -213,5 +206,5 @@ trait SysiphosApi extends GraphIQLResources with UIResources {
     }
   }
 
-  def api(context: ApiContext): Endpoint[String :+: Json :+: CNil] = statusEndpoint :+: apiEndpoint(context)
+  def api(context: ApiContext): Endpoint[Json] = apiEndpoint(context)
 }

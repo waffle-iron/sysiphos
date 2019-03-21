@@ -36,4 +36,6 @@ class FileLogger(logBaseDir: File)(executionContext: ExecutionContext) extends L
     fs2.io.writeOutputStream[IO](IO(new FileOutputStream(new File(logId), true)), executionContext)
 
   override def pipe: Pipe[IO, String, String] = in => super.pipe(in.map(_ + "\n"))
+
+  override def deleteLog(logId: LogId): IO[Unit] = IO(new File(logId).delete())
 }
