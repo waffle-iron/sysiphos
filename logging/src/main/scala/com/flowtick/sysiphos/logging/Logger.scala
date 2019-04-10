@@ -83,9 +83,9 @@ trait Logger extends Clock {
   def getLog(logId: Logger.LogId): Logger.LogStream
 
   /**
-    * @param logId id of the log to delete
-    * @return successful IO
-    */
+   * @param logId id of the log to delete
+   * @return successful IO
+   */
   def deleteLog(logId: Logger.LogId): IO[Unit]
 }
 

@@ -1,5 +1,7 @@
 package com.flowtick.sysiphos.execution
 
+import java.time.ZoneId
+
 import cats.effect.IO
 import com.flowtick.sysiphos.scheduler.{ FlowSchedule, FlowScheduler }
 import cron4s.Cron
@@ -9,6 +11,8 @@ import com.flowtick.sysiphos.core.Clock
 import fs2._
 
 object CronScheduler extends FlowScheduler with Logging with Clock {
+
+  override def timeZone: ZoneId = ZoneId.of("UTC+0")
 
   override def nextOccurrence(schedule: FlowSchedule, now: Long): Either[Throwable, Long] = for {
     cronExpr <- schedule
