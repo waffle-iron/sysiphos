@@ -115,9 +115,11 @@ trait SysiphosApiServer extends SysiphosApi
     val logger = logging.Logger.defaultLogger
 
     val startedServer: IO[ClusterActors] = for {
-      _ <- updateDatabase()
+      _ <- updateDatabase().timeout(Duration(120, TimeUnit.SECONDS))
+      _ <- IO(log.info("database migration finished."))
       _ <- logger.deleteLog(healthCheckLogId).timeout(Duration(5, TimeUnit.SECONDS))
-      _ <- logger.appendLine(healthCheckLogId, "starting sysiphos server...")
+      _ <- logger.appendLine(healthCheckLogId, "starting sysiphos server...").timeout(Duration(5, TimeUnit.SECONDS))
+      _ <- IO(log.info("starting executor system..."))
       clusterActors <- startExecutorSystem(clusterContext)
       _ <- bindServerToAddress(new SysiphosApiContext(clusterContext(), clusterActors)(executionContext, new DefaultRepositoryContext("api")))
       _ <- IO(clusterActors.executorSingleton ! Init(clusterActors.workerPool))
@@ -128,7 +130,7 @@ trait SysiphosApiServer extends SysiphosApi
         IO(executorSystem.terminate()) *>
         IO(SystemMetrics.stopCollecting()) *>
         IO.raiseError(new RuntimeException(s"unable to start server", error))
-    }
+    }.timeout(Duration(300, TimeUnit.SECONDS))
   }
 
 }
