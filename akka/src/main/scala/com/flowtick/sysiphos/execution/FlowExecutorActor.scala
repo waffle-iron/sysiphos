@@ -85,15 +85,17 @@ class FlowExecutorActor(
         _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
 
-    case FlowInstanceExecution.ExecutionFailed(reason, flowInstanceId, flowDefinitionId) =>
+    case FlowInstanceExecution.ExecutionFailed(reason, flowInstanceId, flowDefinitionId, maybeOnFailureTaskId) =>
       Monitoring.count("instance-failed", Map("definition" -> flowDefinitionId))
 
-      sender() ! PoisonPill
-
       for {
-        _ <- flowInstanceRepository.update(FlowInstanceQuery(instanceIds = Some(Seq(flowInstanceId))), FlowInstanceStatus.Failed, Some(reason))
+        _ <- flowInstanceRepository.update(FlowInstanceQuery(instanceIds = Some(Seq(flowInstanceId))), FlowInstanceStatus.Failed, reason)
         _ <- flowInstanceRepository.setEndTime(flowInstanceId, repositoryContext.epochSeconds)
       } yield ()
+
+      sender() ! maybeOnFailureTaskId.map { onFailureTaskId =>
+        FlowInstanceExecution.Run(TaskId(onFailureTaskId))
+      }.getOrElse(PoisonPill)
 
     case FlowInstanceExecution.TaskCompleted(taskInstance) =>
       log.info(s"task completed: ${taskInstance.id}")

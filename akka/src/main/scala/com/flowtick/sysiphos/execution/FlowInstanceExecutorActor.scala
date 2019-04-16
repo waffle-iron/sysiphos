@@ -33,6 +33,19 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
   implicit val timer: Timer[IO] = cats.effect.IO.timer(executionContext)
   implicit val cs: ContextShift[IO] = cats.effect.IO.contextShift(executionContext)
 
+  def taskDefinition = clusterContext.flowDefinitionRepository
+    .findById(flowDefinitionId)
+    .flatMap {
+      case Some(flowDefinitionDetails) => Future.successful(
+        FlowDefinition.fromJson(flowDefinitionDetails.source.get))
+      case None => Future.failed(new IllegalStateException(s"unable to find flow definition ${flowDefinitionId}"))
+    }
+
+  def onFailureTask: Future[Option[FlowTask]] = taskDefinition.flatMap {
+    case Right(flowDefinition) => Future.successful(flowDefinition.onFailure)
+    case Left(error) => Future.failed(error)
+  }
+
   val taskExecutorProps = Props(new FlowTaskExecutionActor(self, context.parent, logger))
   var taskQueue: Option[QueueType] = None
 
@@ -69,45 +82,39 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
   override def receive: PartialFunction[Any, Unit] = {
     case FlowInstanceExecution.Run(taskSelection) =>
       log.info(s"executing $flowDefinitionId instance $flowInstanceId...")
+      taskDefinition.map {
+        case Right(flowDefinition) =>
+          val taskParallelism: Int = flowDefinition.taskParallelism.getOrElse(1)
 
-      clusterContext.flowDefinitionRepository
-        .findById(flowDefinitionId)
-        .flatMap {
-          case Some(flowDefinitionDetails) => Future.successful(FlowDefinition.fromJson(flowDefinitionDetails.source.get))
-          case None => Future.failed(new IllegalStateException(s"unable to find flow definition ${flowDefinitionId}"))
-        }.map {
-          case Right(flowDefinition) =>
-            val taskParallelism: Int = flowDefinition.taskParallelism.getOrElse(1)
+          if (taskQueue.isEmpty) {
+            taskQueue = Some(createTaskStream(clusterContext.flowTaskInstanceRepository, clusterContext.flowInstanceRepository, self, flowExecutorActor)(
+              flowInstanceId,
+              flowDefinitionId,
+              taskParallelism,
+              flowDefinition.taskRatePerSecond.getOrElse(1),
+              1.seconds,
+              logger)(repositoryContext, timer, cs).run)
+          }
 
-            if (taskQueue.isEmpty) {
-              taskQueue = Some(createTaskStream(clusterContext.flowTaskInstanceRepository, clusterContext.flowInstanceRepository, self, flowExecutorActor)(
-                flowInstanceId,
-                flowDefinitionId,
-                taskParallelism,
-                flowDefinition.taskRatePerSecond.getOrElse(1),
-                1.seconds,
-                logger)(repositoryContext, timer, cs).run)
+          (for {
+            currentInstances <- clusterContext.flowTaskInstanceRepository.find(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstanceId)))
+
+            enqueueResult <- enqueueNextTasks(flowDefinition, taskSelection, currentInstances).logSuccess(result => s"new in queue: $result")
+
+            executionResult <- if (enqueueResult.exists(_.isRight) || currentInstances.exists(isPending)) {
+              Future.successful(WorkPending(flowInstanceId))
+            } else if (currentInstances.forall(_.status == FlowTaskInstanceStatus.Done)) {
+              Future.successful(Finished(flowInstanceId, flowDefinitionId))
+            } else {
+              Future.successful(ExecutionFailed(Some(new IllegalStateException("no task candidate found")), flowInstanceId, flowDefinitionId))
             }
 
-            (for {
-              currentInstances <- clusterContext.flowTaskInstanceRepository.find(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstanceId)))
+          } yield executionResult)
+            .logSuccess(executionResult => s"execution result $executionResult")
+            .logFailed(s"unable to execute $flowInstanceId").pipeTo(flowExecutorActor)
 
-              enqueueResult <- enqueueNextTasks(flowDefinition, taskSelection, currentInstances).logSuccess(result => s"new in queue: $result")
-
-              executionResult <- if (enqueueResult.exists(_.isRight) || currentInstances.exists(isPending)) {
-                Future.successful(WorkPending(flowInstanceId))
-              } else if (currentInstances.forall(_.status == FlowTaskInstanceStatus.Done)) {
-                Future.successful(Finished(flowInstanceId, flowDefinitionId))
-              } else {
-                Future.successful(ExecutionFailed(new IllegalStateException("no task candidate found"), flowInstanceId, flowDefinitionId))
-              }
-
-            } yield executionResult)
-              .logSuccess(executionResult => s"execution result $executionResult")
-              .logFailed(s"unable to execute $flowInstanceId").pipeTo(flowExecutorActor)
-
-          case Left(error) => Future.failed(error)
-        }
+        case Left(error) => Future.failed(error)
+      }
 
     case FlowInstanceExecution.WorkFailed(error, optionalTaskInstance) => optionalTaskInstance match {
       case Some(flowTaskInstance) =>
@@ -144,9 +151,20 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
         ended <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
       } yield ended
 
+      val maybeOnFailureTaskId = onFailureTask.map { failureTask => failureTask.exists(_.id == flowTaskInstance.taskId) }
+
+      val messageToFlowExecutor: FlowTaskInstanceDetails => Future[FlowInstanceMessage] = taskInstanceDetails => maybeOnFailureTaskId.map {
+        case true => FlowInstanceExecution.ExecutionFailed(
+          reason = None,
+          flowInstanceId = taskInstanceDetails.flowInstanceId,
+          flowDefinitionId = taskInstanceDetails.flowDefinitionId,
+          onFailureTaskId = None)
+        case false => TaskCompleted(taskInstanceDetails)
+      }
+
       OptionT(doneTaskInstance)
         .getOrElseF(Future.failed(new IllegalStateException("flow task instance not updated")))
-        .map(TaskCompleted)
+        .flatMap(messageToFlowExecutor)
         .pipeTo(flowExecutorActor)
         .logFailed(s"unable to complete task ${flowTaskInstance.id}")
         .foreach(_ => Monitoring.count("task-completed", Map(
@@ -156,7 +174,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
     case TaskStreamFailure(error) =>
       log.error("error in task stream", error)
       sender() ! PoisonPill
-      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(error, flowInstanceId, flowDefinitionId)
+      flowExecutorActor ! FlowInstanceExecution.ExecutionFailed(Option(error), flowInstanceId, flowDefinitionId)
 
     case other => log.warn(s"unhandled message: $other")
   }
@@ -165,9 +183,22 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
     if (flowTaskInstance.retries == 0) {
       val message = s"retries exceeded for $flowTaskInstance"
       log.error(message, error)
-      clusterContext.flowTaskInstanceRepository
-        .setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, None, None)
-        .map(_ => FlowInstanceExecution.ExecutionFailed(new RuntimeException(message, error), flowTaskInstance.flowInstanceId, flowTaskInstance.flowDefinitionId))
+
+      for {
+        _ <- clusterContext.flowTaskInstanceRepository.setStatus(flowTaskInstance.id, FlowTaskInstanceStatus.Failed, None, None)
+        maybeFailureTask <- onFailureTask
+        failureMessage <- if (maybeFailureTask.exists(_.id != flowTaskInstance.taskId))
+          Future.successful(FlowInstanceExecution.ExecutionFailed(
+            Some(new RuntimeException(message, error)),
+            flowTaskInstance.flowInstanceId,
+            flowTaskInstance.flowDefinitionId,
+            onFailureTaskId = maybeFailureTask.map(_.id)))
+        else Future.successful(FlowInstanceExecution.ExecutionFailed(
+          Some(new RuntimeException(message, error)),
+          flowTaskInstance.flowInstanceId,
+          flowTaskInstance.flowDefinitionId,
+          None))
+      } yield failureMessage
     } else {
       val dueDate = repositoryContext.epochSeconds + flowTaskInstance.retryDelay
       log.info(s"scheduling retry for ${flowTaskInstance.id} for $dueDate")

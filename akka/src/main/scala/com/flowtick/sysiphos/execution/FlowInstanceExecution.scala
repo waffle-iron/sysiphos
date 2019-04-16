@@ -32,7 +32,7 @@ trait FlowInstanceExecution extends Logging with Clock {
     lazy val instancesById: Map[String, Seq[FlowTaskInstance]] = taskInstances.groupBy(_.taskId)
 
     (taskSelection match {
-      case TaskId(id) => flowDefinition.findTask(id).map(Seq(_))
+      case TaskId(id) => flowDefinition.findTask(id).map(Seq(_)).orElse(flowDefinition.onFailure.filter(_.id == id).map(Seq(_)))
       case PendingTasks => Some(flowDefinition.tasks).map(findChildrenOfDoneTasks(_, instancesById))
     }).getOrElse(Seq.empty)
   }
@@ -130,6 +130,6 @@ object FlowInstanceExecution {
   case class RetryScheduled(flowTaskInstance: FlowTaskInstance) extends FlowInstanceMessage
 
   case class WorkPending(flowInstanceId: String) extends FlowInstanceMessage
-  case class ExecutionFailed(reason: Throwable, flowInstanceId: String, flowDefinitionId: String) extends FlowInstanceMessage
+  case class ExecutionFailed(reason: Option[Throwable], flowInstanceId: String, flowDefinitionId: String, onFailureTaskId: Option[String] = None) extends FlowInstanceMessage
   case class Finished(flowInstanceId: String, flowDefinitionId: String) extends FlowInstanceMessage
 }

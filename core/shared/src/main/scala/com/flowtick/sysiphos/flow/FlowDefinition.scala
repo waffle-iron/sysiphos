@@ -49,6 +49,8 @@ trait FlowDefinition {
    */
   def latestOnly: Boolean
 
+  def onFailure: Option[FlowTask]
+
   /**
    * @param id a task id
    * @return first task in the tasks and there children that matches the id param
@@ -57,6 +59,8 @@ trait FlowDefinition {
     def findInTask(task: FlowTask): Option[FlowTask] =
       if (task.id == id) {
         Some(task)
+      } else if (onFailure.exists(_.id == task.id)) {
+        onFailure
       } else task
         .children
         .getOrElse(Seq.empty)
@@ -102,13 +106,14 @@ object FlowDefinition {
       parallelism <- c.downField("parallelism").as[Option[Int]]
       taskParallelism <- c.downField("taskParallelism").as[Option[Int]]
       taskRatePerSecond <- c.downField("taskRatePerSecond").as[Option[Int]]
+      failure <- c.downField("onFailure").as[Option[FlowTask]]
     } yield SysiphosDefinition(
       id = id,
       tasks = tasks,
       latestOnly = latestOnly.getOrElse(false),
       parallelism = parallelism,
       taskParallelism = taskParallelism,
-      taskRatePerSecond = taskRatePerSecond)
+      taskRatePerSecond = taskRatePerSecond, failure)
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
@@ -160,7 +165,8 @@ object FlowDefinition {
     latestOnly: Boolean = false,
     parallelism: Option[Int] = None,
     taskParallelism: Option[Int] = None,
-    taskRatePerSecond: Option[Int] = None) extends FlowDefinition
+    taskRatePerSecond: Option[Int] = None,
+    onFailure: Option[FlowTask] = None) extends FlowDefinition
 
   final case class SysiphosTask(
     id: String,

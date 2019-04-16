@@ -6,7 +6,7 @@ import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import com.flowtick.sysiphos.core.RepositoryContext
 import com.flowtick.sysiphos.execution.FlowInstanceExecution._
-import com.flowtick.sysiphos.flow.FlowDefinition.SysiphosDefinition
+import com.flowtick.sysiphos.flow.FlowDefinition.{ SysiphosDefinition, SysiphosTask }
 import com.flowtick.sysiphos.flow.FlowInstanceStatus.FlowInstanceStatus
 import com.flowtick.sysiphos.flow._
 import com.flowtick.sysiphos.logging.ConsoleLogger
@@ -282,8 +282,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
     flowInstanceExecutorActor ! WorkFailed(new RuntimeException("error"), Some(taskInstanceWithoutRetries))
 
     flowExecutorProbe.fishForMessage() {
-      case ExecutionFailed(_, flowInstanceId, flowDefinitionId) =>
-        flowInstance.id == flowInstanceId && flowDefinition.id == flowDefinitionId
+      case ExecutionFailed(_, flowInstanceId, flowDefinitionId, onFailureTaskId) =>
+        flowInstance.id == flowInstanceId && flowDefinition.id == flowDefinitionId && onFailureTaskId.isEmpty
     }
   }
 
