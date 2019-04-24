@@ -1,3 +1,4 @@
+import com.typesafe.sbt.packager.docker.Cmd
 import sbt.url
 import sbtrelease.ReleaseStateTransformations._
 
@@ -172,6 +173,15 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent, GitVe
     DockerAlias(None, Some("flowtick"), "sysiphos", Some("latest")),
     DockerAlias(None, Some("flowtick"), "sysiphos", Some(version.value))
   ),
+
+  dockerCommands := dockerCommands.value.flatMap {
+    case workdir@Cmd("WORKDIR", args @ _*) => Seq(
+      workdir,
+      Cmd("RUN", "apt-get update && apt-get install -y telnet curl vim netcat-openbsd && rm -rf /var/lib/apt/lists/*")
+    )
+    case other => Seq(other)
+  },
+
   javaAgents += "org.aspectj" % "aspectjweaver" % "1.8.13",
   javaOptions in Universal += "-Dorg.aspectj.tracing.factory=default",
   resourceGenerators in Compile += Def.task {

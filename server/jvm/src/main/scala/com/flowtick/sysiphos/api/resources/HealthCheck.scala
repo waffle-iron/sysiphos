@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import cats.data.Validated._
 import cats.data.ValidatedNel
-import cats.effect.IO
+import cats.effect.{ ContextShift, IO, Timer }
 import cats.implicits._
 import com.flowtick.sysiphos.logging.Logger
 import com.twitter.finagle.http.Status
@@ -12,19 +12,13 @@ import io.finch._
 import io.finch.syntax._
 import javax.sql.DataSource
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
 trait HealthCheck {
 
-  implicit def executionContext: ExecutionContext
-
-  implicit lazy val cs = cats.effect.IO.contextShift(executionContext)
-  implicit lazy val timer = cats.effect.IO.timer(executionContext)
-
   val healthCheckLogId = ".sysiphos"
 
-  def healthEndpoint(dataSource: DataSource, logger: Logger): Endpoint[String] = get("health") {
+  def healthEndpoint(dataSource: DataSource, logger: Logger)(implicit cs: ContextShift[IO], timer: Timer[IO]): Endpoint[String] = get("health") {
     (for {
       logCheck <- logger
         .getLog(healthCheckLogId)

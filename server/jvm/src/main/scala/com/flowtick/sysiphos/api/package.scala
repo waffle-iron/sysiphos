@@ -1,5 +1,7 @@
 package com.flowtick.sysiphos
 
+import cats.effect.{ IO, Timer }
+
 package object api {
   import com.twitter.util.{ Future => TFuture, Promise => TPromise, Return, Throw }
   import scala.concurrent.{ Future => SFuture, Promise => SPromise, ExecutionContext }
@@ -29,6 +31,21 @@ package object api {
       }
 
       p
+    }
+  }
+
+  implicit class RichIO[A](ioa: IO[A]) {
+    import cats.syntax.apply._
+    import scala.concurrent.duration._
+
+    def retryWithBackoff(maxRetries: Int)(initialDelay: FiniteDuration = 5.seconds, factor: Int = 2, maxDuration: FiniteDuration = 5.minutes)(implicit timer: Timer[IO]): IO[A] = {
+
+      ioa.handleErrorWith { error =>
+        if (maxRetries > 0)
+          IO.sleep(initialDelay) *> retryWithBackoff(maxRetries - 1)((initialDelay * factor).min(maxDuration))
+        else
+          IO.raiseError(error)
+      }
     }
   }
 

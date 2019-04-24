@@ -40,19 +40,20 @@ trait SysiphosApiServer extends SysiphosApi
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
-  val slickExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(instanceThreads))
+  implicit lazy val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+  implicit lazy val executorSystem: ActorSystem = ActorSystem(clusterName)
+
+  implicit lazy val cs = cats.effect.IO.contextShift(executionContext)
+  implicit lazy val timer = cats.effect.IO.timer(executionContext)
 
   lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
 
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, slickExecutionContext)
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, executionContext)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, executionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, executionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, executionContext)
 
   StaticClusterContext.init(flowScheduleRepository, flowDefinitionRepository, flowInstanceRepository, flowTaskInstanceRepository, flowScheduleRepository)
-
-  implicit lazy val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(apiThreads))
-  implicit lazy val executorSystem: ActorSystem = ActorSystem(clusterName)
 
   def clusterContext: ClusterContextProvider = Reader(_ => StaticClusterContext.instance.get)
 
@@ -110,17 +111,18 @@ trait SysiphosApiServer extends SysiphosApi
   }
 
   def startApiServer(clusterContext: ClusterContextProvider): IO[ClusterActors] = {
-    addStatsReporter()
-
     val logger = logging.Logger.defaultLogger
 
     val startedServer: IO[ClusterActors] = for {
-      _ <- updateDatabase().timeout(Duration(120, TimeUnit.SECONDS))
-      _ <- IO(log.info("database migration finished."))
-      _ <- logger.deleteLog(healthCheckLogId).timeout(Duration(5, TimeUnit.SECONDS))
-      _ <- logger.appendLine(healthCheckLogId, "starting sysiphos server...").timeout(Duration(5, TimeUnit.SECONDS))
-      _ <- IO(log.info("starting executor system..."))
-      clusterActors <- startExecutorSystem(clusterContext)
+      _ <- IO(addStatsReporter())
+      _ <- IO(log.info("updating database...")) *> updateDatabase().timeout(Duration(120, TimeUnit.SECONDS)).retryWithBackoff(5)()
+
+      _ <- IO(log.info("setting up health log...")) *>
+        logger.deleteLog(healthCheckLogId).timeout(Duration(5, TimeUnit.SECONDS)) *>
+        logger.appendLine(healthCheckLogId, "starting sysiphos server...").timeout(Duration(5, TimeUnit.SECONDS))
+
+      clusterActors <- IO(log.info("starting executor system...")) *> startExecutorSystem(clusterContext)
+
       _ <- bindServerToAddress(new SysiphosApiContext(clusterContext(), clusterActors)(executionContext, new DefaultRepositoryContext("api")))
       _ <- IO(clusterActors.executorSingleton ! Init(clusterActors.workerPool))
     } yield clusterActors

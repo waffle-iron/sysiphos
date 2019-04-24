@@ -149,8 +149,6 @@ trait SysiphosApi {
   import io.finch.circe._
   import io.finch.syntax._
 
-  implicit val executionContext: ExecutionContext
-
   private def stackTrace(throwable: Throwable): String = {
     val sw = new StringWriter()
     throwable.printStackTrace(new PrintWriter(sw))
@@ -162,7 +160,7 @@ trait SysiphosApi {
     Output.payload(Json.obj("errors" -> Json.fromValues(Seq(errorJson))), status) // graphql like error format
   }
 
-  def apiEndpoint(apiContext: ApiContext): Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
+  def apiEndpoint(apiContext: ApiContext)(implicit executionContext: ExecutionContext): Endpoint[Json] = post("api" :: jsonBody[Json]) { json: Json =>
     val result: Future[Output[Json]] = json.asObject.flatMap { queryObj =>
       val query: Option[String] = queryObj("query").flatMap(_.asString)
       val operationName: Option[String] = queryObj("operationName").flatMap(_.asString)
@@ -184,7 +182,11 @@ trait SysiphosApi {
 
   def parseQuery(query: String): Try[Document] = QueryParser.parse(query)
 
-  def executeQuery(query: Document, operation: Option[String], vars: Json, apiContext: ApiContext): Future[Output[Json]] = {
+  def executeQuery(
+    query: Document,
+    operation: Option[String],
+    vars: Json,
+    apiContext: ApiContext)(implicit executionContext: ExecutionContext): Future[Output[Json]] = {
     val executedQuery = Executor.execute(
       SysiphosApi.schema,
       query,
@@ -206,5 +208,5 @@ trait SysiphosApi {
     }
   }
 
-  def api(context: ApiContext): Endpoint[Json] = apiEndpoint(context)
+  def api(context: ApiContext)(implicit executionContext: ExecutionContext): Endpoint[Json] = apiEndpoint(context)
 }
