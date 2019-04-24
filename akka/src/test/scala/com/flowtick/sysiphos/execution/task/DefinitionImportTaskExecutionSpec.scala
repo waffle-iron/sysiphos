@@ -2,7 +2,7 @@ package com.flowtick.sysiphos.execution.task
 
 import java.io.File
 
-import com.flowtick.sysiphos.flow.FlowDefinition.ItemSpec
+import com.flowtick.sysiphos.flow.FlowDefinition.{ ItemSpec, SysiphosDefinition }
 import com.flowtick.sysiphos.flow.FlowInstanceContextValue
 import com.flowtick.sysiphos.logging.ConsoleLogger
 import com.flowtick.sysiphos.task.{ CamelTask, DefinitionImportTask, TriggerFlowTask }
@@ -19,7 +19,7 @@ class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTa
         uri = s"file:${testImportFile.getParent}?fileName=${testImportFile.getName}&noop=true",
         exchangeType = Some("consumer"),
         children = None),
-      targetDefinitionId = "imported-definition",
+      targetDefinitionId = Some("imported-definition"),
       items = ItemSpec(
         `type` = "jsonpath",
         expression = "$.data"),
@@ -47,7 +47,7 @@ class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTa
         uri = s"file:${testImportFile.getParent}?fileName=${testImportFile.getName}&noop=true",
         exchangeType = Some("consumer"),
         children = None),
-      targetDefinitionId = "trigger-imported-definition",
+      targetDefinitionId = Some("trigger-imported-definition"),
       items = ItemSpec(
         `type` = "jsonpath",
         expression = "$.data"),
@@ -74,5 +74,52 @@ class DefinitionImportTaskExecutionSpec extends FlatSpec with DefinitionImportTa
         children = None,
         context = Some(Seq(
           FlowInstanceContextValue("foo", "key2"))))))
+  }
+
+  it should "support definition template" in {
+    val definitionImportTask = DefinitionImportTask(
+      id = "import-task",
+      fetchTask = CamelTask(
+        id = "camel-fetch-task",
+        uri = s"file:${testImportFile.getParent}?fileName=${testImportFile.getName}&noop=true",
+        exchangeType = Some("consumer"),
+        children = None),
+      definitionTemplate = Some(SysiphosDefinition("target-definition", Seq.empty, onFailure = Some(CamelTask(
+        id = "failure-task",
+        uri = "log:error",
+        children = None)))),
+      items = ItemSpec(
+        `type` = "jsonpath",
+        expression = "$.data"),
+      taskTemplate = TriggerFlowTask(
+        "trigger-${businessKey}",
+        flowDefinitionId = "some-flow",
+        children = None,
+        context = Some(Seq(
+          FlowInstanceContextValue("foo", "${businessKey}")))))
+
+    val flowDefinition =
+      getFlowDefinition(definitionImportTask, Seq.empty, "test")(new ConsoleLogger).unsafeRunSync()
+
+    flowDefinition.tasks should be(Seq(
+      TriggerFlowTask(
+        "trigger-key1",
+        flowDefinitionId = "some-flow",
+        children = None,
+        context = Some(Seq(
+          FlowInstanceContextValue("foo", "key1")))),
+      TriggerFlowTask(
+        "trigger-key2",
+        flowDefinitionId = "some-flow",
+        children = None,
+        context = Some(Seq(
+          FlowInstanceContextValue("foo", "key2"))))))
+
+    flowDefinition.onFailure should be(definitionImportTask.definitionTemplate.get.onFailure)
+    flowDefinition.taskRatePerSecond should be(definitionImportTask.definitionTemplate.get.taskRatePerSecond)
+    flowDefinition.taskParallelism should be(definitionImportTask.definitionTemplate.get.taskParallelism)
+    flowDefinition.latestOnly should be(definitionImportTask.definitionTemplate.get.latestOnly)
+    flowDefinition.parallelism should be(definitionImportTask.definitionTemplate.get.parallelism)
+    flowDefinition.id should be(definitionImportTask.definitionTemplate.get.id)
   }
 }

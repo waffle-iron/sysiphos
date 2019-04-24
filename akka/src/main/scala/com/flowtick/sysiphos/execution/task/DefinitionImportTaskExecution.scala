@@ -18,17 +18,21 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
     logId: LogId)(logger: Logger): IO[FlowDefinition] = {
     executeExchange(definitionImportTask.fetchTask, Seq.empty, logId)(logger).flatMap {
       case (exchange, _) =>
-        evaluateExpression[TaskConfigurationDtos](definitionImportTask.items, exchange).flatMap { configurations =>
-          definitionFromConfigurations(
-            definitionImportTask.targetDefinitionId,
+        for {
+          configurations <- evaluateExpression[TaskConfigurationDtos](definitionImportTask.items, exchange)
+          template <- definitionImportTask.definitionTemplate
+            .orElse(definitionImportTask.targetDefinitionId.map(SysiphosDefinition(_, Seq.empty))).map(IO.pure)
+            .getOrElse(IO.raiseError(new IllegalArgumentException("either target definition id or template need to be defined")))
+          finalDefinition <- definitionFromConfigurations(
+            template,
             definitionImportTask.taskTemplate,
             configurations.items.asScala)
-        }
+        } yield finalDefinition
     }
   }
 
   protected def definitionFromConfigurations(
-    definitionId: String,
+    definitionTemplate: FlowDefinition,
     taskTemplate: FlowTask,
     configurations: Seq[TaskConfigurationDto]): IO[FlowDefinition] = IO.unit *> {
     val taskConfigs: Seq[TaskConfiguration] = configurations.map { taskConfigDto =>
@@ -73,7 +77,16 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
       }
     })
 
-    tasks.map(tasksWithReplacements => SysiphosDefinition(id = definitionId, tasks = tasksWithReplacements))
+    tasks.map(tasksWithReplacements => {
+      SysiphosDefinition(
+        id = definitionTemplate.id,
+        tasks = tasksWithReplacements,
+        latestOnly = definitionTemplate.latestOnly,
+        parallelism = definitionTemplate.parallelism,
+        taskParallelism = definitionTemplate.taskParallelism,
+        taskRatePerSecond = definitionTemplate.taskRatePerSecond,
+        onFailure = definitionTemplate.onFailure)
+    })
   }
 }
 

@@ -78,7 +78,7 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
         id = "fetch-task-id",
         uri = "some uri",
         children = None),
-      targetDefinitionId = "definition-id",
+      targetDefinitionId = Some("definition-id"),
       items = ItemSpec(`type` = "jsonpath", expression = "$.data.configurations.items"),
       taskTemplate = CamelTask(
         id = "id-${businessKey}",

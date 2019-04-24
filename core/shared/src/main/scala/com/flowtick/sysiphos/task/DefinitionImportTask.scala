@@ -1,12 +1,13 @@
 package com.flowtick.sysiphos.task
 
 import com.flowtick.sysiphos.flow.FlowDefinition.ItemSpec
-import com.flowtick.sysiphos.flow.FlowTask
+import com.flowtick.sysiphos.flow.{ FlowDefinition, FlowTask }
 
 final case class DefinitionImportTask(
   `type`: String = "definition-import",
   id: String,
-  targetDefinitionId: String,
+  targetDefinitionId: Option[String] = None,
+  definitionTemplate: Option[FlowDefinition] = None,
   fetchTask: CamelTask,
   items: ItemSpec,
   taskTemplate: FlowTask,
