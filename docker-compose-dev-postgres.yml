@@ -20,6 +20,7 @@ services:
 
   sysiphos:
     image: flowtick/sysiphos:latest
+    command: ["-jvm-debug", "5001"]
     depends_on:
       - db
     links:
@@ -27,6 +28,7 @@ services:
       - grafana
     ports:
       - 9090:8080
+      - 5001:5001
       - 10095:9095
     environment:
       DATABASE_PROFILE: postgres
@@ -34,7 +36,6 @@ services:
       DATABASE_USER: sysiphos
       DATABASE_PASSWORD: sysiphos
       STATS_ENABLED: "true"
-      STATS_HOST: grafana
 
   grafana:
     image: kamon/grafana_graphite

@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter
 
 import cats.effect.{ ContextShift, IO }
 import com.amazonaws.auth.{ AWSCredentialsProviderChain, AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain }
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder
 import com.amazonaws.services.s3.{ AmazonS3, AmazonS3ClientBuilder }
 import com.flowtick.sysiphos.config.Configuration.propOrEnv
 import com.flowtick.sysiphos.core.Clock
@@ -134,7 +135,9 @@ object Logger {
         .withCredentials(awsCredentials)
         .build()
 
-      val s3Store: Store[IO] = S3Store[IO](s3, blockingExecutionContext = logExecutionContext)
+      val transferManager = TransferManagerBuilder.standard().withS3Client(s3).build()
+
+      val s3Store: Store[IO] = S3Store[IO](transferManager, blockingExecutionContext = logExecutionContext)
       new StreamLogger(s3Bucket, s3Store, streamChunkSize)
 
     case "file-stream" =>

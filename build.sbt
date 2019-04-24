@@ -7,7 +7,7 @@ val finchV = "0.27.0"
 val circeV = "0.11.1"
 val slf4jV = "1.7.25"
 val logbackV = "1.2.3"
-val blobStoreV = "0.2.2"
+val blobStoreV = "0.3.1"
 val camelV = "2.22.1"
 val akkaV = "2.5.18"
 
