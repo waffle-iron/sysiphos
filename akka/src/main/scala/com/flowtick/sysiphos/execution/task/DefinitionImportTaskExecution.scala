@@ -80,7 +80,7 @@ trait DefinitionImportTaskExecution extends CamelTaskExecution with Logging {
     tasks.map(tasksWithReplacements => {
       SysiphosDefinition(
         id = definitionTemplate.id,
-        tasks = tasksWithReplacements,
+        tasks = definitionTemplate.tasks ++ tasksWithReplacements,
         latestOnly = definitionTemplate.latestOnly,
         parallelism = definitionTemplate.parallelism,
         taskParallelism = definitionTemplate.taskParallelism,

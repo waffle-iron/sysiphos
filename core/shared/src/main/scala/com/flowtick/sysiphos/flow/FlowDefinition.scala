@@ -117,7 +117,10 @@ object FlowDefinition {
   }
 
   implicit val definitionEncoder: Encoder[FlowDefinition] = new Encoder[FlowDefinition] {
-    override def apply(a: FlowDefinition): Json = Json.obj()
+    override def apply(a: FlowDefinition): Json = a match {
+      case definition: SysiphosDefinition => definition.asJson
+      case _ => throw new IllegalStateException("unknown definition type")
+    }
   }
 
   implicit val taskDecoder: Decoder[FlowTask] = new Decoder[FlowTask] {
@@ -181,6 +184,7 @@ object FlowDefinition {
 
   def toJson(definition: FlowDefinition): String = definition match {
     case s: SysiphosDefinition => s.asJson.spaces2
+    case _ => throw new IllegalStateException("unknown definition type")
   }
 }
 

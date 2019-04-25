@@ -15,59 +15,83 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |  "taskParallelism": 5,
          |  "parallelism": 2,
          |  "latestOnly": true,
-         |  "tasks": [{
-         |    "id": "test-task",
-         |    "type": "shell",
-         |    "command": "ls",
-         |    "children": [
-         |      {
-         |        "id": "something",
-         |        "type": "noop",
-         |        "properties": {
-         |          "foo": "bar"
-         |        }
-         |      },
-         |      {
-         |        "id": "trigger-task-id",
-         |        "type": "trigger",
-         |        "flowDefinitionId": "someFlowId"
-         |      },
-         |      {
-         |        "id" : "camel-task-id",
-         |        "type" : "camel",
-         |        "uri" : "http://example.org",
-         |        "bodyTemplate" : "Some Request Body"
-         |      },
-         |      {
-         |        "id" : "dynamic-task-id",
-         |        "type" : "dynamic",
-         |        "contextSourceUri" : "http://example.org/path",
-         |        "items": {
-         |          "type": "jsonpath",
-         |          "expression": "$$.data.items"
-         |        }
-         |      },
-         |      {
-         |        "type" : "definition-import",
-         |        "id" : "definition-import-task-id",
-         |        "targetDefinitionId" : "definition-id",
-         |        "fetchTask" : {
-         |          "id" : "fetch-task-id",
-         |          "uri" : "some uri",
-         |          "type" : "camel"
+         |  "tasks": [
+         |    {
+         |      "id": "test-task",
+         |      "type": "shell",
+         |      "command": "ls",
+         |      "children": [
+         |        {
+         |          "id": "something",
+         |          "type": "noop",
+         |          "properties": {
+         |            "foo": "bar"
+         |          }
          |        },
-         |        "items" : {
-         |          "type" : "jsonpath",
-         |          "expression" : "$$.data.configurations.items"
+         |        {
+         |          "id": "trigger-task-id",
+         |          "type": "trigger",
+         |          "flowDefinitionId": "someFlowId"
          |        },
-         |        "taskTemplate" : {
-         |          "id" : "id-$${businessKey}",
-         |          "uri" : "some template uri",
-         |          "type" : "camel"
+         |        {
+         |          "id": "camel-task-id",
+         |          "type": "camel",
+         |          "uri": "http://example.org",
+         |          "bodyTemplate": "Some Request Body"
+         |        },
+         |        {
+         |          "id": "dynamic-task-id",
+         |          "type": "dynamic",
+         |          "contextSourceUri": "http://example.org/path",
+         |          "items": {
+         |            "type": "jsonpath",
+         |            "expression": "$$.data.items"
+         |          }
+         |        },
+         |        {
+         |          "type": "definition-import",
+         |          "id": "definition-import-task-id",
+         |          "targetDefinitionId": "definition-id",
+         |          "fetchTask": {
+         |            "id": "fetch-task-id",
+         |            "uri": "some uri",
+         |            "type": "camel"
+         |          },
+         |          "items": {
+         |            "type": "jsonpath",
+         |            "expression": "$$.data.configurations.items"
+         |          },
+         |          "taskTemplate": {
+         |            "id": "id-$${businessKey}",
+         |            "uri": "some template uri",
+         |            "type": "camel"
+         |          }
+         |        },
+         |        {
+         |          "type": "definition-import",
+         |          "id": "definition-template-import-task-id",
+         |          "definitionTemplate": {
+         |            "id": "imported-definition",
+         |            "tasks": []
+         |          },
+         |          "fetchTask": {
+         |            "id": "fetch-task-id",
+         |            "uri": "some uri",
+         |            "type": "camel"
+         |          },
+         |          "items": {
+         |            "type": "jsonpath",
+         |            "expression": "$$.data.configurations.items"
+         |          },
+         |          "taskTemplate": {
+         |            "id": "id-$${businessKey}",
+         |            "uri": "some template uri",
+         |            "type": "camel"
+         |          }
          |        }
-         |      }
-         |    ]
-         |  }]
+         |      ]
+         |    }
+         |  ]
          |}
          |
        """.stripMargin.trim)
@@ -98,7 +122,8 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
           TriggerFlowTask(id = "trigger-task-id", `type` = "trigger", "someFlowId", None),
           CamelTask(id = "camel-task-id", uri = "http://example.org", bodyTemplate = Some("Some Request Body"), children = None),
           DynamicTask(id = "dynamic-task-id", contextSourceUri = "http://example.org/path", children = None, items = ItemSpec(`type` = "jsonpath", expression = "$.data.items")),
-          definitionImportTask)),
+          definitionImportTask,
+          definitionImportTask.copy(id = "definition-template-import-task-id", targetDefinitionId = None, definitionTemplate = Some(SysiphosDefinition("imported-definition", tasks = Seq.empty))))),
         command = "ls")))
 
     tryParse should be(Right(expectedDefinition))
