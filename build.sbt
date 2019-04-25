@@ -58,12 +58,8 @@ lazy val common = Seq(
   libraryDependencies += "ch.qos.logback" % "logback-classic" % logbackV % Test
 )
 
-lazy val crossCompile = Seq(
-  crossScalaVersions := Seq(scalaV, "2.11.12"),
-)
-
 lazy val core = crossProject.in(file("core")).
-  settings(common ++ crossCompile).
+  settings(common).
   settings(
     name := "sysiphos-core",
     libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided",
@@ -80,7 +76,7 @@ lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
 lazy val akka = project.in(file("akka")).
-  settings(common ++ crossCompile).
+  settings(common).
   settings(
     name := "sysiphos-akka",
     libraryDependencies += "com.typesafe.akka" %% "akka-actor" % akkaV,
@@ -123,7 +119,7 @@ lazy val gitProject = project.in(file("git")).
   ).dependsOn(coreJVM)
 
 lazy val slick = project.in(file("slick")).
-  settings(common ++ crossCompile).
+  settings(common).
   settings(
     name := "sysiphos-slick",
     libraryDependencies += "com.typesafe.slick" %% "slick" % "3.2.3",
@@ -136,7 +132,7 @@ lazy val slick = project.in(file("slick")).
   ).dependsOn(coreJVM)
 
 lazy val logging = project.in(file("logging")).
-  settings(common ++ crossCompile).
+  settings(common).
   settings(
     name := "sysiphos-logging",
     libraryDependencies ++= Seq(
