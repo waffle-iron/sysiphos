@@ -22,7 +22,7 @@ class CronSchedulerSpec extends FlatSpec with Matchers {
     next should be(Right(60))
   }
 
-  it should "return all occurrences between to old schedule and now" in {
+  it should "return all occurrences between the old schedule and now" in {
     val dueSchedule = testSchedule.copy(nextDueDate = Some(70))
 
     val now = 190

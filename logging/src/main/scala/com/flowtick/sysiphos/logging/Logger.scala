@@ -5,6 +5,7 @@ import java.nio.file.Paths
 import java.time.format.DateTimeFormatter
 
 import cats.effect.{ ContextShift, IO }
+import com.amazonaws.{ PredefinedClientConfigurations }
 import com.amazonaws.auth.{ AWSCredentialsProviderChain, AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain }
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder
 import com.amazonaws.services.s3.{ AmazonS3, AmazonS3ClientBuilder }
@@ -133,7 +134,10 @@ object Logger {
         .standard()
         .withRegion(s3Region)
         .withCredentials(awsCredentials)
-        .build()
+        .withClientConfiguration(PredefinedClientConfigurations.defaultConfig()
+          .withRequestTimeout(10000)
+          .withConnectionTimeout(10000)
+          .withSocketTimeout(30000)).build()
 
       val transferManager = TransferManagerBuilder.standard().withS3Client(s3).build()
 

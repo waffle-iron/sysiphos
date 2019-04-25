@@ -114,12 +114,13 @@ trait SysiphosApiServer extends SysiphosApi
     val logger = logging.Logger.defaultLogger
 
     val startedServer: IO[ClusterActors] = for {
+      _ <- IO.sleep(Duration(startUpDelaySeconds, TimeUnit.SECONDS))
       _ <- IO(addStatsReporter())
-      _ <- IO(log.info("updating database...")) *> updateDatabase().timeout(Duration(120, TimeUnit.SECONDS)).retryWithBackoff(5)()
+      _ <- IO(log.info("updating database...")) *> updateDatabase().timeout(Duration(databaseMigrationTimeoutSeconds, TimeUnit.SECONDS)).retryWithBackoff(databaseMigrationRetries)()
 
       _ <- IO(log.info("setting up health log...")) *>
-        logger.deleteLog(healthCheckLogId).timeout(Duration(5, TimeUnit.SECONDS)) *>
-        logger.appendLine(healthCheckLogId, "starting sysiphos server...").timeout(Duration(5, TimeUnit.SECONDS))
+        logger.deleteLog(healthCheckLogId).timeout(Duration(healthSetupTimeoutSeconds, TimeUnit.SECONDS)) *>
+        logger.appendLine(healthCheckLogId, "starting sysiphos server...").timeout(Duration(healthSetupTimeoutSeconds, TimeUnit.SECONDS))
 
       clusterActors <- IO(log.info("starting executor system...")) *> startExecutorSystem(clusterContext)
 
@@ -132,7 +133,7 @@ trait SysiphosApiServer extends SysiphosApi
         IO(executorSystem.terminate()) *>
         IO(SystemMetrics.stopCollecting()) *>
         IO.raiseError(new RuntimeException(s"unable to start server", error))
-    }.timeout(Duration(300, TimeUnit.SECONDS))
+    }.timeout(Duration(startUpTimeoutSeconds, TimeUnit.SECONDS))
   }
 
 }

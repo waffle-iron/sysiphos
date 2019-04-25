@@ -12,6 +12,12 @@ import scala.util.Try
 trait SysiphosApiServerConfig {
   Configuration.setBackend(new TypesafeConfigBackend)
 
+  def startUpDelaySeconds: Int = propOrEnv("startup.delay.seconds", "0").toInt
+  def startUpTimeoutSeconds: Int = propOrEnv("startup.timeout.seconds", "300").toInt
+  def healthSetupTimeoutSeconds: Int = propOrEnv("health.setup.timeout.seconds", "5").toInt
+  def databaseMigrationTimeoutSeconds: Int = propOrEnv("database.migration.timeout.seconds", "120").toInt
+  def databaseMigrationRetries: Int = propOrEnv("database.migration.retries", "5").toInt
+
   def bindAddress: String = propOrEnv("http.bind.address").getOrElse("0.0.0.0")
   def httpPort: Int = propOrEnv("PORT0").orElse(propOrEnv("http.port")).getOrElse("8080").toInt
   def repoBaseDir: String = propOrEnv("repo.base.dir", defaultValue = ".sysiphos")
@@ -43,8 +49,6 @@ trait SysiphosApiServerConfig {
     case _ => throw new RuntimeException(s"unsupported database profile $dbProfileName")
   }
 
-  def instanceThreads: Int = propOrEnv("instance.threads", "10").toInt
-  def apiThreads: Int = propOrEnv("api.threads", "10").toInt
 }
 
 class TypesafeConfigBackend extends Configuration {
