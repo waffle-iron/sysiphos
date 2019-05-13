@@ -17,6 +17,7 @@ trait SysiphosApiServerConfig {
   def healthSetupTimeoutSeconds: Int = propOrEnv("health.setup.timeout.seconds", "5").toInt
   def databaseMigrationTimeoutSeconds: Int = propOrEnv("database.migration.timeout.seconds", "120").toInt
   def databaseMigrationRetries: Int = propOrEnv("database.migration.retries", "5").toInt
+  def databaseThreads: Int = propOrEnv("database.threads", "8").toInt
 
   def bindAddress: String = propOrEnv("http.bind.address").getOrElse("0.0.0.0")
   def httpPort: Int = propOrEnv("PORT0").orElse(propOrEnv("http.port")).getOrElse("8080").toInt

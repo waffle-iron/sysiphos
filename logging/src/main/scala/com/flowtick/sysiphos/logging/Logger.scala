@@ -3,9 +3,10 @@ package com.flowtick.sysiphos.logging
 import java.io.File
 import java.nio.file.Paths
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.Executors
 
 import cats.effect.{ ContextShift, IO }
-import com.amazonaws.{ PredefinedClientConfigurations }
+import com.amazonaws.PredefinedClientConfigurations
 import com.amazonaws.auth.{ AWSCredentialsProviderChain, AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain }
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder
 import com.amazonaws.services.s3.{ AmazonS3, AmazonS3ClientBuilder }
@@ -101,7 +102,8 @@ object Logger {
   type LogId = String
   type LogStream = fs2.Stream[IO, String]
 
-  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.Implicits.global
+  // TODO: that should be configurable
+  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
   private[logging] implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(logExecutionContext)
 
   private def baseDirDefault: LogId = sys.props.get("java.io.tmpdir").map(_ + s"${File.separatorChar}sysiphos").getOrElse(s"${File.separatorChar}tmp")
@@ -111,6 +113,9 @@ object Logger {
   private def s3SecretKey: Option[String] = propOrEnv("logger.s3.secretKey")
   private def s3Bucket: String = propOrEnv("logger.s3.bucket", "changeme")
   private def s3Region: String = propOrEnv("logger.s3.region", "us-east-1")
+  private def s3RequestTimeout: Int = propOrEnv("logger.s3.request-timeout", "10000").toInt
+  private def s3ConnectionTimeout: Int = propOrEnv("logger.s3.connection-timeout", "10000").toInt
+  private def s3SocketTimeout: Int = propOrEnv("logger.s3.socket-timeout", "30000").toInt
 
   private def streamChunkSize: Int = propOrEnv("logger.stream.chunkSize", "100").toInt
 
@@ -135,9 +140,9 @@ object Logger {
         .withRegion(s3Region)
         .withCredentials(awsCredentials)
         .withClientConfiguration(PredefinedClientConfigurations.defaultConfig()
-          .withRequestTimeout(10000)
-          .withConnectionTimeout(10000)
-          .withSocketTimeout(30000)).build()
+          .withRequestTimeout(s3RequestTimeout)
+          .withConnectionTimeout(s3ConnectionTimeout)
+          .withSocketTimeout(s3SocketTimeout)).build()
 
       val transferManager = TransferManagerBuilder.standard().withS3Client(s3).build()
 

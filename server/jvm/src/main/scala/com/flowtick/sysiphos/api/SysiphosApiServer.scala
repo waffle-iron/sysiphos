@@ -47,11 +47,12 @@ trait SysiphosApiServer extends SysiphosApi
   implicit lazy val timer = cats.effect.IO.timer(executionContext)
 
   lazy val repositoryDataSource: DataSource = dataSource(dbProfile)
+  lazy val repositoryExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(databaseThreads))
 
-  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, executionContext)
-  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, executionContext)
-  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, executionContext)
-  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, executionContext)
+  lazy val flowDefinitionRepository: FlowDefinitionRepository = new SlickFlowDefinitionRepository(repositoryDataSource)(dbProfile, repositoryExecutionContext)
+  lazy val flowScheduleRepository: SlickFlowScheduleRepository = new SlickFlowScheduleRepository(repositoryDataSource)(dbProfile, repositoryExecutionContext)
+  lazy val flowInstanceRepository: FlowInstanceRepository = new SlickFlowInstanceRepository(repositoryDataSource)(dbProfile, repositoryExecutionContext)
+  lazy val flowTaskInstanceRepository: FlowTaskInstanceRepository = new SlickFlowTaskInstanceRepository(repositoryDataSource)(dbProfile, repositoryExecutionContext)
 
   StaticClusterContext.init(flowScheduleRepository, flowDefinitionRepository, flowInstanceRepository, flowTaskInstanceRepository, flowScheduleRepository)
 
@@ -138,6 +139,7 @@ trait SysiphosApiServer extends SysiphosApi
 
 }
 
+// TODO: use IOApp
 object SysiphosApiServerApp extends SysiphosApiServer with App {
   startApiServer(clusterContext).unsafeRunSync()
 }
