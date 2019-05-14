@@ -10,4 +10,5 @@ final case class TriggerFlowTask(
   startDelay: Option[Long] = None,
   retryDelay: Option[Long] = None,
   retries: Option[Int] = None,
-  context: Option[Seq[FlowInstanceContextValue]] = None) extends FlowTask
+  context: Option[Seq[FlowInstanceContextValue]] = None,
+  onFailure: Option[FlowTask] = None) extends FlowTask

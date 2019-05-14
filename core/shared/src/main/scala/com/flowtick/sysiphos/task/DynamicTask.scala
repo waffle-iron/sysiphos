@@ -11,4 +11,5 @@ final case class DynamicTask(
   children: Option[Seq[FlowTask]] = None,
   startDelay: Option[Long] = None,
   retryDelay: Option[Long] = None,
-  retries: Option[Int] = None) extends FlowTask
+  retries: Option[Int] = None,
+  onFailure: Option[FlowTask] = None) extends FlowTask

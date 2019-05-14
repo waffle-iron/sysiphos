@@ -39,7 +39,7 @@ class FlowInstanceExecutionSpec extends FlatSpec
       flowInstanceId = "flowInstanceId",
       flowDefinitionId = "flowDefinitionId",
       taskId = "cmd1",
-      0, None, None, None, 3,
+      0, None, None, None, None, 3,
       FlowTaskInstanceStatus.Done, 10, None, "log-id")
 
     nextFlowTasks(PendingTasks, flowDefinition, Seq.empty) should be(Seq(root))
@@ -84,8 +84,61 @@ class FlowInstanceExecutionSpec extends FlatSpec
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(flowDefinition.tasks.head.id)), *)
       .returning(Future.successful(None))
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *, *, Some(52L), *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[String], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, Some(52L), *, *, *)
+      .returning(Future.successful(flowTaskInstance))
+
+    getOrCreateTaskInstance(
+      flowTaskInstanceRepository,
+      flowInstance.id,
+      flowDefinition.id,
+      flowDefinition.tasks.head,
+      new ConsoleLogger)(this).unsafeRunSync()
+  }
+
+  it should "create a task instance with on failure task" in new RepositoryContext {
+    def currentUser: String = "test-user"
+    def epochSeconds: Long = 42
+
+    val task = CommandLineTask(
+      id = "ls-task-id",
+      children = None,
+      command = "ls",
+      onFailure = Some(CommandLineTask(
+        id = "failure-task-id",
+        children = None,
+        command = "echo 'failureeeee'")))
+    val flowDefinition: SysiphosDefinition = SysiphosDefinition("ls-definition-id", Seq(task))
+
+    lazy val flowInstance = FlowInstanceDetails(
+      status = FlowInstanceStatus.Scheduled,
+      id = "???",
+      flowDefinitionId = flowDefinition.id,
+      creationTime = 1L,
+      startTime = None,
+      endTime = None)
+
+    lazy val flowTaskInstance = FlowTaskInstanceDetails(
+      id = "task-id",
+      flowInstanceId = flowInstance.id,
+      flowDefinitionId = "flowDefinitionId",
+      taskId = flowDefinition.tasks.head.id,
+      creationTime = 1l,
+      onFailureTaskId = Some("failure-task-id"),
+      startTime = None,
+      endTime = None,
+      retries = 0,
+      status = FlowTaskInstanceStatus.New,
+      retryDelay = 0,
+      nextDueDate = None,
+      logId = "log-id")
+
+    (flowTaskInstanceRepository.findOne(_: FlowTaskInstanceQuery)(_: RepositoryContext))
+      .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(flowDefinition.tasks.head.id)), *)
+      .returning(Future.successful(None))
+
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[String], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, *, Some("failure-task-id"), *, *)
       .returning(Future.successful(flowTaskInstance))
 
     getOrCreateTaskInstance(

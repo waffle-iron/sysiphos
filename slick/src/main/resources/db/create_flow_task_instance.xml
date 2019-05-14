@@ -177,4 +177,18 @@
             </column>
         </addColumn>
     </changeSet>
+
+    <changeSet id="12" author="sysiphos">
+        <preConditions>
+            <not>
+                <columnExists tableName="_FLOW_TASK_INSTANCE" columnName="_ON_FAILURE_TASK_ID"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="_FLOW_TASK_INSTANCE">
+            <column name="_ON_FAILURE_TASK_ID" defaultValue="" type="varchar(40)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

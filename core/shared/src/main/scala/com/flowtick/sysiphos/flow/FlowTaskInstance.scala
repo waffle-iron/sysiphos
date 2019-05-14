@@ -27,6 +27,7 @@ trait FlowTaskInstance {
   def flowInstanceId: String
   def flowDefinitionId: String
   def taskId: String
+  def onFailureTaskId: Option[String]
   def creationTime: Long
   def updatedTime: Option[Long]
   def startTime: Option[Long]
@@ -44,6 +45,7 @@ final case class FlowTaskInstanceDetails(
   flowDefinitionId: String,
   taskId: String,
   creationTime: Long,
+  onFailureTaskId: Option[String] = None,
   updatedTime: Option[Long] = None,
   startTime: Option[Long] = None,
   endTime: Option[Long] = None,

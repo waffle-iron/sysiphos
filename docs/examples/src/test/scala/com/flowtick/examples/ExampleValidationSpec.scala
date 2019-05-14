@@ -19,7 +19,8 @@ class ExampleValidationSpec extends FlatSpec with Matchers {
     "camel-slack" -> loadFromClassPath("camel-slack-flow.json"),
     "camel-sql" -> loadFromClassPath("camel-sql-flow.json"),
     "camel-bean" -> loadFromClassPath("camel-bean-flow.json"),
-    "trigger" -> loadFromClassPath("trigger-flow.json"))
+    "trigger" -> loadFromClassPath("trigger-flow.json"),
+    "onFailure-task" -> loadFromClassPath("onfailure-task.json"))
 
   examplesToCheck.foreach {
     case (name, json) =>

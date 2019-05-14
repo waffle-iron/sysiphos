@@ -24,6 +24,7 @@ trait FlowTaskInstanceRepository {
     retries: Int,
     retryDelay: Long,
     dueDate: Option[Long],
+    onFailureTaskId: Option[String],
     initialStatus: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails]
 
   def setStatus(flowTaskInstanceId: String, status: FlowTaskInstanceStatus.FlowTaskInstanceStatus, retries: Option[Int], nextRetry: Option[Long])(implicit repositoryContext: RepositoryContext): Future[Option[FlowTaskInstanceDetails]]

@@ -31,6 +31,11 @@ trait FlowTask {
    * @return the number of times the task should be retried in case of a failure
    */
   def retries: Option[Int]
+
+  /**
+   * @return flow task to be executed on failure
+   */
+  def onFailure: Option[FlowTask]
 }
 
 trait FlowDefinition {
@@ -59,7 +64,9 @@ trait FlowDefinition {
     def findInTask(task: FlowTask): Option[FlowTask] =
       if (task.id == id) {
         Some(task)
-      } else if (onFailure.exists(_.id == task.id)) {
+      } else if (task.onFailure.exists(_.id == id)) {
+        task.onFailure
+      } else if (onFailure.exists(_.id == id)) {
         onFailure
       } else task
         .children
@@ -178,7 +185,8 @@ object FlowDefinition {
     properties: Option[Map[String, String]],
     startDelay: Option[Long] = None,
     retryDelay: Option[Long] = None,
-    retries: Option[Int] = None) extends FlowTask
+    retries: Option[Int] = None,
+    onFailure: Option[FlowTask] = None) extends FlowTask
 
   def fromJson(json: String): Either[Exception, FlowDefinition] = decode[FlowDefinition](json)
 

@@ -63,7 +63,7 @@ trait FlowInstanceExecution extends Logging with Clock {
       logger.logId(s"$flowDefinitionId/$flowInstanceId/${task.id}-${repositoryContext.epochSeconds}")
         .flatMap(logId => {
           val (initialStatus: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus], dueDate: Option[Long]) = task.startDelay.map { delay =>
-            (Some(FlowTaskInstanceStatus.Retry), Some(repositoryContext.epochSeconds + delay))
+            (Option(FlowTaskInstanceStatus.Retry), Option(repositoryContext.epochSeconds + delay))
           }.getOrElse((None, None))
 
           IO.fromFuture(IO(flowTaskInstanceRepository.createFlowTaskInstance(
@@ -71,6 +71,7 @@ trait FlowInstanceExecution extends Logging with Clock {
             retries = task.retries.getOrElse(taskRetriesDefault(task)),
             retryDelay = task.retryDelay.getOrElse(retryDelayDefault),
             dueDate = dueDate,
+            onFailureTaskId = task.onFailure.map(_.id),
             initialStatus = initialStatus)))
         })
 

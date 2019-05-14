@@ -125,15 +125,20 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
         val taskFailedMessage = s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}"
 
         log.warn(taskFailedMessage)
-
         logger.appendLine(flowTaskInstance.logId, taskFailedMessage).unsafeRunSync()
 
+        val maybeOnFailureTask = flowTaskInstance.onFailureTaskId
+        if (maybeOnFailureTask.isDefined) {
+          logger.appendLine(flowTaskInstance.logId, s"Running onFailure task for failed task ${flowTaskInstance.id}").unsafeRunSync()
+          self ! Run(TaskId(maybeOnFailureTask.get))
+        }
         val handledFailure = for {
           _ <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
           handled <- handleFailedTask(flowTaskInstance, error)
         } yield handled
 
         handledFailure.logFailed(s"unable to handle failure in ${flowTaskInstance.id}").pipeTo(flowExecutorActor)
+
       case None =>
         log.error("error during task execution", error)
     }

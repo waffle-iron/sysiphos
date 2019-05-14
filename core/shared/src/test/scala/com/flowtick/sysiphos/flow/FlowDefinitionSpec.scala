@@ -20,6 +20,16 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
          |      "id": "test-task",
          |      "type": "shell",
          |      "command": "ls",
+         |      "onFailure" : {
+         |        "id" : "test-task-failure",
+         |        "children" : null,
+         |        "command" : "echo 'wrong command'",
+         |        "type" : "shell",
+         |        "shell" : "bash",
+         |        "startDelay" : null,
+         |        "retryDelay" : null,
+         |        "onFailure" : null
+         |      },
          |      "children": [
          |        {
          |          "id": "something",
@@ -124,7 +134,11 @@ class FlowDefinitionSpec extends FlatSpec with Matchers {
           DynamicTask(id = "dynamic-task-id", contextSourceUri = "http://example.org/path", children = None, items = ItemSpec(`type` = "jsonpath", expression = "$.data.items")),
           definitionImportTask,
           definitionImportTask.copy(id = "definition-template-import-task-id", targetDefinitionId = None, definitionTemplate = Some(SysiphosDefinition("imported-definition", tasks = Seq.empty))))),
-        command = "ls")))
+        command = "ls",
+        onFailure = Some(CommandLineTask(
+          id = "test-task-failure",
+          command = "echo 'wrong command'",
+          shell = Some("bash"))))))
 
     tryParse should be(Right(expectedDefinition))
   }

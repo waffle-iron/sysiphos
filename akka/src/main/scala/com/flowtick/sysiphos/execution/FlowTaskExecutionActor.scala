@@ -31,7 +31,7 @@ class FlowTaskExecutionActor(
   implicit val timer = cats.effect.IO.timer(executionContext)
 
   override def receive: Receive = {
-    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell, _, _, _), taskInstance, contextValues) =>
+    case FlowTaskExecution.Execute(CommandLineTask(id, _, command, _, shell, _, _, _, _), taskInstance, contextValues) =>
       log.info(s"executing command with id $id by actor ${context.self}")
 
       val stream = context.sender()
@@ -73,7 +73,7 @@ class FlowTaskExecutionActor(
           case error => Future.successful(FlowInstanceExecution.WorkFailed(error, Some(taskInstance)))
         }.pipeTo(flowInstanceActor)
 
-    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _, triggerContext), taskInstance, contextValues) =>
+    case FlowTaskExecution.Execute(TriggerFlowTask(id, _, flowDefinitionId, _, _, _, _, triggerContext, _), taskInstance, contextValues) =>
       log.info(s"executing task with id $id")
       val stream = context.sender()
 

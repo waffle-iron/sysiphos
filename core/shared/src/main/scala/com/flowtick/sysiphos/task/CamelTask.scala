@@ -22,4 +22,5 @@ final case class CamelTask(
   registry: Option[Map[String, RegistryEntry]] = None,
   startDelay: Option[Long] = None,
   retryDelay: Option[Long] = None,
-  retries: Option[Int] = None) extends FlowTask
+  retries: Option[Int] = None,
+  onFailure: Option[FlowTask] = None) extends FlowTask

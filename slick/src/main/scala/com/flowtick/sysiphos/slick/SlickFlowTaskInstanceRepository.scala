@@ -24,6 +24,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     def flowDefinitionId = column[String]("_FLOW_DEFINITION_ID")
     def taskId = column[String]("_TASK_ID")
     def created = column[Long]("_CREATED")
+    def onFailureTaskId = column[Option[String]]("_ON_FAILURE_TASK_ID")
     def updated = column[Option[Long]]("_UPDATED")
     def status = column[String]("_STATUS")
     def retries = column[Int]("_RETRIES")
@@ -33,18 +34,19 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     def endTime = column[Option[Long]]("_END_TIME")
     def logId = column[String]("_LOG_ID")
 
-    def fromTuple(tuple: (String, String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Long, Option[Long], String)): FlowTaskInstanceDetails = tuple match {
-      case (id, flowInstanceId, flowDefinitionId, taskId, created, updated, startTime, endTime, retries, status, retryDelay, nextDueDate, logId) =>
+    def fromTuple(tuple: (String, String, String, String, Long, Option[String], Option[Long], Option[Long], Option[Long], Int, String, Long, Option[Long], String)): FlowTaskInstanceDetails = tuple match {
+      case (id, flowInstanceId, flowDefinitionId, taskId, created, onFailureTaskId, updated, startTime, endTime, retries, status, retryDelay, nextDueDate, logId) =>
         FlowTaskInstanceDetails(
-          id, flowInstanceId, flowDefinitionId, taskId, created, updated, startTime, endTime, retries, FlowTaskInstanceStatus.withName(status), retryDelay, nextDueDate, logId)
+          id, flowInstanceId, flowDefinitionId, taskId, created, onFailureTaskId, updated, startTime, endTime, retries, FlowTaskInstanceStatus.withName(status), retryDelay, nextDueDate, logId)
     }
 
-    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, String, Long, Option[Long], Option[Long], Option[Long], Int, String, Long, Option[Long], String)] = Some((
+    def toTuple(instance: FlowTaskInstanceDetails): Option[(String, String, String, String, Long, Option[String], Option[Long], Option[Long], Option[Long], Int, String, Long, Option[Long], String)] = Some((
       instance.id,
       instance.flowInstanceId,
       instance.flowDefinitionId,
       instance.taskId,
       instance.creationTime,
+      instance.onFailureTaskId,
       instance.updatedTime,
       instance.startTime,
       instance.endTime,
@@ -54,7 +56,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       instance.nextDueDate,
       instance.logId))
 
-    def * = (id, flowInstanceId, flowDefinitionId, taskId, created, updated, startTime, endTime, retries, status, retryDelay, nextDueDate, logId) <> (
+    def * = (id, flowInstanceId, flowDefinitionId, taskId, created, onFailureTaskId, updated, startTime, endTime, retries, status, retryDelay, nextDueDate, logId) <> (
       fromTuple,
       toTuple)
   }
@@ -107,6 +109,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
     retries: Int,
     retryDelay: Long,
     dueDate: Option[Long],
+    onFailureTaskId: Option[String],
     initialStatus: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(implicit repositoryContext: RepositoryContext): Future[FlowTaskInstanceDetails] = {
 
     val newInstance = FlowTaskInstanceDetails(
@@ -115,6 +118,7 @@ class SlickFlowTaskInstanceRepository(dataSource: DataSource)(implicit val profi
       flowDefinitionId = flowDefinitionId,
       taskId = flowTaskId,
       creationTime = repositoryContext.epochSeconds,
+      onFailureTaskId = onFailureTaskId,
       startTime = None,
       status = initialStatus.getOrElse(FlowTaskInstanceStatus.New),
       retries = retries,

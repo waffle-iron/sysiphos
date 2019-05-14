@@ -78,7 +78,7 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
       flowInstanceId = flowInstance.id,
       flowDefinitionId = flowInstance.flowDefinitionId,
       taskId = testTask.id,
-      0, None, None, None, 3,
+      0, onFailureTaskId = Some("onFailureTask"), None, None, None, 3,
       FlowTaskInstanceStatus.New, 10, None, "log-id")
 
     val ((queue, killSwith), done) = testStream(flowInstance, flowInstanceActor.ref, flowExecutorActor.ref)(this)
@@ -98,8 +98,8 @@ class FlowInstanceTaskStreamSpec extends TestKit(ActorSystem("task-stream-spec")
       .returning(Future.successful(None))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(*, *, *, *, *, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[String], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(*, *, *, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
       .atLeastOnce()
 

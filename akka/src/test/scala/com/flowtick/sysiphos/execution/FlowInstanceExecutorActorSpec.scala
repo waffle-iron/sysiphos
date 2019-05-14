@@ -105,8 +105,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .expects(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstance.id), taskId = Some(flowDefinition.tasks.head.id)), *)
       .returning(Future.successful(None))
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[String], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
 
     (flowTaskInstanceRepository.setStartTime(_: String, _: Long)(_: RepositoryContext))
@@ -305,8 +305,8 @@ class FlowInstanceExecutorActorSpec extends TestKit(ActorSystem("instance-execut
       .returning(Future.successful(None))
       .atLeastOnce()
 
-    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
-      .expects(flowInstance.id, *, *, *, *, *, *, *, *)
+    (flowTaskInstanceRepository.createFlowTaskInstance(_: String, _: String, _: String, _: String, _: Int, _: Long, _: Option[Long], _: Option[String], _: Option[FlowTaskInstanceStatus.FlowTaskInstanceStatus])(_: RepositoryContext))
+      .expects(flowInstance.id, *, *, *, *, *, *, *, *, *)
       .returning(Future.successful(flowTaskInstance))
       .atLeastOnce()
 

@@ -1,0 +1,41 @@
+{
+  "id" : "new-flow",
+  "tasks" : [
+    {
+      "id" : "shell-task",
+      "children" : null,
+      "command" : "thisisnotacommand",
+      "type" : "shell",
+      "shell" : "bash",
+      "startDelay" : null,
+      "retryDelay" : null,
+      "retries" : 0,
+      "onFailure" : {
+        "id" : "failureTask",
+        "children" : null,
+        "command" : "echo 'wrong command'",
+        "type" : "shell",
+        "shell" : "bash",
+        "startDelay" : null,
+        "retryDelay" : null,
+        "retries" : 0,
+        "onFailure" : null
+      }
+    }
+  ],
+  "latestOnly" : false,
+  "parallelism" : null,
+  "taskParallelism" : null,
+  "taskRatePerSecond" : null,
+  "onFailure" : {
+    "id" : "failureFlow",
+    "children" : null,
+    "command" : "ranaFlow!",
+    "type" : "shell",
+    "shell" : "bash",
+    "startDelay" : null,
+    "retryDelay" : null,
+    "retries" : 0,
+    "onFailure" : null
+  }
+}

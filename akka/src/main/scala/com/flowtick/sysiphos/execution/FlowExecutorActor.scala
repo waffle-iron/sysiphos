@@ -71,7 +71,7 @@ class FlowExecutorActor(
         .logFailed(s"unable to create or update definition ${flowDefinition.id}")
         .map(definition => CreatedOrUpdatedDefinition(Right(definition)))
         .recoverWith {
-          case error => Future.successful(Left(error))
+          case error => Future.successful(CreatedOrUpdatedDefinition(Left(error)))
         }.pipeTo(sender())
 
     case FlowInstanceExecution.Finished(flowInstanceId, flowDefinitionId) =>
