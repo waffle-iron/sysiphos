@@ -102,8 +102,7 @@ object Logger {
   type LogId = String
   type LogStream = fs2.Stream[IO, String]
 
-  // TODO: that should be configurable
-  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool())
+  private[logging] implicit val logExecutionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.newWorkStealingPool(workerThreads))
   private[logging] implicit val contextShift: ContextShift[IO] = cats.effect.IO.contextShift(logExecutionContext)
 
   private def baseDirDefault: LogId = sys.props.get("java.io.tmpdir").map(_ + s"${File.separatorChar}sysiphos").getOrElse(s"${File.separatorChar}tmp")
@@ -118,6 +117,7 @@ object Logger {
   private def s3SocketTimeout: Int = propOrEnv("logger.s3.socket-timeout", "30000").toInt
 
   private def streamChunkSize: Int = propOrEnv("logger.stream.chunkSize", "100").toInt
+  private def workerThreads: Int = propOrEnv("logger.threads", "8").toInt
 
   lazy val defaultLogger: Logger = propOrEnv("logger.impl", "file-direct").toLowerCase match {
     case "file-direct" =>
