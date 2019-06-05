@@ -50,7 +50,6 @@ trait FlowInstanceTaskStream { taskStream: FlowInstanceExecution =>
     taskRate: Int,
     taskRateDuration: FiniteDuration,
     logger: Logger)(implicit repositoryContext: RepositoryContext, timer: Timer[IO], cs: ContextShift[IO]): RunnableGraph[((SourceQueueWithComplete[FlowTask], UniqueKillSwitch), NotUsed)] =
-
     Source
       .queue[FlowTask](0, akka.stream.OverflowStrategy.backpressure)
       .throttle(taskRate, taskRateDuration)

@@ -153,7 +153,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
       /**
        * Get parent of onFailure Task. If it's not an onFailure task, it will be None
        * @param id task id
-       * @return None if it's not an onFailureTask, and the parent Task if it is.
+       * @return Parent FlowTask, if the id belongs to a onFailure task. None if it's not an onFailure task
        */
       def getParentOfFailureTask(id: String): Future[Option[FlowTask]] = {
         taskDefinition.map {
