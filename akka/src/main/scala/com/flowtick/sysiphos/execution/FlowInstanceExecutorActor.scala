@@ -79,7 +79,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
       } yield enqueued
   }.getOrElse(Future.failed(new IllegalStateException("task queue should be created before execution")))
 
-  def taskFailed(flowTaskInstance: FlowTaskInstance, error: Throwable) = {
+  def taskFailed(flowTaskInstance: FlowTaskInstance, error: Throwable): Future[FlowInstanceMessage] = {
     val handledFailure = for {
       _ <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
       handled <- handleFailedTask(flowTaskInstance, error)
@@ -136,13 +136,13 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
         log.warn(taskFailedMessage)
         logger.appendLine(flowTaskInstance.logId, taskFailedMessage).unsafeRunSync()
 
-        val maybeOnFailureTask = flowTaskInstance.onFailureTaskId
-        if (maybeOnFailureTask.isDefined) {
+        flowTaskInstance.onFailureTaskId.map { failureTask =>
           logger.appendLine(flowTaskInstance.logId, s"Running onFailure task for failed task ${flowTaskInstance.id}").unsafeRunSync()
-          self ! Run(TaskId(maybeOnFailureTask.get))
-        } else {
+          self ! Run(TaskId(failureTask))
+        }.getOrElse {
           taskFailed(flowTaskInstance, error)
         }
+
       case None =>
         log.error("error during task execution", error)
     }
@@ -155,7 +155,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
        * @param id task id
        * @return None if it's not an onFailureTask, and the parent Task if it is.
        */
-      def getParent(id: String): Future[Option[FlowTask]] = {
+      def getParentOfFailureTask(id: String): Future[Option[FlowTask]] = {
         taskDefinition.map {
           case Right(definition) =>
             definition.tasks
@@ -166,7 +166,7 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
         }
       }
 
-      getParent(flowTaskInstance.taskId).map {
+      getParentOfFailureTask(flowTaskInstance.taskId).map {
         case Some(parent) =>
           //set parent failed
           clusterContext.flowTaskInstanceRepository
