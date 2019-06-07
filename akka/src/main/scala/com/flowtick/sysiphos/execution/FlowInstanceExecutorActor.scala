@@ -79,6 +79,38 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
       } yield enqueued
   }.getOrElse(Future.failed(new IllegalStateException("task queue should be created before execution")))
 
+  def taskFailed(flowTaskInstance: FlowTaskInstance, error: Throwable): Future[FlowInstanceMessage] = {
+    val handledFailure = for {
+      _ <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
+      handled <- handleFailedTask(flowTaskInstance, error)
+    } yield handled
+
+    handledFailure.logFailed(s"unable to handle failure in ${flowTaskInstance.id}").pipeTo(flowExecutorActor)
+  }
+
+  /**
+   * Get parent of onFailure Task. If it's not an onFailure task, it will be None
+   * @param id task id
+   * @return Parent FlowTask, if the id belongs to a onFailure task. None if it's not an onFailure task
+   */
+  def getParentOfFailureTask(id: String): Future[Option[FlowTask]] = {
+    taskDefinition.map {
+      case Right(definition) =>
+        definition.tasks
+          .flatMap(parentTask => parentTask.onFailure
+            .filter(_.id == id)
+            .map(_ => parentTask))
+          .headOption
+    }
+  }
+
+  def failOnFailureTaskParent(flowTaskInstanceId: String, parent: FlowTask): Future[FlowInstanceMessage] =
+    clusterContext.flowTaskInstanceRepository
+      .findOne(FlowTaskInstanceQuery(flowInstanceId = Some(flowInstanceId), taskId = Some(parent.id))).flatMap {
+        case Some(flowTaskInstanceDetails) =>
+          taskFailed(flowTaskInstanceDetails, new IllegalStateException(s"Task id ${parent.id} failed and on failure task $flowTaskInstanceId was executed"))
+      }
+
   override def receive: PartialFunction[Any, Unit] = {
     case FlowInstanceExecution.Run(taskSelection) =>
       log.info(s"executing $flowDefinitionId instance $flowInstanceId...")
@@ -118,26 +150,26 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
 
     case FlowInstanceExecution.WorkFailed(error, optionalTaskInstance) => optionalTaskInstance match {
       case Some(flowTaskInstance) =>
-        Monitoring.count(
-          key = "work-failed",
-          tags = Map("definition" -> flowTaskInstance.flowDefinitionId, "task" -> flowTaskInstance.taskId))
-
         val taskFailedMessage = s"task ${flowTaskInstance.id} failed with ${error.getLocalizedMessage}"
-
         log.warn(taskFailedMessage)
         logger.appendLine(flowTaskInstance.logId, taskFailedMessage).unsafeRunSync()
 
-        val maybeOnFailureTask = flowTaskInstance.onFailureTaskId
-        if (maybeOnFailureTask.isDefined) {
+        flowTaskInstance.onFailureTaskId.map { failureTask =>
           logger.appendLine(flowTaskInstance.logId, s"Running onFailure task for failed task ${flowTaskInstance.id}").unsafeRunSync()
-          self ! Run(TaskId(maybeOnFailureTask.get))
+          self ! Run(TaskId(failureTask))
+        }.getOrElse {
+          //check if the task failing was an onfailure task
+          getParentOfFailureTask(flowTaskInstance.taskId).map {
+            case Some(parent) =>
+              //set parent failed
+              failOnFailureTaskParent(flowTaskInstance.taskId, parent)
+            case None =>
+              Monitoring.count(
+                key = "work-failed",
+                tags = Map("definition" -> flowTaskInstance.flowDefinitionId, "task" -> flowTaskInstance.taskId))
+          }
+          taskFailed(flowTaskInstance, error)
         }
-        val handledFailure = for {
-          _ <- clusterContext.flowTaskInstanceRepository.setEndTime(flowTaskInstance.id, repositoryContext.epochSeconds)
-          handled <- handleFailedTask(flowTaskInstance, error)
-        } yield handled
-
-        handledFailure.logFailed(s"unable to handle failure in ${flowTaskInstance.id}").pipeTo(flowExecutorActor)
 
       case None =>
         log.error("error during task execution", error)
@@ -146,9 +178,15 @@ class FlowInstanceExecutorActor(flowInstanceId: String, flowDefinitionId: String
     case FlowInstanceExecution.WorkDone(flowTaskInstance, addToContext) =>
       log.info(s"Work is done for task with id ${flowTaskInstance.taskId}.")
 
-      Monitoring.count("work-done", Map(
-        "definition" -> flowTaskInstance.flowDefinitionId,
-        "task" -> flowTaskInstance.taskId))
+      getParentOfFailureTask(flowTaskInstance.taskId).map {
+        case Some(parent) =>
+          //set parent failed
+          failOnFailureTaskParent(flowTaskInstance.taskId, parent)
+        case None =>
+          Monitoring.count("work-done", Map(
+            "definition" -> flowTaskInstance.flowDefinitionId,
+            "task" -> flowTaskInstance.taskId))
+      }
 
       val doneTaskInstance = for {
         _ <- clusterContext.flowInstanceRepository.insertOrUpdateContextValues(flowTaskInstance.flowInstanceId, addToContext)
