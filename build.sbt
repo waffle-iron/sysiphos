@@ -173,7 +173,7 @@ lazy val serverJVM = server.jvm.enablePlugins(JavaAppPackaging, JavaAgent, GitVe
   dockerCommands := dockerCommands.value.flatMap {
     case workdir@Cmd("WORKDIR", args @ _*) => Seq(
       workdir,
-      Cmd("RUN", "apt-get update && apt-get install -y telnet curl vim netcat-openbsd && rm -rf /var/lib/apt/lists/*")
+      Cmd("RUN", "apt-get update && apt-get install -y telnet curl vim netcat-openbsd dnsutils && rm -rf /var/lib/apt/lists/*")
     )
     case other => Seq(other)
   },

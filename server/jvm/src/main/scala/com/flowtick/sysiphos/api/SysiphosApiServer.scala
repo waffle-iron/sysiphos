@@ -25,7 +25,6 @@ import kamon.Kamon
 import kamon.prometheus.PrometheusReporter
 import kamon.statsd.StatsDReporter
 import kamon.system.SystemMetrics
-import org.slf4j.{ Logger, LoggerFactory }
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -36,9 +35,7 @@ trait SysiphosApiServer extends SysiphosApi
   with GraphIQLResources
   with TwitterBootstrapResources
   with UIResources
-  with HealthCheck {
-
-  val log: Logger = LoggerFactory.getLogger(getClass)
+  with HealthCheck { self: Logging =>
 
   implicit lazy val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
   implicit lazy val executorSystem: ActorSystem = ActorSystem(clusterName)

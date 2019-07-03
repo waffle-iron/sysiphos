@@ -1,0 +1,144 @@
+kind: Deployment
+apiVersion: "apps/v1beta2"
+metadata:
+  name: "mysql"
+  labels:
+    appName: "mysql"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: "mysql"
+  #update
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  #update
+
+  template:
+    metadata:
+      labels:
+        appName: "mysql"
+    spec:
+      containers:
+        - name: "mysql"
+          image: mysql:5.5
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "example"
+            - name: MYSQL_DATABASE
+              value: "sysiphos"
+          ports:
+            - containerPort: 3306
+              name: mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    appName: "mysql"
+  name: "mysql"
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      protocol: TCP
+      targetPort: 3306
+  selector:
+    appName: "mysql"
+  type: LoadBalancer
+---
+kind: Deployment
+apiVersion: "apps/v1beta2"
+metadata:
+  name: "sysiphos"
+  labels:
+    appName: "sysiphos"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      appName: "sysiphos"
+  #update
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  #update
+
+  template:
+    metadata:
+      labels:
+        appName: "sysiphos"
+    spec:
+      containers:
+        - name: "sysiphos"
+          image: flowtick/sysiphos:latest
+          imagePullPolicy: Never # use local only
+          args: ["-jvm-debug", "5001", "-J-Dcom.sun.management.jmxremote.port=9999", "-J-Dcom.sun.management.jmxremote.authenticate=false", "-J-Dcom.sun.management.jmxremote.ssl=false"]
+          env:
+            - name: CLUSTER_ENABLED
+              value: "true"
+            - name: CLUSTER_SERVICE_NAME
+              value: "sysiphos-internal"
+            - name: DATABASE_PROFILE
+              value: "mysql"
+            - name: DATABASE_URL
+              value: "jdbc:mysql://mysql:3306/sysiphos"
+            - name: DATABASE_USER
+              value: "root"
+            - name: DATABASE_PASSWORD
+              value: "example"
+            - name: LOGGER_IMPL
+              value: "console"
+          ports:
+            - containerPort: 8558
+              name: management
+            - containerPort: 2552
+              name: remoting
+---
+#headless
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    appName: "sysiphos"
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  name: "sysiphos-internal"
+spec:
+  ports:
+    - name: management
+      port: 8558
+      protocol: TCP
+      targetPort: 8558
+    - name: remoting
+      port: 2552
+      protocol: TCP
+      targetPort: 2552
+  selector:
+    appName: "sysiphos"
+  clusterIP: None
+  publishNotReadyAddresses: true
+#headless
+---
+#public
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    appName: "sysiphos"
+  name: "sysiphos"
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    appName: "sysiphos"
+  type: LoadBalancer
+#public

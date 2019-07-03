@@ -12,12 +12,13 @@ import akka.routing.RoundRobinPool
 import cats.effect.IO
 import com.flowtick.sysiphos.config.Configuration
 import com.flowtick.sysiphos.execution.ClusterContext.ClusterContextProvider
+import com.flowtick.sysiphos.execution.Logging
 
 import scala.concurrent.ExecutionContext
 
 final case class ClusterActors(executorSingleton: ActorRef, workerPool: ActorRef)
 
-trait ClusterSetup {
+trait ClusterSetup extends Logging {
 
   def setupCluster(
     system: ActorSystem,
@@ -35,15 +36,18 @@ trait ClusterSetup {
   }
 
   private def bootstrapCluster(system: ActorSystem, clusterName: String): Unit = {
-    if (Configuration.propOrEnv("clustering.enabled").getOrElse("false").toBoolean) {
+    if (Configuration.propOrEnv("sysiphos.cluster.enabled").getOrElse("false").toBoolean) {
+      log.info("using cluster bootstrap to create cluster...")
       // use configured discovery mechanism to form cluster:
       // https://developer.lightbend.com/docs/akka-management/current/bootstrap/index.html
       AkkaManagement(system).start()
 
       ClusterBootstrap(system).start()
     } else {
-      val defaultClusterAddress = Configuration.propOrEnv("clustering.ip", "127.0.0.1")
-      val defaultClusterPort = Configuration.propOrEnv("clustering.port", "1600")
+      log.info("creating single node cluster...")
+
+      val defaultClusterAddress = Configuration.propOrEnv("sysiphos.cluster.host", "127.0.1.1")
+      val defaultClusterPort = Configuration.propOrEnv("sysiphos.cluster.port", "2552")
 
       // per default join self to form standalone cluster without discovery (single master)
       val seedNodes: Array[Address] = Configuration.propOrEnv("akka.cluster.seed-nodes")
