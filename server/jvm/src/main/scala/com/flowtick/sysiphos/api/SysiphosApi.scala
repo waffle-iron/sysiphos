@@ -59,6 +59,9 @@ object SysiphosApi {
 
     @GraphQLField
     def version: Future[String]
+
+    @GraphQLField
+    def name: Future[String]
   }
 
   trait ApiMutationContext {
