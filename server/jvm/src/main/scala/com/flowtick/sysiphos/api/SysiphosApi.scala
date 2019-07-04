@@ -59,6 +59,9 @@ object SysiphosApi {
 
     @GraphQLField
     def version: Future[String]
+
+    @GraphQLField
+    def healthCheck: Future[Boolean]
   }
 
   trait ApiMutationContext {
